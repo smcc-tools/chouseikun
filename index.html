@@ -257,12 +257,6 @@
     </div>
   </div>
 
-  <div class="field">
-    <label>管理者PIN（参加者の削除に必要）</label>
-    <input type="password" id="adminPin" placeholder="数字4桁など" autocomplete="new-password">
-    <div class="pin-hint">※ 設定したPINは忘れないようにメモしてください</div>
-  </div>
-
   <button class="btn btn-primary btn-full" id="createBtn" style="padding:14px;">
     🔗 イベントを作成してリンクを発行
   </button>
@@ -457,15 +451,13 @@
   document.getElementById('createBtn').addEventListener('click', async () => {
     const name = document.getElementById('eventName').value.trim();
     const dates = getDates();
-    const pin = document.getElementById('adminPin').value.trim();
     if (!name) { showToast('⚠️ イベント名を入力してください'); return; }
     if (dates.length === 0) { showToast('⚠️ 候補日を1つ以上選択してください'); return; }
-    if (!pin) { showToast('⚠️ 管理者PINを設定してください'); return; }
     const btn = document.getElementById('createBtn');
     btn.textContent = '作成中...';
     btn.disabled = true;
     const eventId = Math.random().toString(36).slice(2, 10);
-    await setDoc(doc(db, 'events', eventId), { name, dates, participants: {}, adminPin: pin });
+    await setDoc(doc(db, 'events', eventId), { name, dates, participants: {} });
     const url = `${location.origin}${location.pathname}?event=${eventId}`;
     document.getElementById('shareUrl').value = url;
     document.getElementById('shareBox').style.display = 'block';
@@ -598,12 +590,9 @@
     wrap.querySelectorAll('.del-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const name = btn.dataset.name;
-        const pin = prompt(`「${name}」を削除します。\n管理者PINを入力してください：`);
-        if (pin === null) return;
+        if (!confirm(`「${name}」の回答を削除しますか？`)) return;
         const snap = await getDoc(doc(db, 'events', eventId));
-        const data = snap.data();
-        if (pin !== data.adminPin) { showToast('❌ PINが正しくありません'); return; }
-        const newP = { ...data.participants };
+        const newP = { ...snap.data().participants };
         delete newP[name];
         await updateDoc(doc(db, 'events', eventId), { participants: newP });
         showToast(`🗑 ${name} さんの回答を削除しました`);
