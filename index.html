@@ -1267,7 +1267,6 @@
         return `<tr id="row-${CSS.escape(name)}" class="${isPaid?'paid':''}">
           <td style="font-weight:600;">${name}</td>
           <td style="text-align:right;font-weight:700;">¥${amount.toLocaleString()}</td>
-          <td class="settle-diff" id="diff-${CSS.escape(name)}"></td>
           <td><span style="font-size:0.85rem;color:${isPaid?'var(--green)':'#aaa'};">${isPaid?'✅ 支払済み':'未払い'}</span></td>
         </tr>`;
       }
@@ -1318,7 +1317,7 @@
         <thead><tr>
           <th>名前</th>
           <th>金額（円）</th>
-          <th>均等との差</th>
+          ${readOnly ? '' : '<th>均等との差</th>'}
           <th>状態</th>
         </tr></thead>
         <tbody>${rows}</tbody>
