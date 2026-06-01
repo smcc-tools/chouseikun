@@ -7,58 +7,79 @@
   <style>
     :root {
       --green: #006934;
-      --green-dark: #004d26;
-      --green-light: #e8f5ee;
+      --green-dark: #1a2e1a;
+      --green-light: #eef6f1;
       --green-mid: #b8ddc8;
       --gold: #c8a84b;
       --text: #1a1a1a;
       --text-muted: #6b7280;
-      --border: #e5e7eb;
-      --radius: 12px;
-      --shadow: 0 4px 24px rgba(0,80,40,0.10);
+      --border: #d9e5dd;
+      --radius: 4px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
-      background: linear-gradient(160deg, #f0f7f3 0%, #e8f0ec 100%);
+      font-family: 'Hiragino Sans', 'Yu Gothic UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #eef6f1;
       min-height: 100vh;
       padding-bottom: 60px;
     }
-    .header {
-      background: linear-gradient(135deg, var(--green-dark) 0%, var(--green) 100%);
+
+    /* SMBCスタイル：上部ダークバー */
+    .header-top {
+      background: #1a2e1a;
+      height: 36px;
+      display: flex; align-items: center;
       padding: 0 24px;
-      box-shadow: 0 2px 16px rgba(0,60,30,0.25);
+    }
+    .header-top-inner {
+      max-width: 960px; margin: 0 auto; width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-top .brand {
+      color: white; font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.08em; display: flex; align-items: center; gap: 6px;
+    }
+    .header-top .brand-leaf { color: #7dc87d; font-size: 1rem; }
+    .header-top .group-name { color: rgba(255,255,255,0.6); font-size: 0.72rem; }
+
+    /* SMBCスタイル：ロゴエリア（白背景） */
+    .header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
       position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
     .header-inner {
-      max-width: 760px; margin: 0 auto;
-      display: flex; align-items: center; gap: 12px; height: 60px;
+      max-width: 960px; margin: 0 auto;
+      display: flex; align-items: center; gap: 12px; height: 56px;
     }
-    .header-logo {
-      width: 32px; height: 32px;
-      background: rgba(255,255,255,0.15); border-radius: 8px;
-      display: flex; align-items: center; justify-content: center; font-size: 18px;
-    }
-    .header-titles h1 { color: white; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.06em; }
-    .header-titles .subtitle { color: rgba(255,255,255,0.6); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
-    .page { max-width: 760px; margin: 0 auto; padding: 28px 16px 0; }
+    .header-logo { font-size: 1.1rem; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+    .header-logo span { color: var(--green); }
+    .header-titles .subtitle { color: var(--text-muted); font-size: 0.72rem; margin-left: 8px; }
+
+    .page { max-width: 960px; margin: 0 auto; padding: 28px 16px 0; }
+
+    /* SMBCスタイル：カード（角が鋭め、細いボーダー） */
     .card {
       background: white; border-radius: var(--radius); padding: 28px;
-      margin-bottom: 20px; box-shadow: var(--shadow);
-      border: 1px solid rgba(0,105,52,0.08); animation: fadeUp 0.3s ease;
+      margin-bottom: 16px; box-shadow: var(--shadow);
+      border: 1px solid var(--border); animation: fadeUp 0.3s ease;
     }
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
+      from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     .card-title {
-      font-size: 0.95rem; font-weight: 700; color: var(--green);
+      font-size: 1rem; font-weight: 700; color: var(--text);
       margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
-      padding-bottom: 12px; border-bottom: 2px solid var(--green-light);
+      padding-bottom: 12px;
+      border-bottom: 3px solid var(--green);
     }
     .card-title .icon {
       width: 28px; height: 28px; background: var(--green-light);
-      border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px;
+      border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 14px;
     }
     .field { margin-bottom: 18px; }
     .field label {
@@ -113,11 +134,11 @@
       transition: all 0.15s; letter-spacing: 0.02em;
     }
     .btn:active { transform: scale(0.97); }
-    .btn-primary { background: var(--green); color: white; box-shadow: 0 2px 8px rgba(0,105,52,0.3); }
-    .btn-primary:hover { background: var(--green-dark); box-shadow: 0 4px 12px rgba(0,105,52,0.4); }
-    .btn-primary:disabled { background: #aaa; box-shadow: none; cursor: not-allowed; }
-    .btn-secondary { background: var(--green-light); color: var(--green); border: 1.5px solid var(--green-mid); }
-    .btn-secondary:hover { background: var(--green-mid); }
+    .btn-primary { background: var(--green); color: white; border: 1px solid var(--green); }
+    .btn-primary:hover { background: #005228; border-color: #005228; }
+    .btn-primary:disabled { background: #aaa; border-color: #aaa; cursor: not-allowed; }
+    .btn-secondary { background: white; color: var(--green); border: 1.5px solid var(--green); }
+    .btn-secondary:hover { background: var(--green-light); }
     .btn-ghost { background: white; color: var(--text-muted); border: 1.5px solid var(--border); }
     .btn-ghost:hover { border-color: var(--green); color: var(--green); }
     .btn-full { width: 100%; margin-top: 8px; }
@@ -140,7 +161,7 @@
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
     /* 入力列（テーブル右端） */
-    th.input-col { background: linear-gradient(135deg, #3a7a5a, #1a5a3a); min-width: 100px; }
+    th.input-col { background: #004d26; min-width: 100px; }
     th.input-col input[type="text"] {
       width: 100%; padding: 5px 8px; border-radius: 6px;
       border: none; font-size: 0.82rem; background: rgba(255,255,255,0.92);
@@ -155,7 +176,7 @@
     .register-btn:hover { background: var(--green-dark); }
     .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 300px; }
-    thead tr { background: linear-gradient(135deg, var(--green-dark), var(--green)); }
+    thead tr { background: var(--green); }
     th { padding: 12px 10px; text-align: center; color: white; font-weight: 600; white-space: nowrap; font-size: 0.82rem; }
     th.date-col { text-align: left; min-width: 90px; }
     tbody tr { transition: background 0.1s; }
@@ -218,13 +239,16 @@
 </head>
 <body>
 
+<div class="header-top">
+  <div class="header-top-inner">
+    <div class="brand"><span class="brand-leaf">🌿</span> SMBC</div>
+    <div class="group-name">SMBCグループ</div>
+  </div>
+</div>
 <div class="header">
   <div class="header-inner">
-    <div class="header-logo">📅</div>
-    <div class="header-titles">
-      <h1>日程調整</h1>
-      <div class="subtitle">Scheduling Tool</div>
-    </div>
+    <div class="header-logo">三井住友カード<span>　日程調整</span></div>
+    <div class="header-titles"><span class="subtitle">Scheduling Tool</span></div>
   </div>
 </div>
 
