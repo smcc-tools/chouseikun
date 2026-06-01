@@ -550,8 +550,8 @@
       return `<tr>
         <td class="date-cell${isBest?' is-best':''}">${dateLabel}</td>
         ${cells}
-        <td class="point-cell${isBest?' is-best':''}">${countStr}</td>
         ${inputCell}
+        <td class="point-cell${isBest?' is-best':''}">${countStr}</td>
       </tr>`;
     }).join('');
   }
@@ -571,7 +571,7 @@
     const inputCell = `<td class="input-col">
       <input type="text" id="newNote" placeholder="備考（任意）" style="width:100%;padding:5px 8px;border:1.5px solid var(--green-mid);border-radius:6px;font-size:0.82rem;outline:none;">
     </td>`;
-    return `<tr class="note-row"><td class="date-cell note-label">備考</td>${cells}<td></td>${inputCell}</tr>`;
+    return `<tr class="note-row"><td class="date-cell note-label">備考</td>${cells}${inputCell}<td></td></tr>`;
   }
 
   function attachVoteHandlers(wrap) {
@@ -660,10 +660,11 @@
     const colSpan = entries.length + 3; // 日付列 + 参加者列 + Pt列 + 入力列
 
     const registerRow = `<tr>
-      <td colspan="${colSpan - 1}"></td>
+      <td colspan="${colSpan - 2}"></td>
       <td class="input-col">
         <button class="register-btn" id="registerBtn">登録する</button>
       </td>
+      <td></td>
     </tr>`;
 
     wrap.innerHTML = `
