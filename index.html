@@ -179,13 +179,25 @@
     .point-cell { font-weight: 700; font-size: 0.95rem; min-width: 52px; }
     .point-cell.is-best { color: var(--green); background: var(--green-light); }
     .participant-th { min-width: 80px; font-size: 0.82rem; }
-    .del-btn {
+    .edit-btn {
       display: inline-block; margin-top: 5px; font-size: 0.68rem;
-      background: none; border: 1px solid rgba(255,255,255,0.4);
-      color: rgba(255,255,255,0.8); border-radius: 4px; cursor: pointer;
-      padding: 1px 6px; font-weight: normal; transition: all 0.15s;
+      background: none; border: 1px solid rgba(255,255,255,0.5);
+      color: rgba(255,255,255,0.9); border-radius: 4px; cursor: pointer;
+      padding: 2px 7px; font-weight: normal; transition: all 0.15s;
     }
-    .del-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+    .edit-btn:hover { background: rgba(255,255,255,0.2); }
+    .edit-btn.editing { background: #c8a84b; border-color: #c8a84b; color: white; }
+    .del-btn {
+      display: none; margin-top: 4px; font-size: 0.68rem;
+      background: none; border: 1px solid rgba(255,80,80,0.6);
+      color: rgba(255,150,150,1); border-radius: 4px; cursor: pointer;
+      padding: 2px 7px; font-weight: normal; transition: all 0.15s;
+    }
+    .del-btn.visible { display: inline-block; }
+    .del-btn:hover { background: rgba(255,80,80,0.2); }
+    /* ロック中の投票ボタン */
+    td.locked .vote-btn { pointer-events: none; }
+    td.locked .note-input { pointer-events: none; color: #aaa; border-color: transparent; }
     .note-row td { background: #fafafa; padding: 8px 10px; }
     .note-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
     .note-input {
@@ -256,7 +268,7 @@
     <label>候補日</label>
     <div id="dateList"></div>
     <div class="btn-row" style="margin-top:8px">
-      <button class="btn btn-secondary" id="autoFillBtn">⚡ 自動入力</button>
+      <button class="btn btn-secondary" id="autoFillBtn" disabled style="opacity:0.4;cursor:not-allowed;">⚡ 自動入力</button>
       <button class="btn btn-ghost" id="addDateBtn">＋ 手動で追加</button>
     </div>
   </div>
@@ -430,13 +442,26 @@
       .map(el => el.value).filter(d => d !== '');
   }
 
-  document.getElementById('autoFillBtn').addEventListener('click', () => {
+  // 自動入力ボタンの有効化チェック
+  function checkAutoFillReady() {
     const startVal = document.getElementById('startDate').value;
-    if (!startVal) { showToast('⚠️ 開始日を選択してください'); return; }
     const weeksEl = document.querySelector('input[name="weeks"]:checked');
     const daytypeEl = document.querySelector('input[name="daytype"]:checked');
-    if (!weeksEl) { showToast('⚠️ 期間を選択してください'); return; }
-    if (!daytypeEl) { showToast('⚠️ 曜日を選択してください'); return; }
+    const btn = document.getElementById('autoFillBtn');
+    const ready = startVal && weeksEl && daytypeEl;
+    btn.disabled = !ready;
+    btn.style.opacity = ready ? '1' : '0.4';
+    btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+  }
+  document.getElementById('startDate').addEventListener('change', checkAutoFillReady);
+  document.querySelectorAll('input[name="weeks"], input[name="daytype"]').forEach(el => {
+    el.addEventListener('change', checkAutoFillReady);
+  });
+
+  document.getElementById('autoFillBtn').addEventListener('click', () => {
+    const startVal = document.getElementById('startDate').value;
+    const weeksEl = document.querySelector('input[name="weeks"]:checked');
+    const daytypeEl = document.querySelector('input[name="daytype"]:checked');
     const weeks = parseInt(weeksEl.value);
     const weekdayOnly = daytypeEl.value === 'weekday';
     document.getElementById('dateList').innerHTML = '';
@@ -540,6 +565,15 @@
       const isDuplicate = Object.keys(existing).some(n => normalizeName(n) === normalizedNew);
       if (isDuplicate) { showToast('⚠️ 同じ名前が既に登録されています'); return; }
       const note = document.getElementById('participantNote').value.trim();
+      // 全候補日が選択されているか確認
+      const unselected = currentDates.findIndex((_, i) =>
+        !document.querySelector(`.vote-btn[data-form-idx="${i}"].selected`)
+      );
+      if (unselected !== -1) {
+        const dt = new Date(currentDates[unselected] + 'T00:00:00');
+        showToast(`⚠️ ${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
+        return;
+      }
       // フォームから各日の回答を収集
       const votes = { _note: note, _joinedAt: Date.now() };
       currentDates.forEach((_, i) => {
@@ -565,8 +599,11 @@
 
   function buildNameHeaders(entries) {
     return entries.map(([name]) =>
-      `<th class="participant-th">${name}<br>
-       <button class="del-btn" data-name="${name}">🗑 削除</button></th>`
+      `<th class="participant-th" data-col="${name}">
+        ${name}<br>
+        <button class="edit-btn" data-name="${name}">✏️ 変更・削除</button><br>
+        <button class="del-btn" data-name="${name}">🗑 削除する</button>
+       </th>`
     ).join('');
   }
 
@@ -591,13 +628,13 @@
     const btns = [['o','◯','circle'],['t','△','triangle'],['x','✕','cross']].map(([key,label,cls]) =>
       `<button class="vote-btn ${cls} ${current===key?'selected':''}" data-name="${name}" data-idx="${idx}" data-key="${key}">${label}</button>`
     ).join('');
-    return `<td>${btns}</td>`;
+    return `<td class="locked" data-col="${name}">${btns}</td>`;
   }
 
   function buildNoteRow(entries) {
     const cells = entries.map(([name, votes]) => {
       const noteVal = (votes._note || '').replace(/"/g,'&quot;');
-      return `<td><input type="text" class="note-input" data-name="${name}" value="${noteVal}" placeholder="備考を追加..."></td>`;
+      return `<td class="locked" data-col="${name}"><input type="text" class="note-input" data-name="${name}" value="${noteVal}" placeholder="備考を追加..."></td>`;
     }).join('');
     return `<tr class="note-row"><td class="date-cell note-label">備考</td>${cells}<td></td></tr>`;
   }
@@ -628,6 +665,31 @@
   }
 
   function attachDeleteHandlers(wrap) {
+    // 変更・削除ボタン：編集モードのトグル
+    wrap.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        const isEditing = btn.classList.contains('editing');
+        const cells = wrap.querySelectorAll(`td[data-col="${name}"]`);
+        const delBtn = wrap.querySelector(`.del-btn[data-name="${name}"]`);
+        if (isEditing) {
+          // 編集モード終了
+          btn.classList.remove('editing');
+          btn.textContent = '✏️ 変更・削除';
+          cells.forEach(td => td.classList.add('locked'));
+          delBtn.classList.remove('visible');
+          showToast('💾 変更を保存しました');
+        } else {
+          // 編集モード開始
+          btn.classList.add('editing');
+          btn.textContent = '✅ 完了';
+          cells.forEach(td => td.classList.remove('locked'));
+          delBtn.classList.add('visible');
+        }
+      });
+    });
+
+    // 削除ボタン
     wrap.querySelectorAll('.del-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const name = btn.dataset.name;
