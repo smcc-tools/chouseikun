@@ -198,6 +198,27 @@
     .vote-btn.cross { color: #c0392b; }
     .point-cell { font-weight: 700; font-size: 0.95rem; min-width: 52px; }
     .point-cell.is-best { color: var(--green); background: var(--green-light); }
+    /* 確定日の強調表示 */
+    tr.confirmed-row td { background: #fff8e6 !important; }
+    tr.confirmed-row td.date-cell { color: #b8860b; font-weight: 800; }
+    tr.confirmed-row td.date-cell::before { content: '🎉 '; }
+    tr.confirmed-row td.point-cell { color: #b8860b; background: #fff0c0 !important; }
+    .confirm-btn {
+      font-size: 0.68rem; background: none;
+      border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.85);
+      border-radius: 4px; cursor: pointer; padding: 2px 6px; margin-left: 4px;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .confirm-btn:hover { background: rgba(255,255,255,0.15); }
+    .confirm-btn.confirmed { background: #c8a84b; border-color: #c8a84b; color: white; }
+    /* 並び替えボタン */
+    .reorder-btn {
+      font-size: 0.65rem; background: none;
+      border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.7);
+      border-radius: 3px; cursor: pointer; padding: 1px 4px; margin: 1px;
+      transition: all 0.15s;
+    }
+    .reorder-btn:hover { background: rgba(255,255,255,0.15); color: white; }
     .participant-th { min-width: 80px; font-size: 0.82rem; }
     .edit-btn {
       display: inline-block; margin-top: 5px; font-size: 0.68rem;
@@ -313,24 +334,44 @@
   </button>
 
   <div class="share-box" id="shareBox">
-    <div class="share-label">✅ 作成完了！リンクを参加者に共有してください</div>
-    <div class="share-url">
-      <input type="text" id="shareUrl" readonly>
-      <button class="btn btn-primary" id="copyBtn">コピー</button>
+    <div class="share-label">✅ 作成完了！それぞれのリンクを共有してください</div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--green);margin-bottom:4px;">👥 参加者用URL</div>
+      <div class="share-url">
+        <input type="text" id="shareUrl" readonly>
+        <button class="btn btn-primary" id="copyBtn">コピー</button>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:0.8rem;font-weight:600;color:#c0392b;margin-bottom:4px;">🔑 ホスト用URL（幹事専用・他人に見せないでください）</div>
+      <div class="share-url">
+        <input type="text" id="hostUrl" readonly>
+        <button class="btn btn-primary" id="copyHostBtn">コピー</button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- 回答カード -->
 <div class="card" id="viewCard">
-  <div class="card-title">
-    <div class="icon">🗓️</div>
-    <span id="viewTitle">出欠を回答する</span>
+  <div class="card-title" style="justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="icon">🗓️</div>
+      <span id="viewTitle">出欠を回答する</span>
+      <button id="editTitleBtn" class="host-only" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">✏️ 編集</button>
+    </div>
+    <div id="hostBadge" style="display:none;background:#c0392b;color:white;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:0.04em;">HOST</div>
   </div>
 
-
   <div id="memoWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.88rem;color:var(--text);line-height:1.6;">
-    <span style="font-weight:600;color:var(--green);margin-right:8px;">📋 メモ</span><span id="eventMemoView"></span>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div><span style="font-weight:600;color:var(--green);margin-right:8px;">📋 メモ</span><span id="eventMemoView"></span></div>
+      <button id="editMemoBtn" class="host-only" style="display:none;background:none;border:1px solid var(--green-mid);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--green);cursor:pointer;white-space:nowrap;">✏️ 編集</button>
+    </div>
+  </div>
+  <!-- メモがない場合のホスト用追加ボタン -->
+  <div id="addMemoWrap" class="host-only" style="display:none;margin-bottom:12px;">
+    <button id="addMemoBtn" style="background:none;border:1px dashed var(--green-mid);border-radius:6px;padding:8px 16px;font-size:0.82rem;color:var(--text-muted);cursor:pointer;width:100%;">＋ メモを追加</button>
   </div>
   <div id="tableWrap"><p class="loading">読み込み中</p></div>
 
@@ -555,26 +596,40 @@
     btn.disabled = true;
     const memo = document.getElementById('eventMemo').value.trim();
     const eventId = Math.random().toString(36).slice(2, 10);
-    await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants: {} });
-    const url = `${location.origin}${location.pathname}?event=${eventId}`;
+    const hostKey = Math.random().toString(36).slice(2, 14);
+    await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants: {}, hostKey, confirmedDate: null, participantOrder: [] });
+    const base = `${location.origin}${location.pathname}`;
+    const url = `${base}?event=${eventId}`;
+    const hostUrl = `${base}?event=${eventId}&host=${hostKey}`;
     document.getElementById('shareUrl').value = url;
+    document.getElementById('hostUrl').value = hostUrl;
     document.getElementById('shareBox').style.display = 'block';
     btn.textContent = '✅ 作成済み';
     showToast('🎉 イベントを作成しました！');
   });
 
-  document.getElementById('copyBtn').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('shareUrl').value).then(() => {
-      document.getElementById('copyBtn').textContent = '✅ コピー済み';
-      showToast('📋 リンクをコピーしました');
-      setTimeout(() => document.getElementById('copyBtn').textContent = 'コピー', 2000);
+  function copyText(text, btnEl, label) {
+    navigator.clipboard.writeText(text).then(() => {
+      btnEl.textContent = '✅ コピー済み';
+      showToast(`📋 ${label}をコピーしました`);
+      setTimeout(() => btnEl.textContent = 'コピー', 2000);
     });
+  }
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    copyText(document.getElementById('shareUrl').value, document.getElementById('copyBtn'), '参加者用URL');
+  });
+  document.getElementById('copyHostBtn').addEventListener('click', () => {
+    copyText(document.getElementById('hostUrl').value, document.getElementById('copyHostBtn'), 'ホスト用URL');
   });
 
   // ── 回答画面 ──────────────────────────────────
 
   const params = new URLSearchParams(location.search);
   const eventId = params.get('event');
+  const hostParam = params.get('host');
+  let isHost = false;
+  let currentDates = [];
+  let currentParticipantOrder = [];
 
   if (eventId) {
     document.getElementById('setupCard').style.display = 'none';
@@ -587,16 +642,61 @@
         return;
       }
       const data = snap.data();
+      currentDates = data.dates;
+      currentParticipantOrder = data.participantOrder || [];
+
+      // ホスト判定
+      if (hostParam && hostParam === data.hostKey) {
+        isHost = true;
+        document.getElementById('hostBadge').style.display = 'inline-block';
+        document.querySelectorAll('.host-only').forEach(el => el.style.display = 'inline-block');
+      }
+
+      // タイトル表示
       document.getElementById('viewTitle').textContent = data.name;
+
       // メモ表示
       const memoEl = document.getElementById('eventMemoView');
+      const memoWrap = document.getElementById('memoWrap');
+      const addMemoWrap = document.getElementById('addMemoWrap');
       if (data.memo) {
         memoEl.textContent = data.memo;
-        memoEl.parentElement.style.display = 'block';
+        memoWrap.style.display = 'block';
+        if (addMemoWrap) addMemoWrap.style.display = 'none';
       } else {
-        memoEl.parentElement.style.display = 'none';
+        memoWrap.style.display = 'none';
+        if (isHost && addMemoWrap) addMemoWrap.style.display = 'block';
       }
-      renderTable(data.dates, data.participants || {});
+
+      renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
+    });
+
+    // ── ホスト専用：タイトル編集 ──
+    document.getElementById('editTitleBtn').addEventListener('click', () => {
+      const current = document.getElementById('viewTitle').textContent;
+      const newTitle = prompt('イベント名を編集してください：', current);
+      if (newTitle && newTitle.trim() && newTitle.trim() !== current) {
+        updateDoc(eventRef, { name: newTitle.trim() });
+        showToast('✅ タイトルを更新しました');
+      }
+    });
+
+    // ── ホスト専用：メモ編集 ──
+    document.getElementById('editMemoBtn').addEventListener('click', () => {
+      const current = document.getElementById('eventMemoView').textContent;
+      const newMemo = prompt('メモを編集してください：', current);
+      if (newMemo !== null) {
+        updateDoc(eventRef, { memo: newMemo.trim() });
+        showToast('✅ メモを更新しました');
+      }
+    });
+
+    document.getElementById('addMemoBtn')?.addEventListener('click', () => {
+      const newMemo = prompt('メモを入力してください：', '');
+      if (newMemo && newMemo.trim()) {
+        updateDoc(eventRef, { memo: newMemo.trim() });
+        showToast('✅ メモを追加しました');
+      }
     });
   }
 
@@ -609,20 +709,26 @@
   }
 
   function buildNameHeaders(entries) {
-    const existing = entries.map(([name]) =>
-      `<th class="participant-th" data-col="${name}">
+    const existing = entries.map(([name], idx) => {
+      const reorderBtns = isHost ? `
+        <div style="margin-top:3px;">
+          ${idx > 0 ? `<button class="reorder-btn" data-name="${name}" data-dir="left">◀</button>` : ''}
+          ${idx < entries.length - 1 ? `<button class="reorder-btn" data-name="${name}" data-dir="right">▶</button>` : ''}
+        </div>` : '';
+      return `<th class="participant-th" data-col="${name}">
         ${name}<br>
         <button class="edit-btn" data-name="${name}">✏️ 変更・削除</button><br>
         <button class="del-btn" data-name="${name}">🗑 削除する</button>
-       </th>`
-    ).join('');
+        ${reorderBtns}
+       </th>`;
+    }).join('');
     const inputCol = `<th class="input-col">
       <input type="text" id="newName" placeholder="名前を入力">
     </th>`;
     return existing + inputCol;
   }
 
-  function buildDateRows(dates, entries, counts) {
+  function buildDateRows(dates, entries, counts, confirmedDate) {
     const maxCount = Math.max(...counts, 0);
     return dates.map((d, i) => {
       const [datePart, timePart] = d.split(' ');
@@ -630,6 +736,7 @@
       const day = dt.getDay();
       const dateLabel = `${dt.getMonth()+1}/${dt.getDate()}(${WEEKS[day]})` + (timePart ? ` ${timePart}` : '');
       const isBest = counts[i] === maxCount && maxCount > 0;
+      const isConfirmed = confirmedDate === i;
       const cells = entries.map(([name, votes]) => buildVoteCell(name, i, votes[i] || '')).join('');
       const countStr = Number.isInteger(counts[i]) ? counts[i] : counts[i].toFixed(1);
       const inputCell = `<td class="input-col">
@@ -637,11 +744,14 @@
           `<button class="vote-btn ${cls}" data-new-idx="${i}" data-key="${key}">${lbl}</button>`
         ).join('')}
       </td>`;
-      return `<tr>
-        <td class="date-cell${isBest?' is-best':''}">${dateLabel}</td>
+      const confirmBtn = isHost
+        ? `<button class="confirm-btn ${isConfirmed?'confirmed':''}" data-date-idx="${i}">${isConfirmed?'✅ 確定中':'📌 確定'}</button>`
+        : '';
+      return `<tr class="${isConfirmed?'confirmed-row':''}">
+        <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${dateLabel}${confirmBtn}</td>
         ${cells}
         ${inputCell}
-        <td class="point-cell${isBest?' is-best':''}">${countStr}</td>
+        <td class="point-cell${isBest&&!isConfirmed?' is-best':''}">${countStr}</td>
       </tr>`;
     }).join('');
   }
@@ -763,13 +873,22 @@
     });
   }
 
-  function renderTable(dates, participants) {
+  function renderTable(dates, participants, confirmedDate, participantOrder) {
     const wrap = document.getElementById('tableWrap');
-    const entries = Object.entries(participants);
+    const allEntries = Object.entries(participants);
 
-    entries.sort((a, b) => (a[1]._joinedAt || 0) - (b[1]._joinedAt || 0));
-    const counts = calcCounts(dates, entries);
-    const colSpan = entries.length + 3; // 日付列 + 参加者列 + Pt列 + 入力列
+    // 並び順の適用
+    allEntries.sort((a, b) => {
+      const ai = participantOrder.indexOf(a[0]);
+      const bi = participantOrder.indexOf(b[0]);
+      if (ai === -1 && bi === -1) return (a[1]._joinedAt || 0) - (b[1]._joinedAt || 0);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+
+    const counts = calcCounts(dates, allEntries);
+    const colSpan = allEntries.length + 3;
 
     const registerRow = `<tr>
       <td colspan="${colSpan - 2}"></td>
@@ -784,12 +903,12 @@
         <table>
           <thead><tr>
             <th class="date-col">日付</th>
-            ${buildNameHeaders(entries)}
+            ${buildNameHeaders(allEntries)}
             <th style="min-width:52px">Pt</th>
           </tr></thead>
           <tbody>
-            ${buildDateRows(dates, entries, counts)}
-            ${buildNoteRow(entries)}
+            ${buildDateRows(dates, allEntries, counts, confirmedDate)}
+            ${buildNoteRow(allEntries)}
             ${registerRow}
           </tbody>
         </table>
@@ -798,6 +917,40 @@
     attachVoteHandlers(wrap);
     attachNoteHandlers(wrap);
     attachDeleteHandlers(wrap, dates);
+
+    // ── ホスト専用：日程確定ボタン ──
+    if (isHost) {
+      wrap.querySelectorAll('.confirm-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const idx = parseInt(btn.dataset.dateIdx);
+          const snap = await getDoc(doc(db, 'events', eventId));
+          const current = snap.data().confirmedDate;
+          // 既に確定中なら解除、そうでなければ確定
+          await updateDoc(doc(db, 'events', eventId), { confirmedDate: current === idx ? null : idx });
+          showToast(current === idx ? '📌 確定を解除しました' : '🎉 日程を確定しました');
+        });
+      });
+
+      // ── ホスト専用：並び替えボタン ──
+      wrap.querySelectorAll('.reorder-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const name = btn.dataset.name;
+          const dir = btn.dataset.dir;
+          const snap = await getDoc(doc(db, 'events', eventId));
+          const data = snap.data();
+          // 現在の順序を取得
+          const order = data.participantOrder?.length
+            ? [...data.participantOrder]
+            : Object.entries(data.participants).sort((a,b) => (a[1]._joinedAt||0)-(b[1]._joinedAt||0)).map(([n])=>n);
+          // 全参加者が含まれるよう補完
+          Object.keys(data.participants).forEach(n => { if (!order.includes(n)) order.push(n); });
+          const idx = order.indexOf(name);
+          if (dir === 'left' && idx > 0) [order[idx-1], order[idx]] = [order[idx], order[idx-1]];
+          if (dir === 'right' && idx < order.length-1) [order[idx], order[idx+1]] = [order[idx+1], order[idx]];
+          await updateDoc(doc(db, 'events', eventId), { participantOrder: order });
+        });
+      });
+    }
 
     // 登録ボタン
     const registerBtn = wrap.querySelector('#registerBtn');
