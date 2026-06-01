@@ -1267,7 +1267,12 @@
         return `<tr id="row-${CSS.escape(name)}" class="${isPaid?'paid':''}">
           <td style="font-weight:600;">${name}</td>
           <td style="text-align:right;font-weight:700;">¥${amount.toLocaleString()}</td>
-          <td><span style="font-size:0.85rem;color:${isPaid?'var(--green)':'#aaa'};">${isPaid?'✅ 支払済み':'未払い'}</span></td>
+          <td>
+            <div class="settle-paid">
+              <input type="checkbox" id="paid-${CSS.escape(name)}" class="paid-check" data-name="${name}" ${isPaid?'checked':''}>
+              <label for="paid-${CSS.escape(name)}">支払済み</label>
+            </div>
+          </td>
         </tr>`;
       }
       return `<tr id="row-${CSS.escape(name)}" class="${isPaid?'paid':''}">
@@ -1356,18 +1361,25 @@
     }
     updateDiffs();
 
+    // 支払済みチェック（ホスト・参加者共通）
+    result.querySelectorAll('.paid-check').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const name = cb.dataset.name;
+        const row = result.querySelector(`#row-${CSS.escape(name)}`);
+        if (row) row.classList.toggle('paid', cb.checked);
+        // Firebase に保存
+        const snap = await getDoc(doc(db, 'events', eventId));
+        const currentPaid = snap.data().settle?.paid || {};
+        currentPaid[name] = cb.checked;
+        await updateDoc(doc(db, 'events', eventId), { 'settle.paid': currentPaid });
+        showToast(cb.checked ? '✅ 支払済みにしました' : '支払済みを取り消しました');
+      });
+    });
+
     if (!readOnly) {
       // 金額入力イベント
       result.querySelectorAll('.settle-amount-input').forEach(input => {
         input.addEventListener('input', updateDiffs);
-      });
-
-      // 支払済みチェック
-      result.querySelectorAll('.paid-check').forEach(cb => {
-        cb.addEventListener('change', () => {
-          const row = result.querySelector(`#row-${CSS.escape(cb.dataset.name)}`);
-          if (row) row.classList.toggle('paid', cb.checked);
-        });
       });
 
       // 均等割りに戻す
