@@ -149,6 +149,10 @@
     }
     @media (max-width: 500px) { .answer-form-grid { grid-template-columns: 1fr; } }
     .answer-form input { margin-bottom: 0; background: white; }
+    .vote-form-table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 0.88rem; }
+    .vote-form-table td { padding: 6px 8px; border-bottom: 1px solid var(--green-mid); }
+    .vote-form-table td:first-child { font-weight: 600; color: var(--text); font-size: 0.85rem; white-space: nowrap; }
+    .vote-form-table tr:last-child td { border-bottom: none; }
     .field-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
     .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 300px; }
@@ -234,7 +238,7 @@
     <div class="radio-group">
       <div class="radio-chip"><input type="radio" name="weeks" id="w1" value="1"><label for="w1">1週間</label></div>
       <div class="radio-chip"><input type="radio" name="weeks" id="w2" value="2"><label for="w2">2週間</label></div>
-      <div class="radio-chip"><input type="radio" name="weeks" id="w3" value="3" checked><label for="w3">3週間</label></div>
+      <div class="radio-chip"><input type="radio" name="weeks" id="w3" value="3"><label for="w3">3週間</label></div>
       <div class="radio-chip"><input type="radio" name="weeks" id="w4" value="4"><label for="w4">1ヶ月</label></div>
       <div class="radio-chip"><input type="radio" name="weeks" id="w8" value="8"><label for="w8">2ヶ月</label></div>
     </div>
@@ -243,7 +247,7 @@
   <div class="field">
     <label>曜日</label>
     <div class="radio-group">
-      <div class="radio-chip"><input type="radio" name="daytype" id="dt1" value="weekday" checked><label for="dt1">平日のみ（祝日除く）</label></div>
+      <div class="radio-chip"><input type="radio" name="daytype" id="dt1" value="weekday"><label for="dt1">平日のみ（祝日除く）</label></div>
       <div class="radio-chip"><input type="radio" name="daytype" id="dt2" value="all"><label for="dt2">土日祝を含む</label></div>
     </div>
   </div>
@@ -288,7 +292,8 @@
         <input type="text" id="participantNote" placeholder="例：魚介類アレルギー">
       </div>
     </div>
-    <button class="btn btn-primary" id="addParticipantBtn" style="width:100%;padding:12px;">
+    <div id="voteFormWrap"></div>
+    <button class="btn btn-primary" id="addParticipantBtn" style="width:100%;padding:12px;margin-top:12px;">
       回答を登録する
     </button>
   </div>
@@ -428,8 +433,12 @@
   document.getElementById('autoFillBtn').addEventListener('click', () => {
     const startVal = document.getElementById('startDate').value;
     if (!startVal) { showToast('⚠️ 開始日を選択してください'); return; }
-    const weeks = parseInt(document.querySelector('input[name="weeks"]:checked').value);
-    const weekdayOnly = document.querySelector('input[name="daytype"]:checked').value === 'weekday';
+    const weeksEl = document.querySelector('input[name="weeks"]:checked');
+    const daytypeEl = document.querySelector('input[name="daytype"]:checked');
+    if (!weeksEl) { showToast('⚠️ 期間を選択してください'); return; }
+    if (!daytypeEl) { showToast('⚠️ 曜日を選択してください'); return; }
+    const weeks = parseInt(weeksEl.value);
+    const weekdayOnly = daytypeEl.value === 'weekday';
     document.getElementById('dateList').innerHTML = '';
     const current = new Date(startVal + 'T00:00:00');
     const end = new Date(startVal + 'T00:00:00');
@@ -483,15 +492,43 @@
     document.getElementById('viewCard').style.display = 'block';
     const eventRef = doc(db, 'events', eventId);
 
+    let currentDates = [];
+
     onSnapshot(eventRef, (snap) => {
       if (!snap.exists()) {
         document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">イベントが見つかりません</p>';
         return;
       }
       const data = snap.data();
+      currentDates = data.dates;
       document.getElementById('viewTitle').textContent = data.name;
+      renderVoteForm(data.dates);
       renderTable(data.dates, data.participants || {});
     });
+
+    // 候補日ごとの◯△✕フォームを表示
+    function renderVoteForm(dates) {
+      const wrap = document.getElementById('voteFormWrap');
+      const rows = dates.map((d, i) => {
+        const dt = new Date(d + 'T00:00:00');
+        const day = dt.getDay();
+        const label = `${dt.getMonth()+1}/${dt.getDate()}(${WEEKS[day]})`;
+        const btns = [['o','◯','circle'],['t','△','triangle'],['x','✕','cross']].map(([key, lbl, cls]) =>
+          `<button type="button" class="vote-btn ${cls}" data-form-idx="${i}" data-key="${key}">${lbl}</button>`
+        ).join('');
+        return `<tr><td>${label}</td><td>${btns}</td></tr>`;
+      }).join('');
+      wrap.innerHTML = `<table class="vote-form-table"><tbody>${rows}</tbody></table>`;
+
+      // フォーム内の投票ボタン選択
+      wrap.querySelectorAll('.vote-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = btn.dataset.formIdx;
+          wrap.querySelectorAll(`.vote-btn[data-form-idx="${idx}"]`).forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+      });
+    }
 
     document.getElementById('addParticipantBtn').addEventListener('click', async () => {
       const rawName = document.getElementById('participantName').value.trim();
@@ -499,17 +536,21 @@
       const snap = await getDoc(eventRef);
       const data = snap.data();
       const existing = data.participants || {};
-      // 正規化して重複チェック（大文字小文字・全角半角を無視）
       const normalizedNew = normalizeName(rawName);
       const isDuplicate = Object.keys(existing).some(n => normalizeName(n) === normalizedNew);
       if (isDuplicate) { showToast('⚠️ 同じ名前が既に登録されています'); return; }
       const note = document.getElementById('participantNote').value.trim();
-      // デフォルトは未回答（空文字）
+      // フォームから各日の回答を収集
       const votes = { _note: note, _joinedAt: Date.now() };
-      data.dates.forEach((_, i) => votes[i] = '');
+      currentDates.forEach((_, i) => {
+        const selected = document.querySelector(`.vote-btn[data-form-idx="${i}"].selected`);
+        votes[i] = selected ? selected.dataset.key : '';
+      });
       await updateDoc(eventRef, { [`participants.${rawName}`]: votes });
       document.getElementById('participantName').value = '';
       document.getElementById('participantNote').value = '';
+      // フォームの選択状態をリセット
+      document.querySelectorAll('#voteFormWrap .vote-btn').forEach(b => b.classList.remove('selected'));
       showToast(`✅ ${rawName} さんの回答を登録しました`);
     });
   }
