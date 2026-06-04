@@ -1203,10 +1203,19 @@
     });
 
     const counts = calcCounts(dates, allEntries);
-    const colSpan = allEntries.length + 3;
 
+    // 各列の登録ボタン行（プリセット参加者は個別ボタン）
+    const registerCells = allEntries.map(([name, votes]) => {
+      const isPreset = dates.every((_, di) => !votes[di]);
+      return isPreset
+        ? `<td style="text-align:center;padding:4px 6px;background:#f5fdf8;">
+            <button class="register-btn preset-register-btn" data-name="${name}">登録する</button>
+           </td>`
+        : `<td></td>`;
+    }).join('');
     const registerRow = `<tr>
-      <td colspan="${colSpan - 2}"></td>
+      <td></td>
+      ${registerCells}
       <td class="input-col">
         <button class="register-btn" id="registerBtn">登録する</button>
       </td>
@@ -1267,57 +1276,55 @@
       });
     }
 
-    // 登録ボタン
+    // プリセット参加者ごとの登録ボタン
+    wrap.querySelectorAll('.preset-register-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.name;
+        const unselected = dates.findIndex((_, i) =>
+          !wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`)
+        );
+        if (unselected !== -1) {
+          const dt = new Date(dates[unselected].split(' ')[0] + 'T00:00:00');
+          showToast(`⚠️ ${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
+          return;
+        }
+        const updates = {};
+        dates.forEach((_, i) => {
+          const sel = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
+          updates[`participants.${name}.${i}`] = sel.dataset.key;
+        });
+        await updateDoc(doc(db, 'events', eventId), updates);
+        showToast(`✅ ${name} さんの回答を登録しました`);
+      });
+    });
+
+    // 新規参加者の登録ボタン
     const registerBtn = wrap.querySelector('#registerBtn');
     if (registerBtn) {
       registerBtn.addEventListener('click', async () => {
         const rawName = (wrap.querySelector('#newName')?.value || '').trim();
-        const updates = {};
-        let savedCount = 0;
-
-        // ── プリセット参加者の投票を保存 ──
-        wrap.querySelectorAll('td[data-preset="1"]').forEach(td => {
-          const name = td.dataset.col;
-          // この参加者の全日付の選択を確認
-          const allSelected = dates.every((_, i) =>
-            wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`)
-          );
-          if (!allSelected) return;
-          dates.forEach((_, i) => {
-            const sel = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
-            updates[`participants.${name}.${i}`] = sel.dataset.key;
-          });
-          savedCount++;
-        });
-
-        // ── 新規参加者の投票を保存 ──
-        if (rawName) {
-          const snap = await getDoc(doc(db, 'events', eventId));
-          const existing = snap.data().participants || {};
-          if (Object.keys(existing).some(n => normalizeName(n) === normalizeName(rawName))) {
-            showToast('⚠️ 同じ名前が既に登録されています'); return;
-          }
-          const unselected = dates.findIndex((_, i) =>
-            !wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`)
-          );
-          if (unselected !== -1) {
-            const dt = new Date(dates[unselected].split(' ')[0] + 'T00:00:00');
-            showToast(`⚠️ ${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
-            return;
-          }
-          const note = (wrap.querySelector('#newNote')?.value || '').trim();
-          const votes = { _note: note, _joinedAt: Date.now() };
-          dates.forEach((_, i) => {
-            const sel = wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`);
-            votes[i] = sel ? sel.dataset.key : '';
-          });
-          updates[`participants.${rawName}`] = votes;
-          savedCount++;
+        if (!rawName) { showToast('⚠️ 名前を入力してください'); return; }
+        const snap = await getDoc(doc(db, 'events', eventId));
+        const existing = snap.data().participants || {};
+        if (Object.keys(existing).some(n => normalizeName(n) === normalizeName(rawName))) {
+          showToast('⚠️ 同じ名前が既に登録されています'); return;
         }
-
-        if (!savedCount) { showToast('⚠️ 名前を入力してください'); return; }
-        await updateDoc(doc(db, 'events', eventId), updates);
-        showToast(rawName ? `✅ ${rawName} さんの回答を登録しました` : '✅ 回答を登録しました');
+        const unselected = dates.findIndex((_, i) =>
+          !wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`)
+        );
+        if (unselected !== -1) {
+          const dt = new Date(dates[unselected].split(' ')[0] + 'T00:00:00');
+          showToast(`⚠️ ${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
+          return;
+        }
+        const note = (wrap.querySelector('#newNote')?.value || '').trim();
+        const votes = { _note: note, _joinedAt: Date.now() };
+        dates.forEach((_, i) => {
+          const sel = wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`);
+          votes[i] = sel ? sel.dataset.key : '';
+        });
+        await updateDoc(doc(db, 'events', eventId), { [`participants.${rawName}`]: votes });
+        showToast(`✅ ${rawName} さんの回答を登録しました`);
       });
     }
   }
