@@ -330,14 +330,6 @@
     }
     .branch-ac-item:last-child { border-bottom:none; }
     .branch-ac-item:hover, .branch-ac-item.active { background:var(--green-light); color:var(--green); }
-    /* 日程削除ボタン（ホスト専用） */
-    .date-del-btn {
-      font-size:0.65rem; background:none;
-      border:1px solid rgba(255,100,100,0.5); color:rgba(255,160,160,1);
-      border-radius:4px; cursor:pointer; padding:2px 5px; margin-left:4px;
-      transition:all 0.15s; white-space:nowrap;
-    }
-    .date-del-btn:hover { background:rgba(255,80,80,0.25); color:white; }
     /* 日程追加フォーム（ホスト専用） */
     #addDateWrap {
       margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
@@ -1080,11 +1072,8 @@
       const confirmBtn = isHost
         ? `<button class="confirm-btn ${isConfirmed?'confirmed':''}" data-date-idx="${i}">${isConfirmed?'✅ 確定中':'📌 確定'}</button>`
         : '';
-      const deleteDateBtn = isHost
-        ? `<button class="date-del-btn" data-date-idx="${i}">🗑</button>`
-        : '';
       return `<tr class="${isConfirmed?'confirmed-row':''}">
-        <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${dateLabel}${confirmBtn}${deleteDateBtn}</td>
+        <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${dateLabel}${confirmBtn}</td>
         ${cells}
         ${inputCell}
         <td class="point-cell${isBest&&!isConfirmed?' is-best':''}">${countStr}</td>
@@ -1370,47 +1359,6 @@
   // ── ホスト専用：日程の追加・削除 ──────────────────
 
   function attachDateEditHandlers(wrap, dates) {
-    // 日程削除ボタン
-    wrap.querySelectorAll('.date-del-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const idx = parseInt(btn.dataset.dateIdx);
-        const [datePart, timePart] = dates[idx].split(' ');
-        const dt = new Date(datePart + 'T00:00:00');
-        const label = `${dt.getMonth()+1}/${dt.getDate()}(${WEEKS[dt.getDay()]})` + (timePart ? ` ${timePart}` : '');
-        if (!confirm(`「${label}」の日程を削除しますか？\n参加者の回答データも更新されます。`)) return;
-
-        const snap = await getDoc(doc(db, 'events', eventId));
-        const data = snap.data();
-        const oldDates = data.dates;
-        const newDates = oldDates.filter((_, i) => i !== idx);
-
-        // 参加者の投票インデックスを再構築（削除した列を除いてずらす）
-        const newParticipants = {};
-        for (const [name, votes] of Object.entries(data.participants || {})) {
-          const newVotes = { _note: votes._note || '', _joinedAt: votes._joinedAt || 0 };
-          let newIdx = 0;
-          for (let i = 0; i < oldDates.length; i++) {
-            if (i === idx) continue;
-            newVotes[newIdx] = votes[i] || '';
-            newIdx++;
-          }
-          newParticipants[name] = newVotes;
-        }
-
-        // confirmedDate の補正
-        let confirmedDate = data.confirmedDate;
-        if (confirmedDate === idx) confirmedDate = null;
-        else if (confirmedDate !== null && confirmedDate > idx) confirmedDate = confirmedDate - 1;
-
-        await updateDoc(doc(db, 'events', eventId), {
-          dates: newDates,
-          participants: newParticipants,
-          confirmedDate
-        });
-        showToast('🗑 日程を削除しました');
-      });
-    });
-
     // 日程追加ボタン
     const addDateBtn = wrap.querySelector('#hostAddDateBtn');
     if (addDateBtn) {
