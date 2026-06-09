@@ -2132,7 +2132,8 @@
     const overallPerPerson = perPartyPerson.reduce((s, v) => s + v, 0);
     const partyHeaders = Array.from({length: partyCount}, (_, i) => {
       const nm = (partyNames && partyNames[i]) ? partyNames[i] : `${i+1}次会`;
-      return `<th>${nm.replace(/</g,'&lt;')}<br><small style="font-weight:normal;opacity:0.75;font-size:0.72rem;">均等¥${perPartyPerson[i].toLocaleString()}</small></th>`;
+      const equalLabel = readOnly ? '' : `<br><small style="font-weight:normal;opacity:0.75;font-size:0.72rem;">均等¥${perPartyPerson[i].toLocaleString()}</small>`;
+      return `<th>${nm.replace(/</g,'&lt;')}${equalLabel}</th>`;
     }).join('');
 
     const rows = sortedNames.map(name => {
