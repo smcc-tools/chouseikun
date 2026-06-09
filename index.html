@@ -338,6 +338,19 @@
       transition:all 0.15s; white-space:nowrap;
     }
     .date-del-btn:hover { background:rgba(255,80,80,0.25); color:white; }
+    /* マイイベント一覧 */
+    .my-event-item {
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+      margin-bottom:8px; background:#fafafa; transition:background 0.15s;
+    }
+    .my-event-item:hover { background:var(--green-light); }
+    .my-event-info { flex:1; min-width:0; }
+    .my-event-name { font-weight:700; font-size:0.95rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .my-event-meta { font-size:0.75rem; color:var(--text-muted); margin-top:2px; }
+    .my-event-open { white-space:nowrap; font-size:0.82rem; padding:5px 14px; }
+    .my-event-remove { background:none; border:none; color:#ccc; cursor:pointer; font-size:1rem; padding:4px; line-height:1; transition:color 0.15s; }
+    .my-event-remove:hover { color:#c0392b; }
     /* 日程追加フォーム（ホスト専用） */
     #addDateWrap {
       margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
@@ -359,6 +372,13 @@
 </div>
 
 <div class="page">
+
+<!-- マイイベント一覧カード -->
+<div class="card" id="myEventsCard" style="display:none;">
+  <div class="card-title"><div class="icon">📋</div>マイイベント</div>
+  <div id="myEventsList"></div>
+  <button class="btn btn-ghost" id="newEventBtn" style="margin-top:12px;width:100%;">＋ 新しいイベントを作成</button>
+</div>
 
 <!-- イベント作成カード -->
 <div class="card" id="setupCard">
@@ -810,6 +830,70 @@
 
   document.getElementById('addPresetParticipantBtn').addEventListener('click', addPresetParticipantRow);
 
+  // ── マイイベント管理（localStorage） ───────────────
+
+  const MY_EVENTS_KEY = 'chouseikun_my_events';
+
+  function loadMyEvents() {
+    try { return JSON.parse(localStorage.getItem(MY_EVENTS_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function saveMyEvents(events) {
+    localStorage.setItem(MY_EVENTS_KEY, JSON.stringify(events));
+  }
+
+  function addMyEvent(eventId, hostKey, name) {
+    const events = loadMyEvents();
+    // 同一IDがあれば上書き（名前変更対応）
+    const idx = events.findIndex(e => e.eventId === eventId);
+    const entry = { eventId, hostKey, name, createdAt: Date.now() };
+    if (idx >= 0) events[idx] = entry; else events.unshift(entry);
+    saveMyEvents(events);
+  }
+
+  function renderMyEvents() {
+    const events = loadMyEvents();
+    const card = document.getElementById('myEventsCard');
+    const list = document.getElementById('myEventsList');
+    if (!card || !list) return;
+    if (events.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    const base = `${location.origin}${location.pathname}`;
+    list.innerHTML = events.map(e => {
+      const d = new Date(e.createdAt);
+      const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} 作成`;
+      return `<div class="my-event-item" data-id="${e.eventId}">
+        <div class="my-event-info">
+          <div class="my-event-name">${e.name.replace(/</g,'&lt;')}</div>
+          <div class="my-event-meta">${dateStr}</div>
+        </div>
+        <a class="btn btn-secondary my-event-open" href="${base}?event=${e.eventId}&host=${e.hostKey}">開く</a>
+        <button class="my-event-remove" data-id="${e.eventId}" title="一覧から削除">✕</button>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.my-event-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const updated = loadMyEvents().filter(e => e.eventId !== btn.dataset.id);
+        saveMyEvents(updated);
+        renderMyEvents();
+      });
+    });
+  }
+
+  // 初期表示（?event= なしのトップページのみ）
+  if (!new URLSearchParams(location.search).get('event')) {
+    renderMyEvents();
+    document.getElementById('newEventBtn')?.addEventListener('click', () => {
+      document.getElementById('myEventsCard').style.display = 'none';
+      document.getElementById('setupCard').style.display = 'block';
+    });
+    // マイイベントがあれば作成フォームを隠してマイイベント一覧を先に表示
+    if (loadMyEvents().length > 0) {
+      document.getElementById('setupCard').style.display = 'none';
+    }
+  }
+
   // ── イベント作成 ──────────────────────────────
 
   document.getElementById('createBtn').addEventListener('click', async () => {
@@ -840,6 +924,7 @@
     document.getElementById('hostUrl').value = hostUrl;
     document.getElementById('shareBox').style.display = 'block';
     btn.textContent = '✅ 作成済み';
+    addMyEvent(eventId, hostKey, name);
     showToast('🎉 イベントを作成しました！');
   });
 
@@ -892,6 +977,8 @@
         document.getElementById('participantUrlView').value = `${base}?event=${eventId}`;
         // 共同ホストURLリスト更新
         renderCoHostList(hostKeys, base, eventId);
+        // マイイベントに記録（別デバイスや再訪問時も登録）
+        addMyEvent(eventId, hostParam, data.name);
       }
 
       // タイトル表示
@@ -957,7 +1044,7 @@
         span.id = 'viewTitle';
         span.textContent = val;
         input.replaceWith(span);
-        if (val !== current) { updateDoc(eventRef, { name: val }); showToast('✅ タイトルを更新しました'); }
+        if (val !== current) { updateDoc(eventRef, { name: val }); showToast('✅ タイトルを更新しました'); if (hostParam) addMyEvent(eventId, hostParam, val); }
       };
       input.addEventListener('blur', save);
       input.addEventListener('keydown', e => {
