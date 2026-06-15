@@ -2407,17 +2407,12 @@
         <label for="paid-${ri}">支払済み</label>
       </div>`;
 
-      // 幹事ラジオ（差額の吸収先・編集モードのみ）
-      const orgCell = readOnly ? '' :
-        `<td style="text-align:center;"><input type="radio" name="settleOrgRadio" class="settle-org" data-name="${en}" ${settleOrganizer===name?'checked':''} style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;"></td>`;
-
       return `<tr id="row-${ri}" class="${isPaid?'paid':''}">
         <td class="settle-name">${en}</td>
         ${partyCells}
         ${totalCell}
         ${diffCell}
         <td>${paidCell}</td>
-        ${orgCell}
       </tr>`;
     }).join('');
 
@@ -2426,7 +2421,6 @@
         <th>名前</th>${partyHeaders}<th>合計</th>
         ${readOnly ? '' : '<th>均等との差</th>'}
         <th>状態</th>
-        ${readOnly ? '' : '<th>幹事</th>'}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -2460,7 +2454,7 @@
       ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
       ${readOnly ? '' : `
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
-          各次会セルの「割合」は<strong>均等割り＝100%</strong>が基準で、変えるとその人の金額だけが変わります（他の人は自動調整されません）。<strong>「幹事」を1人選ぶと、その人が差額（端数）を自動で吸収</strong>して合計がぴったり一致します。幹事を選ばない場合は、各次会ヘッダーの「金額一致」が✅になるよう各自で調整してください。金額を直接入力すると割合も自動で逆算表示されます。
+          各次会セルの「割合」は<strong>均等割り＝100%</strong>が基準です。割合を変えるとその人の金額だけが変わります（他の人は自動調整されません）。各次会ヘッダーの「平均100%」「金額一致」が両方✅になるよう、各人の割合または金額を調整してください。金額を直接入力すると割合も自動で逆算表示されます。
         </div>
         <button class="btn btn-secondary btn-full" id="resetAmountsBtn">🔄 均等割りに戻す</button>`}
     `;
@@ -2574,7 +2568,7 @@
         input.addEventListener('input', () => {
           amountsCustomized = true;
           syncWeightsFromAmounts(parseInt(input.dataset.party));
-          recomputeOrganizer();
+          updateDiffs();
         });
       });
 
@@ -2593,35 +2587,6 @@
         }
       }
 
-      // 幹事が「会の合計 − 他の人の合計」を吸収（差額・端数を幹事につける）
-      function recomputeOrganizer() {
-        const orgIdx = sortedNames.indexOf(settleOrganizer);
-        if (orgIdx >= 0) {
-          for (let pi = 0; pi < partyCount; pi++) {
-            const partyInp = document.querySelector(`.party-amount-input[data-idx="${pi}"]`);
-            const partyTotal = partyInp ? (parseInt(partyInp.value) || 0) : (partyAmounts[pi] || 0);
-            let sumOthers = 0;
-            sortedNames.forEach((n, ri) => {
-              if (ri === orgIdx) return;
-              const inp = result.querySelector(`.settle-amount-input[data-ri="${ri}"][data-party="${pi}"]`);
-              sumOthers += inp ? (parseInt(inp.value) || 0) : 0;
-            });
-            const orgAmt = Math.max(0, partyTotal - sumOthers);
-            const orgInp = result.querySelector(`.settle-amount-input[data-ri="${orgIdx}"][data-party="${pi}"]`);
-            if (orgInp) orgInp.value = orgAmt;
-            // 幹事の%も逆算表示
-            const eq = count > 0 ? partyTotal / count : 0;
-            const pct = eq > 0 ? Math.round(orgAmt / eq * 100) : 100;
-            if (!Array.isArray(settleWeights[settleOrganizer])) settleWeights[settleOrganizer] = [];
-            settleWeights[settleOrganizer][pi] = pct;
-            const sel = result.querySelector(`.settle-weight[data-name="${CSS.escape(settleOrganizer)}"][data-party="${pi}"]`);
-            if (sel) setWeightSelect(sel, pct);
-          }
-        }
-        updateWeightSums();
-        updateDiffs();
-      }
-
       // 割合セレクタ（次会別）：その人の金額だけを「均等額×割合」に更新（他人は自動調整しない）
       result.querySelectorAll('.settle-weight').forEach(sel => {
         sel.addEventListener('change', () => {
@@ -2636,18 +2601,11 @@
           const amtInp = result.querySelector(`.settle-amount-input[data-ri="${ri}"][data-party="${pi}"]`);
           if (amtInp) amtInp.value = Math.round(equalShare * pct / 100 / 100) * 100;
           amountsCustomized = true;
-          recomputeOrganizer();
+          updateWeightSums();
+          updateDiffs();
         });
       });
-
-      // 幹事ラジオ：選ぶとその人が差額（端数）を吸収
-      result.querySelectorAll('.settle-org').forEach(r => {
-        r.addEventListener('change', () => {
-          if (r.checked) { settleOrganizer = r.dataset.name; recomputeOrganizer(); }
-        });
-      });
-
-      recomputeOrganizer(); // 初期表示（幹事が設定済みなら差額を反映）
+      updateWeightSums(); // 初期表示
 
       // 均等割りに戻す（次会ごとに計算）
       result.querySelector('#resetAmountsBtn')?.addEventListener('click', () => {
@@ -2664,7 +2622,8 @@
         settleWeights = {};
         result.querySelectorAll('.settle-weight').forEach(sel => { sel.value = '100'; });
         amountsCustomized = false;
-        recomputeOrganizer();
+        updateWeightSums();
+        updateDiffs();
       });
     }
   }
