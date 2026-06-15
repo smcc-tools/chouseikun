@@ -2544,8 +2544,39 @@
     });
 
     if (!readOnly) {
+      // セレクタに任意の%値を表示（標準の選択肢に無ければ追加）
+      function setWeightSelect(sel, pct) {
+        pct = Math.round(pct);
+        if (![...sel.options].some(o => parseInt(o.value) === pct)) {
+          const o = document.createElement('option');
+          o.value = String(pct); o.textContent = pct + '%';
+          sel.appendChild(o);
+        }
+        sel.value = String(pct);
+      }
+      // 手動で入力した金額から各人の%を逆算（均等割り＝100%基準）してセレクタに反映
+      function syncWeightsFromAmounts(pi) {
+        const partyInp = document.querySelector(`.party-amount-input[data-idx="${pi}"]`);
+        const partyTotal = partyInp ? (parseInt(partyInp.value) || 0) : (partyAmounts[pi] || 0);
+        const equalShare = count > 0 ? partyTotal / count : 0;
+        sortedNames.forEach((name, ri) => {
+          const amtInp = result.querySelector(`.settle-amount-input[data-ri="${ri}"][data-party="${pi}"]`);
+          const amt = amtInp ? (parseInt(amtInp.value) || 0) : 0;
+          const pct = equalShare > 0 ? Math.round(amt / equalShare * 100) : 100;
+          if (!Array.isArray(settleWeights[name])) settleWeights[name] = [];
+          settleWeights[name][pi] = pct;
+          const sel = result.querySelector(`.settle-weight[data-name="${CSS.escape(name)}"][data-party="${pi}"]`);
+          if (sel) setWeightSelect(sel, pct);
+        });
+        updateWeightSums();
+      }
+
       result.querySelectorAll('.settle-amount-input').forEach(input => {
-        input.addEventListener('input', () => { amountsCustomized = true; updateDiffs(); });
+        input.addEventListener('input', () => {
+          amountsCustomized = true;
+          syncWeightsFromAmounts(parseInt(input.dataset.party));
+          updateDiffs();
+        });
       });
 
       // 次会ごとに割合の平均が100%か表示（✅/⚠️）
