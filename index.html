@@ -2117,6 +2117,8 @@
   let settleNames = [];
   let settleReadOnly = false;
   let amountsCustomized = false; // 金額を手動変更したか
+  let settleWeights = {};        // 名前 -> 割合(%)　傾斜配分用
+  let settleOrganizer = null;    // 幹事の名前（端数を寄せる先）
 
   function getSortedNames(data) {
     const participants = data.participants || {};
@@ -2191,6 +2193,8 @@
     const sPartyPersonAmounts = settle.partyPersonAmounts ||
       (settle.amounts ? Object.fromEntries(Object.entries(settle.amounts).map(([k,v]) => [k,[v]])) : {});
     amountsCustomized = !!(settle.partyPersonAmounts && Object.keys(settle.partyPersonAmounts).length);
+    settleWeights = settle.weights ? { ...settle.weights } : {};
+    settleOrganizer = settle.organizer || null;
     buildPartyAmountsUI(sPartyCount, sPartyAmounts, sPartyNames, readOnly);
     // readOnly時はinputがないため合計を直接セット（partyAmountsの合算を使う）
     const computedTotal = sPartyAmounts.reduce((s, v) => s + (v || 0), 0);
@@ -2266,7 +2270,8 @@
       account: document.getElementById('bankAccount')?.value.trim() || '',
     };
     await updateDoc(doc(db, 'events', eventId), {
-      settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo },
+      settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
+                weights: settleWeights, organizer: settleOrganizer },
       settlePublished: true
     });
     document.getElementById('publishedBadge').style.display = 'block';
@@ -2386,12 +2391,24 @@
         <label for="paid-${ri}">支払済み</label>
       </div>`;
 
+      // 傾斜：割合セレクタ＆幹事ラジオ（編集モードのみ）
+      let weightCell = '', orgCell = '';
+      if (!readOnly) {
+        const w = settleWeights[name] !== undefined ? settleWeights[name] : 100;
+        const opts = [0,25,50,75,100,125,150,175,200].map(p =>
+          `<option value="${p}" ${p===w?'selected':''}>${p}%</option>`).join('');
+        weightCell = `<td><select class="settle-weight" data-name="${en}" data-ri="${ri}" style="padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.82rem;background:#fbfaf5;outline:none;">${opts}</select></td>`;
+        orgCell = `<td style="text-align:center;"><input type="radio" name="settleOrgRadio" class="settle-org" data-name="${en}" ${settleOrganizer===name?'checked':''} style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;"></td>`;
+      }
+
       return `<tr id="row-${ri}" class="${isPaid?'paid':''}">
         <td class="settle-name">${en}</td>
         ${partyCells}
         ${totalCell}
         ${diffCell}
         <td>${paidCell}</td>
+        ${weightCell}
+        ${orgCell}
       </tr>`;
     }).join('');
 
@@ -2400,6 +2417,7 @@
         <th>名前</th>${partyHeaders}<th>合計</th>
         ${readOnly ? '' : '<th>均等との差</th>'}
         <th>状態</th>
+        ${readOnly ? '' : '<th>割合</th><th>幹事</th>'}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -2431,7 +2449,12 @@
       ${buildSettleMatchBanner(collected - total, total, collected)}
       ${buildSettleSummary(total, collected, count, overallPerPerson)}
       ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
-      ${readOnly ? '' : '<button class="btn btn-secondary btn-full" id="resetAmountsBtn">🔄 均等割りに戻す</button>'}
+      ${readOnly ? '' : `
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
+          各人の「割合」を選び、端数を寄せる「幹事」を1人選んで「傾斜を反映」を押すと、各次会の金額が自動配分されます（100円単位）。
+        </div>
+        <button class="btn btn-primary btn-full" id="applyWeightBtn">⚖️ 傾斜を反映（端数は幹事へ）</button>
+        <button class="btn btn-secondary btn-full" id="resetAmountsBtn">🔄 均等割りに戻す</button>`}
     `;
 
     function updateDiffs() {
@@ -2500,6 +2523,42 @@
     if (!readOnly) {
       result.querySelectorAll('.settle-amount-input').forEach(input => {
         input.addEventListener('input', () => { amountsCustomized = true; updateDiffs(); });
+      });
+
+      // 割合セレクタ・幹事ラジオの記録
+      result.querySelectorAll('.settle-weight').forEach(sel => {
+        sel.addEventListener('change', () => { settleWeights[sel.dataset.name] = parseInt(sel.value) || 0; });
+      });
+      result.querySelectorAll('.settle-org').forEach(r => {
+        r.addEventListener('change', () => { if (r.checked) settleOrganizer = r.dataset.name; });
+      });
+
+      // 傾斜を反映：各次会の金額を割合比で配分し、端数は幹事へ
+      result.querySelector('#applyWeightBtn')?.addEventListener('click', () => {
+        const curPartyAmounts = partyAmounts.map((orig, pi) => {
+          const inp = document.querySelector(`.party-amount-input[data-idx="${pi}"]`);
+          return inp ? (parseInt(inp.value) || 0) : orig;
+        });
+        const weights = sortedNames.map(n => (settleWeights[n] !== undefined ? settleWeights[n] : 100) / 100);
+        const sumW = weights.reduce((s, v) => s + v, 0);
+        if (sumW <= 0) { showToast('⚠️ 割合の合計が0です'); return; }
+        const orgIdx = sortedNames.indexOf(settleOrganizer);
+        for (let pi = 0; pi < partyCount; pi++) {
+          const A = curPartyAmounts[pi] || 0;
+          const rounded = weights.map(w => Math.round((A * w / sumW) / 100) * 100);
+          const remainder = A - rounded.reduce((s, v) => s + v, 0);
+          // 端数の寄せ先：幹事（未指定なら最大額の人）
+          let target = orgIdx >= 0 ? orgIdx : rounded.indexOf(Math.max(...rounded));
+          if (target < 0) target = 0;
+          rounded[target] = Math.max(0, rounded[target] + remainder);
+          sortedNames.forEach((n, ri) => {
+            const input = result.querySelector(`.settle-amount-input[data-ri="${ri}"][data-party="${pi}"]`);
+            if (input) input.value = rounded[ri];
+          });
+        }
+        amountsCustomized = true;
+        updateDiffs();
+        showToast(orgIdx >= 0 ? '⚖️ 傾斜を反映しました' : '⚖️ 反映しました（幹事未選択のため端数は最多額の人へ）');
       });
 
       // 均等割りに戻す（次会ごとに計算）
