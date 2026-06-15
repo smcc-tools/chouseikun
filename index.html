@@ -2375,7 +2375,8 @@
     const partyHeaders = Array.from({length: partyCount}, (_, i) => {
       const nm = (partyNames && partyNames[i]) ? partyNames[i] : `${i+1}次会`;
       const equalLabel = readOnly ? '' : `<br><small style="font-weight:normal;opacity:0.75;font-size:0.72rem;">均等¥${perPartyPerson[i].toLocaleString()}</small>`;
-      return `<th>${escHtml(nm)}${equalLabel}</th>`;
+      const sumLabel = readOnly ? '' : `<br><small id="wsum-${i}" style="font-weight:700;font-size:0.7rem;"></small>`;
+      return `<th>${escHtml(nm)}${equalLabel}${sumLabel}</th>`;
     }).join('');
 
     const rows = sortedNames.map((name, ri) => {
@@ -2532,6 +2533,19 @@
         input.addEventListener('input', () => { amountsCustomized = true; updateDiffs(); });
       });
 
+      // 次会ごとに割合の合計が100%か表示（✅/⚠️）
+      function updateWeightSums() {
+        for (let pi = 0; pi < partyCount; pi++) {
+          let sum = 0;
+          result.querySelectorAll(`.settle-weight[data-party="${pi}"]`).forEach(s => { sum += parseInt(s.value) || 0; });
+          const el = result.querySelector(`#wsum-${pi}`);
+          if (!el) continue;
+          const ok = sum === 100;
+          el.textContent = `${ok ? '✅' : '⚠️'} 割合計 ${sum}%`;
+          el.style.color = ok ? '#bff0c0' : '#ffd27a';
+        }
+      }
+
       // 傾斜配分：各次会の金額を「その次会の割合比」で配分し、端数は幹事へ
       function applyWeightedDistribution(showMsg) {
         const curPartyAmounts = partyAmounts.map((orig, pi) => {
@@ -2574,9 +2588,11 @@
           const n = sel.dataset.name, pi = parseInt(sel.dataset.party);
           if (!Array.isArray(settleWeights[n])) settleWeights[n] = [];
           settleWeights[n][pi] = parseInt(sel.value) || 0;
+          updateWeightSums();
           applyWeightedDistribution(false);
         });
       });
+      updateWeightSums(); // 初期表示
       // 幹事：変更したら端数の寄せ先が変わるので再配分
       result.querySelectorAll('.settle-org').forEach(r => {
         r.addEventListener('change', () => {
