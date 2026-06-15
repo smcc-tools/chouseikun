@@ -2458,7 +2458,7 @@
       ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
       ${readOnly ? '' : `
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
-          各次会セルの上にある「割合」を各人ごとに選び（来てない次会は0%）、端数を寄せる「幹事」を1人選んで「傾斜を反映」を押すと、各次会の金額が割合比で自動配分されます（100円単位）。
+          各次会セルの上にある「割合」を各人ごとに選ぶ（来てない次会は0%）と、その場で金額が割合比で自動配分されます（100円単位）。端数は「幹事」に寄せられます。手動で金額をいじった後に割合配分へ戻したいときは下の「傾斜を反映」を押してください。
         </div>
         <button class="btn btn-primary btn-full" id="applyWeightBtn">⚖️ 傾斜を反映（端数は幹事へ）</button>
         <button class="btn btn-secondary btn-full" id="resetAmountsBtn">🔄 均等割りに戻す</button>`}
@@ -2532,20 +2532,8 @@
         input.addEventListener('input', () => { amountsCustomized = true; updateDiffs(); });
       });
 
-      // 割合セレクタ（次会別）・幹事ラジオの記録
-      result.querySelectorAll('.settle-weight').forEach(sel => {
-        sel.addEventListener('change', () => {
-          const n = sel.dataset.name, pi = parseInt(sel.dataset.party);
-          if (!Array.isArray(settleWeights[n])) settleWeights[n] = [];
-          settleWeights[n][pi] = parseInt(sel.value) || 0;
-        });
-      });
-      result.querySelectorAll('.settle-org').forEach(r => {
-        r.addEventListener('change', () => { if (r.checked) settleOrganizer = r.dataset.name; });
-      });
-
-      // 傾斜を反映：各次会の金額を「その次会の割合比」で配分し、端数は幹事へ
-      result.querySelector('#applyWeightBtn')?.addEventListener('click', () => {
+      // 傾斜配分：各次会の金額を「その次会の割合比」で配分し、端数は幹事へ
+      function applyWeightedDistribution(showMsg) {
         const curPartyAmounts = partyAmounts.map((orig, pi) => {
           const inp = document.querySelector(`.party-amount-input[data-idx="${pi}"]`);
           return inp ? (parseInt(inp.value) || 0) : orig;
@@ -2577,8 +2565,27 @@
         }
         amountsCustomized = true;
         updateDiffs();
-        showToast(orgIdx >= 0 ? '⚖️ 傾斜を反映しました' : '⚖️ 反映しました（幹事未選択のため端数は最多額の人へ）');
+        if (showMsg) showToast(orgIdx >= 0 ? '⚖️ 傾斜を反映しました' : '⚖️ 反映しました（幹事未選択のため端数は最多額の人へ）');
+      }
+
+      // 割合セレクタ（次会別）：変更したら即座に再配分（ボタン不要）
+      result.querySelectorAll('.settle-weight').forEach(sel => {
+        sel.addEventListener('change', () => {
+          const n = sel.dataset.name, pi = parseInt(sel.dataset.party);
+          if (!Array.isArray(settleWeights[n])) settleWeights[n] = [];
+          settleWeights[n][pi] = parseInt(sel.value) || 0;
+          applyWeightedDistribution(false);
+        });
       });
+      // 幹事：変更したら端数の寄せ先が変わるので再配分
+      result.querySelectorAll('.settle-org').forEach(r => {
+        r.addEventListener('change', () => {
+          if (r.checked) { settleOrganizer = r.dataset.name; applyWeightedDistribution(false); }
+        });
+      });
+
+      // 手動で金額を編集した後などに、明示的に再配分するボタン
+      result.querySelector('#applyWeightBtn')?.addEventListener('click', () => applyWeightedDistribution(true));
 
       // 均等割りに戻す（次会ごとに計算）
       result.querySelector('#resetAmountsBtn')?.addEventListener('click', () => {
