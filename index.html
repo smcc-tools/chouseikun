@@ -2533,15 +2533,17 @@
         input.addEventListener('input', () => { amountsCustomized = true; updateDiffs(); });
       });
 
-      // 次会ごとに割合の合計が100%か表示（✅/⚠️）
+      // 次会ごとに割合の平均が100%か表示（✅/⚠️）
       function updateWeightSums() {
         for (let pi = 0; pi < partyCount; pi++) {
-          let sum = 0;
-          result.querySelectorAll(`.settle-weight[data-party="${pi}"]`).forEach(s => { sum += parseInt(s.value) || 0; });
+          let sum = 0, n = 0;
+          result.querySelectorAll(`.settle-weight[data-party="${pi}"]`).forEach(s => { sum += parseInt(s.value) || 0; n++; });
           const el = result.querySelector(`#wsum-${pi}`);
           if (!el) continue;
-          const ok = sum === 100;
-          el.textContent = `${ok ? '✅' : '⚠️'} 割合計 ${sum}%`;
+          const avg = n > 0 ? sum / n : 0;
+          const ok = sum === n * 100; // 平均がちょうど100%
+          const avgStr = Number.isInteger(avg) ? avg : avg.toFixed(1);
+          el.textContent = `${ok ? '✅' : '⚠️'} 平均 ${avgStr}%`;
           el.style.color = ok ? '#bff0c0' : '#ffd27a';
         }
       }
