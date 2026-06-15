@@ -2585,9 +2585,11 @@
           } else {
             rounded = wfrac.map(w => Math.round((A * w / sumW) / 100) * 100);
             const remainder = A - rounded.reduce((s, v) => s + v, 0);
-            let target = orgIdx >= 0 ? orgIdx : rounded.indexOf(Math.max(...rounded));
+            // 端数の寄せ先：幹事。ただし幹事がこの次会で0%(=端数を吸収できない)or未指定なら最多額の人へ
+            let target = orgIdx;
+            if (target < 0 || rounded[target] + remainder < 0) target = rounded.indexOf(Math.max(...rounded));
             if (target < 0) target = 0;
-            rounded[target] = Math.max(0, rounded[target] + remainder);
+            rounded[target] = rounded[target] + remainder; // 合計が必ずAになるようクランプしない
           }
           sortedNames.forEach((n, ri) => {
             const input = result.querySelector(`.settle-amount-input[data-ri="${ri}"][data-party="${pi}"]`);
