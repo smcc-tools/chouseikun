@@ -214,7 +214,7 @@
     /* 確定日の強調表示 */
     tr.confirmed-row td { background: #FBF6E8 !important; }
     tr.confirmed-row td.date-cell { color: var(--gold); font-weight: 800; }
-    tr.confirmed-row td.date-cell::before { content: '🎉 '; }
+    tr.confirmed-row td.date-cell::before { content: '✓ '; }
     tr.confirmed-row td.point-cell { color: var(--gold); background: #F6EFD8 !important; }
     .confirm-btn {
       font-size: 0.68rem; background: none;
@@ -268,7 +268,7 @@
     .legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--text-muted); }
     .pin-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
     .empty-msg, .loading { text-align: center; color: #bbb; padding: 40px; font-size: 0.9rem; }
-    .loading::before { content: '⏳ '; }
+    .loading::before { content: ''; }
     #viewCard { display: none; }
     /* 精算ページ */
     .settle-summary {
@@ -341,11 +341,11 @@
     /* 日程削除ボタン（ホスト専用） */
     .date-del-btn {
       font-size:0.65rem; background:none;
-      border:1px solid rgba(255,100,100,0.5); color:rgba(255,160,160,1);
-      border-radius:4px; cursor:pointer; padding:2px 5px; margin-left:4px;
+      border:1px solid #E2BFB6; color:#C0705A;
+      border-radius:999px; cursor:pointer; padding:2px 8px; margin-left:4px;
       transition:all 0.15s; white-space:nowrap;
     }
-    .date-del-btn:hover { background:rgba(255,80,80,0.25); color:white; }
+    .date-del-btn:hover { background:#F7EAE6; }
     /* 認証エリア */
     #signInBtn { transition: border-color 0.2s, box-shadow 0.2s; }
     #signInBtn:hover { border-color: var(--green); box-shadow: 0 0 0 2px rgba(61,90,58,0.1); }
@@ -381,7 +381,7 @@
     <div class="header-logo">調整くん</div>
     <div id="authArea" style="margin-left:auto;display:flex;align-items:center;gap:10px;">
       <div id="authUser" style="display:none;align-items:center;gap:8px;">
-        <a id="myEventsNavBtn" href="#" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:4px 12px;font-size:0.78rem;color:var(--green);cursor:pointer;font-weight:600;text-decoration:none;white-space:nowrap;">📋 マイイベント</a>
+        <a id="myEventsNavBtn" href="#" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:4px 12px;font-size:0.78rem;color:var(--green);cursor:pointer;font-weight:600;text-decoration:none;white-space:nowrap;">マイイベント</a>
         <img id="authAvatar" src="" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--green-mid);">
         <span id="authName" style="font-size:0.8rem;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
         <button id="signOutBtn" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">ログアウト</button>
@@ -397,7 +397,7 @@
 
 <!-- マイイベント一覧カード -->
 <div class="card" id="myEventsCard" style="display:none;">
-  <div class="card-title"><div class="icon">📋</div>マイイベント</div>
+  <div class="card-title">マイイベント</div>
   <div id="myEventsList"></div>
   <button class="btn btn-ghost" id="newEventBtn" style="margin-top:12px;width:100%;">＋ 新しいイベントを作成</button>
   <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);font-size:0.74rem;color:var(--text-muted);line-height:1.6;">
@@ -409,7 +409,7 @@
 
 <!-- イベント作成カード -->
 <div class="card" id="setupCard">
-  <div class="card-title"><div class="icon">✏️</div>イベントを作成</div>
+  <div class="card-title">イベントを作成</div>
 
   <div class="field">
     <label>イベント名</label>
@@ -471,20 +471,20 @@
   </div>
 
   <button class="btn btn-primary btn-full" id="createBtn" style="padding:14px;">
-    🔗 イベントを作成してリンクを発行
+    イベントを作成してリンクを発行
   </button>
 
   <div class="share-box" id="shareBox">
-    <div class="share-label">✅ 作成完了！それぞれのリンクを共有してください</div>
+    <div class="share-label">作成完了！それぞれのリンクを共有してください</div>
     <div style="margin-bottom:10px;">
-      <div style="font-size:0.8rem;font-weight:600;color:var(--green);margin-bottom:4px;">👥 参加者用URL</div>
+      <div style="font-size:0.8rem;font-weight:600;color:var(--green);margin-bottom:4px;">参加者用URL</div>
       <div class="share-url">
         <input type="text" id="shareUrl" readonly>
         <button class="btn btn-primary" id="copyBtn">コピー</button>
       </div>
     </div>
     <div style="font-size:0.78rem;color:var(--text-muted);background:#f4f8e8;border:1px solid var(--green-mid);border-radius:6px;padding:10px 12px;line-height:1.6;">
-      🔑 このイベントの<strong>幹事はあなたのアカウント</strong>に紐づきました。管理はログイン後、トップページの「マイイベント」から行えます。
+      このイベントの<strong>幹事はあなたのアカウント</strong>に紐づきました。管理はログイン後、トップページの「マイイベント」から行えます。
     </div>
   </div>
 </div>
@@ -493,17 +493,17 @@
 <div class="card" id="viewCard">
   <div class="card-title" style="justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:8px;">
-      <div class="icon">🗓️</div>
+      
       <span id="viewTitle">出欠を回答する</span>
-      <button id="editTitleBtn" class="host-only" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">✏️ 編集</button>
+      <button id="editTitleBtn" class="host-only" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">編集</button>
     </div>
     <div id="hostBadge" style="display:none;background:#C0705A;color:white;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:0.04em;">HOST</div>
   </div>
 
   <div id="memoWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.88rem;color:var(--text);line-height:1.6;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-      <div><span style="font-weight:600;color:var(--green);margin-right:8px;">📋 メモ</span><span id="eventMemoView"></span></div>
-      <button id="editMemoBtn" class="host-only" style="display:none;background:none;border:1px solid var(--green-mid);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--green);cursor:pointer;white-space:nowrap;">✏️ 編集</button>
+      <div><span style="font-weight:600;color:var(--green);margin-right:8px;">メモ</span><span id="eventMemoView"></span></div>
+      <button id="editMemoBtn" class="host-only" style="display:none;background:none;border:1px solid var(--green-mid);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--green);cursor:pointer;white-space:nowrap;">編集</button>
     </div>
   </div>
   <!-- メモがない場合のホスト用追加ボタン -->
@@ -513,7 +513,7 @@
 
   <!-- ホスト専用：参加者用URL表示 -->
   <div id="participantUrlWrap" class="host-only" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">👥 参加者用URL（共有用）</div>
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
     <div style="display:flex;gap:8px;">
       <input type="text" id="participantUrlView" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
       <button class="btn btn-secondary" id="copyParticipantUrlBtn" style="white-space:nowrap;">コピー</button>
@@ -521,7 +521,7 @@
   </div>
   <!-- ホスト専用：共同ホスト管理（アカウントコード方式） -->
   <div id="coHostWrap" class="host-only" style="display:none;background:#fff8f0;border:1px solid #f5d5a0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:#b8860b;margin-bottom:8px;">🔑 共同ホスト管理</div>
+    <div style="font-size:0.8rem;font-weight:600;color:#b8860b;margin-bottom:8px;">共同ホスト管理</div>
     <div style="font-size:0.75rem;color:#8a6d3b;margin-bottom:8px;line-height:1.5;">共同ホストにしたい人に、その人の「ホストコード」を聞いて下記に貼り付けてください。相手はログイン後、画面下部に表示される自分のホストコードをコピーできます。</div>
     <div id="coHostUrlList"></div>
     <div style="display:flex;gap:8px;margin-top:8px;">
@@ -543,20 +543,20 @@
     <div class="legend-item"><span style="color:#C0705A;font-size:1rem;">✕</span> 参加できない（0pt）</div>
     <div class="legend-item"><span style="color:var(--gold);">★</span> 最高得点日</div>
     <div class="legend-item host-only" style="display:none;margin-top:4px;width:100%;background:#f4f8e8;border:1px solid var(--green-mid);border-radius:6px;padding:6px 10px;font-size:0.8rem;color:var(--green);">
-      日付の横の <b>📌 確定</b> ボタンを押すと開催日を確定できます
+      日付の横の <b>確定</b> ボタンを押すと開催日を確定できます
     </div>
   </div>
 
   <!-- ホスト専用：精算ボタン -->
   <div class="host-only" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
     <button class="btn btn-primary" id="goSettleBtn" style="width:100%;padding:14px;font-size:1rem;">
-      💰 会が終了したので精算に進む
+      会が終了したので精算に進む
     </button>
   </div>
   <!-- 参加者向け：精算公開時に表示 -->
   <div id="viewSettleWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
     <button class="btn btn-secondary" id="goViewSettleBtn" style="width:100%;padding:12px;font-size:0.95rem;">
-      💰 精算を確認する
+      精算を確認する
     </button>
   </div>
 </div>
@@ -565,7 +565,7 @@
 <div class="card" id="settleCard" style="display:none;">
   <div class="card-title" style="justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:8px;">
-      <div class="icon">💰</div>
+      
       <span id="settleTitle">精算</span>
     </div>
     <button id="backToEventBtn" style="background:none;border:1px solid var(--border);border-radius:4px;padding:4px 12px;font-size:0.8rem;color:var(--text-muted);cursor:pointer;">← 回答画面に戻る</button>
@@ -592,7 +592,7 @@
 
   <!-- 振込先口座 -->
   <div id="bankInfoWrap" style="margin-bottom:20px;">
-    <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;">🏦 振込先口座</div>
+    <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;">振込先口座</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div>
         <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;">銀行名</div>
@@ -643,9 +643,9 @@
   <!-- ホスト用：参加者に公開ボタン -->
   <div id="publishSettleWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
     <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
-      👥 参加者にも表示する
+      参加者にも表示する
     </button>
-    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">✅ 参加者に公開済み　<button id="unpublishBtn" style="background:none;border:1px solid #ccc;border-radius:4px;padding:2px 8px;font-size:0.78rem;color:#888;cursor:pointer;margin-left:8px;">非公開に戻す</button></div>
+    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に公開済み　<button id="unpublishBtn" style="background:none;border:1px solid #ccc;border-radius:4px;padding:2px 8px;font-size:0.78rem;color:#888;cursor:pointer;margin-left:8px;">非公開に戻す</button></div>
   </div>
 </div>
 
@@ -1029,20 +1029,20 @@
     ov.id = 'extBrowserGuide';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:24px;';
     const lineBtn = isLineBrowser()
-      ? `<button id="extOpenBtn" class="btn btn-primary" style="width:100%;margin-bottom:10px;">🌐 外部ブラウザで開く</button>`
+      ? `<button id="extOpenBtn" class="btn btn-primary" style="width:100%;margin-bottom:10px;">外部ブラウザで開く</button>`
       : '';
     const hint = isLineBrowser()
       ? 'ボタンが効かない場合は、右下の「⋮」または共有アイコンから「他のアプリで開く / ブラウザで開く」を選んでください。'
       : '画面のメニューから「ブラウザで開く（Safari / Chrome）」を選んでください。';
     ov.innerHTML = `
       <div style="background:#fff;border-radius:14px;padding:22px 20px;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.3);">
-        <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:10px;">🔑 ログインは外部ブラウザで</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:10px;">ログインは外部ブラウザで</div>
         <div style="font-size:0.85rem;color:var(--text-muted);line-height:1.7;margin-bottom:16px;">
           アプリ内ブラウザ（LINE等）では、セキュリティ上Googleログインができません。<br>
           Safari / Chrome で開き直してログインしてください。
         </div>
         ${lineBtn}
-        <button id="extCopyBtn" class="btn btn-secondary" style="width:100%;margin-bottom:10px;">📋 URLをコピー</button>
+        <button id="extCopyBtn" class="btn btn-secondary" style="width:100%;margin-bottom:10px;">URLをコピー</button>
         <div style="font-size:0.76rem;color:var(--text-muted);line-height:1.6;margin-bottom:14px;">${hint}</div>
         <button id="extCloseBtn" class="btn btn-ghost" style="width:100%;">閉じる</button>
       </div>`;
@@ -1054,7 +1054,7 @@
       location.href = u.toString();
     });
     document.getElementById('extCopyBtn')?.addEventListener('click', () => {
-      navigator.clipboard.writeText(url).then(() => showToast('📋 URLをコピーしました'));
+      navigator.clipboard.writeText(url).then(() => showToast('URLをコピーしました'));
     });
     document.getElementById('extCloseBtn')?.addEventListener('click', () => ov.remove());
     ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
@@ -1072,11 +1072,11 @@
         try {
           await signInWithRedirect(auth, provider);
         } catch (e2) {
-          showToast('⚠️ ログインに失敗しました');
+          showToast('ログインに失敗しました');
           console.error(e2);
         }
       } else {
-        showToast('⚠️ ログインに失敗しました');
+        showToast('ログインに失敗しました');
         console.error(e);
       }
     }
@@ -1086,7 +1086,7 @@
 
   document.getElementById('signOutBtn').addEventListener('click', async () => {
     await signOut(auth);
-    showToast('👋 ログアウトしました');
+    showToast('ログアウトしました');
   });
 
   // ヘッダーの「マイイベント」ボタン：トップページ（クエリなし）へ遷移
@@ -1106,11 +1106,11 @@
   document.getElementById('createBtn').addEventListener('click', async () => {
     const name = document.getElementById('eventName').value.trim();
     const dates = getDates();
-    if (!name) { showToast('⚠️ イベント名を入力してください'); return; }
-    if (dates.length === 0) { showToast('⚠️ 候補日を1つ以上選択してください'); return; }
+    if (!name) { showToast('イベント名を入力してください'); return; }
+    if (dates.length === 0) { showToast('候補日を1つ以上選択してください'); return; }
     // アカウント認可：ホストはログイン必須
     if (!currentUser) {
-      showToast('🔑 イベント作成にはログインが必要です');
+      showToast('イベント作成にはログインが必要です');
       await signIn();
       return;
     }
@@ -1118,7 +1118,7 @@
     const presetNames = getPresetParticipants();
     for (const pName of presetNames) {
       const err = validateParticipantName(pName);
-      if (err) { showToast(`⚠️ 事前参加者「${pName}」：${err}`); return; }
+      if (err) { showToast(`事前参加者「${pName}」：${err}`); return; }
     }
     const btn = document.getElementById('createBtn');
     btn.textContent = '作成中...';
@@ -1137,15 +1137,15 @@
     const url = `${base}?event=${eventId}`;
     document.getElementById('shareUrl').value = url;
     document.getElementById('shareBox').style.display = 'block';
-    btn.textContent = '✅ 作成済み';
+    btn.textContent = '作成済み';
     addMyEvent(eventId, name, true);
-    showToast('🎉 イベントを作成しました！');
+    showToast('イベントを作成しました！');
   });
 
   function copyText(text, btnEl, label) {
     navigator.clipboard.writeText(text).then(() => {
-      btnEl.textContent = '✅ コピー済み';
-      showToast(`📋 ${label}をコピーしました`);
+      btnEl.textContent = 'コピー済み';
+      showToast(`${label}をコピーしました`);
       setTimeout(() => btnEl.textContent = 'コピー', 2000);
     });
   }
@@ -1281,7 +1281,7 @@
         span.id = 'viewTitle';
         span.textContent = val;
         input.replaceWith(span);
-        if (val !== current) { updateDoc(eventRef, { name: val }); showToast('✅ タイトルを更新しました'); if (currentUser) addMyEvent(eventId, val, true); }
+        if (val !== current) { updateDoc(eventRef, { name: val }); showToast('タイトルを更新しました'); if (currentUser) addMyEvent(eventId, val, true); }
       };
       input.addEventListener('blur', save);
       input.addEventListener('keydown', e => {
@@ -1308,7 +1308,7 @@
         span.id = 'eventMemoView';
         span.textContent = val || current;
         ta.replaceWith(span);
-        if (val !== current) { updateDoc(eventRef, { memo: val }); showToast('✅ メモを更新しました'); }
+        if (val !== current) { updateDoc(eventRef, { memo: val }); showToast('メモを更新しました'); }
       };
       ta.addEventListener('blur', save);
       ta.addEventListener('keydown', e => {
@@ -1324,7 +1324,7 @@
     document.getElementById('addCoHostBtn')?.addEventListener('click', async () => {
       const input = document.getElementById('coHostCodeInput');
       const code = (input?.value || '').trim();
-      if (!code) { showToast('⚠️ ホストコードを貼り付けてください'); return; }
+      if (!code) { showToast('ホストコードを貼り付けてください'); return; }
       let updated;
       try {
         updated = await runTransaction(db, async (tx) => {
@@ -1337,18 +1337,18 @@
         });
       } catch (e) {
         if (e.message === 'DUP') showToast('すでに共同ホストです');
-        else { showToast('⚠️ 追加に失敗しました'); console.error(e); }
+        else { showToast('追加に失敗しました'); console.error(e); }
         return;
       }
       if (input) input.value = '';
       const base = `${location.origin}${location.pathname}`;
       renderCoHostList(updated, base, eventId);
-      showToast('🔑 共同ホストを追加しました');
+      showToast('共同ホストを追加しました');
     });
 
     // 自分のホストコードを表示・コピー
     document.getElementById('copyMyCodeBtn')?.addEventListener('click', () => {
-      if (!currentUser) { showToast('⚠️ ログインが必要です'); return; }
+      if (!currentUser) { showToast('ログインが必要です'); return; }
       copyText(currentUser.uid, document.getElementById('copyMyCodeBtn'), 'ホストコード');
     });
 
@@ -1362,7 +1362,7 @@
       ta.focus();
       const save = () => {
         const val = ta.value.trim();
-        if (val) { updateDoc(eventRef, { memo: val }); showToast('✅ メモを追加しました'); }
+        if (val) { updateDoc(eventRef, { memo: val }); showToast('メモを追加しました'); }
         else { ta.replaceWith(addMemoWrap); }
       };
       ta.addEventListener('blur', save);
@@ -1390,8 +1390,8 @@
         </div>` : '';
       return `<th class="participant-th" data-col="${en}">
         ${en}<br>
-        <button class="edit-btn" data-name="${en}">✏️ 変更・削除</button><br>
-        <button class="del-btn" data-name="${en}">🗑 削除する</button>
+        <button class="edit-btn" data-name="${en}">変更・削除</button><br>
+        <button class="del-btn" data-name="${en}">削除する</button>
         ${reorderBtns}
        </th>`;
     }).join('');
@@ -1423,10 +1423,10 @@
         </div>
       </td>`;
       const confirmBtn = isHost
-        ? `<button class="confirm-btn ${isConfirmed?'confirmed':''}" data-date-idx="${i}">${isConfirmed?'✅ 確定中':'📌 確定'}</button>`
+        ? `<button class="confirm-btn ${isConfirmed?'confirmed':''}" data-date-idx="${i}">${isConfirmed?'確定中':'確定'}</button>`
         : '';
       const deleteDateBtn = isHost
-        ? `<button class="date-del-btn" data-date-idx="${i}">🗑</button>`
+        ? `<button class="date-del-btn" data-date-idx="${i}">削除</button>`
         : '';
       return `<tr class="${isConfirmed?'confirmed-row':''}">
         <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${dateLabel}${confirmBtn}${deleteDateBtn}</td>
@@ -1513,7 +1513,7 @@
             await updateDoc(doc(db, 'events', eventId), updates);
           }
           btn.classList.remove('editing');
-          btn.textContent = '✏️ 変更・削除';
+          btn.textContent = '変更・削除';
           cells.forEach(td => {
             td.classList.add('locked');
             // ボタンを隠して表示ラベルを出す
@@ -1532,11 +1532,11 @@
             }
           });
           delBtn.classList.remove('visible');
-          showToast('💾 変更を保存しました');
+          showToast('変更を保存しました');
         } else {
           // 編集モード開始：表示ラベルを隠してボタンを出す
           btn.classList.add('editing');
-          btn.textContent = '✅ 完了';
+          btn.textContent = '完了';
           cells.forEach(td => {
             td.classList.remove('locked');
             td.querySelectorAll('.vote-display, .vote-display-empty').forEach(el => el.style.display = 'none');
@@ -1559,8 +1559,8 @@
             delete newP[name];
             tx.update(ref, { participants: newP });
           });
-          showToast(`🗑 ${name} さんの回答を削除しました`);
-        } catch (e) { showToast('⚠️ 削除に失敗しました'); console.error(e); }
+          showToast(`${name} さんの回答を削除しました`);
+        } catch (e) { showToast('削除に失敗しました'); console.error(e); }
       });
     });
   }
@@ -1702,8 +1702,8 @@
               tx.update(ref, { confirmedDate: isSame ? null : idx });
               return isSame;
             });
-            showToast(wasConfirmed ? '📌 確定を解除しました' : '🎉 日程を確定しました');
-          } catch (e) { showToast('⚠️ 更新に失敗しました'); console.error(e); }
+            showToast(wasConfirmed ? '確定を解除しました' : '日程を確定しました');
+          } catch (e) { showToast('更新に失敗しました'); console.error(e); }
         });
       });
 
@@ -1727,7 +1727,7 @@
               if (dir === 'right' && idx < order.length-1) [order[idx], order[idx+1]] = [order[idx+1], order[idx]];
               tx.update(ref, { participantOrder: order });
             });
-          } catch (e) { showToast('⚠️ 並び替えに失敗しました'); console.error(e); }
+          } catch (e) { showToast('並び替えに失敗しました'); console.error(e); }
         });
       });
     }
@@ -1741,7 +1741,7 @@
         );
         if (unselected !== -1) {
           const dt = new Date(dates[unselected].split(' ')[0] + 'T00:00:00');
-          showToast(`⚠️ ${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
+          showToast(`${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
           return;
         }
         const updates = {};
@@ -1750,7 +1750,7 @@
           updates[`participants.${name}.${i}`] = sel.dataset.key;
         });
         await updateDoc(doc(db, 'events', eventId), updates);
-        showToast(`✅ ${name} さんの回答を登録しました`);
+        showToast(`${name} さんの回答を登録しました`);
       });
     });
 
@@ -1760,13 +1760,13 @@
       registerBtn.addEventListener('click', async () => {
         const rawName = (wrap.querySelector('#newName')?.value || '').trim();
         const nameErr = validateParticipantName(rawName);
-        if (nameErr) { showToast(`⚠️ ${nameErr}`); return; }
+        if (nameErr) { showToast(`${nameErr}`); return; }
         const unselected = dates.findIndex((_, i) =>
           !wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`)
         );
         if (unselected !== -1) {
           const dt = new Date(dates[unselected].split(' ')[0] + 'T00:00:00');
-          showToast(`⚠️ ${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
+          showToast(`${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
           return;
         }
         const note = (wrap.querySelector('#newNote')?.value || '').trim();
@@ -1788,11 +1788,11 @@
             }
             tx.update(ref, { [`participants.${rawName}`]: votes });
           });
-          showToast(`✅ ${rawName} さんの回答を登録しました`);
+          showToast(`${rawName} さんの回答を登録しました`);
         } catch (e) {
           resetNewEntry = false; // 失敗時は入力を維持
-          if (e.message === 'DUP') showToast('⚠️ 同じ名前が既に登録されています');
-          else { showToast('⚠️ 登録に失敗しました'); console.error(e); }
+          if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
+          else { showToast('登録に失敗しました'); console.error(e); }
         }
       });
     }
@@ -1841,10 +1841,10 @@
 
             tx.update(ref, { dates: newDates, participants: newParticipants, confirmedDate });
           });
-          showToast('🗑 日程を削除しました');
+          showToast('日程を削除しました');
         } catch (e) {
           if (e.message === 'GONE') showToast('この日程は既に削除されています');
-          else { showToast('⚠️ 削除に失敗しました'); console.error(e); }
+          else { showToast('削除に失敗しました'); console.error(e); }
         }
       });
     });
@@ -1859,8 +1859,8 @@
         const fromVal = fromInput?.value;
         const toVal   = toInput?.value || fromVal; // 終了日未入力なら開始日と同じ
         const explicitTime = timeInput?.value || '';
-        if (!fromVal) { showToast('⚠️ 開始日を選択してください'); return; }
-        if (toVal < fromVal) { showToast('⚠️ 終了日は開始日以降を選択してください'); return; }
+        if (!fromVal) { showToast('開始日を選択してください'); return; }
+        if (toVal < fromVal) { showToast('終了日は開始日以降を選択してください'); return; }
 
         try {
           const added = await runTransaction(db, async (tx) => {
@@ -1901,13 +1901,13 @@
             tx.update(ref, updates);
             return toAdd.length;
           });
-          showToast(`✅ ${added}件の日程を追加しました`);
+          showToast(`${added}件の日程を追加しました`);
           if (fromInput) fromInput.value = '';
           if (toInput)   toInput.value   = '';
           if (timeInput) timeInput.value = '';
         } catch (e) {
-          if (e.message === 'ALL_EXIST') showToast('⚠️ 指定した日程はすべて登録済みです');
-          else { showToast('⚠️ 追加に失敗しました'); console.error(e); }
+          if (e.message === 'ALL_EXIST') showToast('指定した日程はすべて登録済みです');
+          else { showToast('追加に失敗しました'); console.error(e); }
         }
       });
     }
@@ -1948,8 +1948,8 @@
             return next;
           });
           renderCoHostList(updated, base, eventId);
-          showToast('🗑 共同ホストを解除しました');
-        } catch (e) { showToast('⚠️ 解除に失敗しました'); console.error(e); }
+          showToast('共同ホストを解除しました');
+        } catch (e) { showToast('解除に失敗しました'); console.error(e); }
       });
     });
   }
@@ -2163,7 +2163,7 @@
       // 参加者：テキスト表示（入力欄なし）
       if (bankInfo.name || bankInfo.branch || bankInfo.account) {
         bankWrap.innerHTML = `
-          <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;">🏦 振込先口座</div>
+          <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;">振込先口座</div>
           <div style="background:#f5f5f5;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:0.9rem;display:flex;gap:24px;flex-wrap:wrap;">
             ${bankInfo.name ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">銀行名</span><div style="font-weight:600;margin-top:2px;">${escHtml(bankInfo.name)}</div></div>` : ''}
             ${(bankInfo.branchCode || bankInfo.branch) ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">支店</span><div style="font-weight:600;margin-top:2px;">${bankInfo.branchCode ? `${escHtml(bankInfo.branchCode)} ` : ''}${escHtml(bankInfo.branch || '')}</div></div>` : ''}
@@ -2279,13 +2279,13 @@
       settlePublished: true
     });
     document.getElementById('publishedBadge').style.display = 'block';
-    showToast('👥 精算を参加者に公開しました');
+    showToast('精算を参加者に公開しました');
   });
 
   // 非公開に戻す
   document.getElementById('unpublishBtn')?.addEventListener('click', async () => {
     await updateDoc(doc(db, 'events', eventId), { settlePublished: false });
-    showToast('🔒 精算を非公開にしました');
+    showToast('精算を非公開にしました');
     // 精算ページをホスト編集可能な状態で再ロード
     const snap = await getDoc(doc(db, 'events', eventId));
     openSettlePage(snap.data(), false);
@@ -2354,8 +2354,8 @@
     const ok = diff === 0 && total > 0;
     const cls = ok ? 'settle-banner settle-banner-ok' : 'settle-banner settle-banner-ng';
     const msg = ok
-      ? `✅ 個人合計と合計金額が一致しています（¥${total.toLocaleString()}）`
-      : `⚠️ 個人合計（¥${collected.toLocaleString()}）と合計金額（¥${total.toLocaleString()}）が${diff > 0 ? `¥${diff.toLocaleString()} 超過` : `¥${Math.abs(diff).toLocaleString()} 不足`}しています`;
+      ? `個人合計と合計金額が一致しています（¥${total.toLocaleString()}）`
+      : `個人合計（¥${collected.toLocaleString()}）と合計金額（¥${total.toLocaleString()}）が${diff > 0 ? `¥${diff.toLocaleString()} 超過` : `¥${Math.abs(diff).toLocaleString()} 不足`}しています`;
     return `<div id="settleMatchBanner" class="${cls}">${msg}</div>`;
   }
 
@@ -2428,8 +2428,8 @@
     const ok = diff === 0 && total > 0;
     banner.className = ok ? 'settle-banner settle-banner-ok' : 'settle-banner settle-banner-ng';
     banner.textContent = ok
-      ? `✅ 個人合計と合計金額が一致しています（¥${total.toLocaleString()}）`
-      : `⚠️ 個人合計（¥${collected.toLocaleString()}）と合計金額（¥${total.toLocaleString()}）が${diff > 0 ? `¥${diff.toLocaleString()} 超過` : `¥${Math.abs(diff).toLocaleString()} 不足`}しています`;
+      ? `個人合計と合計金額が一致しています（¥${total.toLocaleString()}）`
+      : `個人合計（¥${collected.toLocaleString()}）と合計金額（¥${total.toLocaleString()}）が${diff > 0 ? `¥${diff.toLocaleString()} 超過` : `¥${Math.abs(diff).toLocaleString()} 不足`}しています`;
   }
 
   function renderSettle(names, total, partyCount, partyAmounts, partyNames, savedPartyPersonAmounts, savedPaid, readOnly) {
@@ -2452,9 +2452,9 @@
       ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
       ${readOnly ? '' : `
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
-          各次会セルの「割合」は<strong>均等割り＝100%</strong>が基準です。割合を変えるとその人の金額だけが変わります（他の人は自動調整されません）。各次会ヘッダーの「平均100%」「金額一致」が両方✅になるよう、各人の割合または金額を調整してください。金額を直接入力すると割合も自動で逆算表示されます。
+          各次会セルの「割合」は<strong>均等割り＝100%</strong>が基準です。割合を変えるとその人の金額だけが変わります（他の人は自動調整されません）。各次会ヘッダーの「平均100%」と「金額一致」が両方そろうよう、各人の割合または金額を調整してください。金額を直接入力すると割合も自動で逆算表示されます。
         </div>
-        <button class="btn btn-secondary btn-full" id="resetAmountsBtn">🔄 均等割りに戻す</button>`}
+        <button class="btn btn-secondary btn-full" id="resetAmountsBtn">均等割りに戻す</button>`}
     `;
 
     function updateDiffs() {
@@ -2496,8 +2496,8 @@
         const ok = partySums[pi] === curPartyAmounts[pi];
         const diff = partySums[pi] - curPartyAmounts[pi];
         el.textContent = ok
-          ? `✅ 金額一致`
-          : `⚠️ ¥${partySums[pi].toLocaleString()}（${diff > 0 ? '+' : '−'}¥${Math.abs(diff).toLocaleString()}）`;
+          ? `金額一致`
+          : `¥${partySums[pi].toLocaleString()}（${diff > 0 ? '+' : '−'}¥${Math.abs(diff).toLocaleString()}）`;
         el.style.color = ok ? '#bff0c0' : '#ffd27a';
       }
 
@@ -2525,11 +2525,11 @@
             currentPaid[name] = cb.checked;
             tx.update(ref, { 'settle.paid': currentPaid });
           });
-          showToast(cb.checked ? '✅ 支払済みにしました' : '支払済みを取り消しました');
+          showToast(cb.checked ? '支払済みにしました' : '支払済みを取り消しました');
         } catch (e) {
           if (row) row.classList.toggle('paid', !cb.checked); // 失敗時はUIを戻す
           cb.checked = !cb.checked;
-          showToast('⚠️ 更新に失敗しました'); console.error(e);
+          showToast('更新に失敗しました'); console.error(e);
         }
       });
     });
@@ -2570,7 +2570,7 @@
         });
       });
 
-      // 次会ごとに割合の平均が100%か表示（✅/⚠️）
+      // 次会ごとに割合の平均が100%か表示（/）
       function updateWeightSums() {
         for (let pi = 0; pi < partyCount; pi++) {
           let sum = 0, n = 0;
@@ -2580,7 +2580,7 @@
           const avg = n > 0 ? sum / n : 0;
           const ok = sum === n * 100; // 平均がちょうど100%
           const avgStr = Number.isInteger(avg) ? avg : avg.toFixed(1);
-          el.textContent = `${ok ? '✅' : '⚠️'} 平均 ${avgStr}%`;
+          el.textContent = `平均 ${avgStr}%`;
           el.style.color = ok ? '#bff0c0' : '#ffd27a';
         }
       }
