@@ -1775,17 +1775,10 @@
 
     const counts = calcCounts(dates, allEntries);
 
-    // 各列の登録ボタン行
+    // 各列の登録ボタン行（未登録＝全日未入力の参加者のみ表示。1日でも回答済みなら何も表示しない）
     const registerCells = allEntries.map(([name, votes]) => {
       const answeredCount = dates.filter((_, di) => votes[di]).length;
-      if (answeredCount === dates.length) return `<td></td>`; // 全日回答済み
-      if (answeredCount > 0) {
-        // 一度登録済み（1日以上回答）→ 未入力日が残っていてもボタンは非活性
-        return `<td style="text-align:center;padding:4px 6px;background:var(--green-light);">
-            <button class="register-btn" disabled style="opacity:0.5;cursor:default;background:#bbb;border-color:#bbb;">登録済み</button>
-           </td>`;
-      }
-      // 未登録（全日未入力）→ 登録ボタンを表示
+      if (answeredCount > 0) return `<td></td>`; // 登録済み（全日回答済み含む）→ 非表示
       return `<td style="text-align:center;padding:4px 6px;background:var(--green-light);">
           <button class="register-btn preset-register-btn" data-name="${escHtml(name)}">登録する</button>
          </td>`;
