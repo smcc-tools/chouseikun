@@ -1851,18 +1851,18 @@
     wrap.querySelectorAll('.preset-register-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const name = btn.dataset.name;
-        const unselected = dates.findIndex((_, i) =>
-          !wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`)
-        );
-        if (unselected !== -1) {
-          const dt = new Date(dates[unselected].split(' ')[0] + 'T00:00:00');
-          showToast(`${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
+        // 未入力の候補日は空欄で許容。ただし最低1日は入力が必要。
+        const selectedCount = dates.filter((_, i) =>
+          wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`)
+        ).length;
+        if (selectedCount === 0) {
+          showToast('少なくとも1日は回答を入力してください');
           return;
         }
         const updates = {};
         dates.forEach((_, i) => {
           const sel = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
-          updates[`participants.${name}.${i}`] = sel.dataset.key;
+          updates[`participants.${name}.${i}`] = sel ? sel.dataset.key : '';
         });
         await updateDoc(doc(db, 'events', eventId), updates);
         showToast(`${name} さんの回答を登録しました`);
@@ -1876,12 +1876,12 @@
         const rawName = (wrap.querySelector('#newName')?.value || '').trim();
         const nameErr = validateParticipantName(rawName);
         if (nameErr) { showToast(`${nameErr}`); return; }
-        const unselected = dates.findIndex((_, i) =>
-          !wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`)
-        );
-        if (unselected !== -1) {
-          const dt = new Date(dates[unselected].split(' ')[0] + 'T00:00:00');
-          showToast(`${dt.getMonth()+1}/${dt.getDate()} の回答を選択してください`);
+        // 未入力の候補日は空欄で許容。ただし最低1日は入力が必要。
+        const selectedCount = dates.filter((_, i) =>
+          wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`)
+        ).length;
+        if (selectedCount === 0) {
+          showToast('少なくとも1日は回答を入力してください');
           return;
         }
         const note = (wrap.querySelector('#newNote')?.value || '').trim();
