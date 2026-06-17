@@ -369,12 +369,23 @@
     .my-event-open { white-space:nowrap; font-size:0.82rem; padding:5px 14px; }
     .my-event-remove { background:none; border:none; color:#ccc; cursor:pointer; font-size:1rem; padding:4px; line-height:1; transition:color 0.15s; }
     .my-event-remove:hover { color:#C0705A; }
-    .my-event-section-title {
-      font-size:0.72rem; font-weight:700; letter-spacing:0.12em; color:var(--text-muted);
-      text-transform:uppercase; margin:14px 2px 8px; display:flex; align-items:center; gap:8px;
+    .my-event-tabs {
+      display:flex; gap:6px; margin-bottom:14px;
+      background:var(--green-light); border:1px solid var(--green-mid);
+      border-radius:999px; padding:4px;
     }
-    .my-event-section-title:first-child { margin-top:0; }
-    .my-event-section-title .count { font-weight:600; color:var(--green); letter-spacing:0; }
+    .my-event-tab {
+      flex:1; border:none; background:none; cursor:pointer;
+      font-size:0.82rem; font-weight:600; color:var(--text-muted);
+      padding:7px 8px; border-radius:999px; transition:all 0.15s;
+      display:flex; align-items:center; justify-content:center; gap:6px;
+    }
+    .my-event-tab.active { background:var(--green); color:#fff; box-shadow:0 2px 6px rgba(46,70,50,0.18); }
+    .my-event-tab .tcount {
+      font-size:0.7rem; font-weight:700; min-width:18px; padding:0 5px; border-radius:999px;
+      background:rgba(0,0,0,0.06); color:inherit;
+    }
+    .my-event-tab.active .tcount { background:rgba(255,255,255,0.25); }
     .my-event-finish, .my-event-unfinish {
       white-space:nowrap; font-size:0.74rem; padding:4px 10px; border-radius:999px;
       border:1px solid var(--border); background:white; color:var(--text-muted); cursor:pointer; transition:all 0.15s;
@@ -946,6 +957,8 @@
     await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId), { finished }, { merge: true });
   }
 
+  let myEventsTab = 'host'; // 'host' | 'part' | 'finished'
+
   async function renderMyEvents() {
     const card = document.getElementById('myEventsCard');
     const list = document.getElementById('myEventsList');
@@ -971,25 +984,51 @@
     }
 
     const snap = await getDocs(userEventsRef(currentUser.uid));
-    const events = snap.docs
-      .map(d => ({ eventId: d.id, ...d.data() }))
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const events = snap.docs.map(d => ({ eventId: d.id, ...d.data() }));
 
     if (events.length === 0) {
       list.innerHTML = '<div style="text-align:center;color:#bbb;padding:16px;font-size:0.85rem;">まだイベントがありません</div>';
       return;
     }
 
+    // 各イベントの確定日を取得（並び替え用）
+    await Promise.all(events.map(async e => {
+      e.confirmedTs = null;
+      try {
+        const ev = await getDoc(doc(db, 'events', e.eventId));
+        if (ev.exists()) {
+          const data = ev.data();
+          const ci = data.confirmedDate;
+          if (ci != null && data.dates && data.dates[ci]) {
+            e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
+          }
+        }
+      } catch (_) { /* 取得失敗時は未確定扱い */ }
+    }));
+
+    // 並び替え：未確定を最上位、確定済みは今日に近い順
+    const now = Date.now();
+    const sortFn = (a, b) => {
+      const au = a.confirmedTs == null, bu = b.confirmedTs == null;
+      if (au && bu) return (b.createdAt || 0) - (a.createdAt || 0); // 未確定同士は新しい順
+      if (au) return -1;
+      if (bu) return 1;
+      return Math.abs(a.confirmedTs - now) - Math.abs(b.confirmedTs - now); // 確定日が今日に近い順
+    };
+
     const base = `${location.origin}${location.pathname}`;
 
-    // 3分類：終了 / ホスト / 参加
-    const finished    = events.filter(e => e.finished);
-    const hostActive  = events.filter(e => !e.finished && e.host);
-    const partActive  = events.filter(e => !e.finished && !e.host);
+    // 3分類
+    const groups = {
+      host:     events.filter(e => !e.finished && e.host).sort(sortFn),
+      part:     events.filter(e => !e.finished && !e.host).sort(sortFn),
+      finished: events.filter(e => e.finished).sort(sortFn),
+    };
 
     const itemHtml = (e) => {
-      const d = new Date(e.createdAt || 0);
-      const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+      const metaStr = e.confirmedTs != null
+        ? `確定 ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
+        : '日程調整中';
       const roleBadge = e.host
         ? `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:#fff;background:var(--green);border-radius:4px;padding:1px 6px;margin-right:6px;">ホスト</span>`
         : `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:var(--text-muted);background:#eee;border-radius:4px;padding:1px 6px;margin-right:6px;">参加</span>`;
@@ -999,22 +1038,31 @@
       return `<div class="my-event-item${e.finished ? ' finished' : ''}">
         <div class="my-event-info">
           <div class="my-event-name">${roleBadge}${escHtml(e.name||'')}</div>
-          <div class="my-event-meta">${dateStr}</div>
+          <div class="my-event-meta">${metaStr}</div>
         </div>
         <a class="btn btn-secondary my-event-open" href="${base}?event=${encodeURIComponent(e.eventId)}${e.hostKey ? `&host=${encodeURIComponent(e.hostKey)}` : ''}">開く</a>
         ${toggleBtn}
         <button class="my-event-remove" data-id="${escHtml(e.eventId)}" title="一覧から削除">✕</button>
       </div>`;
     };
-    const section = (title, arr) => arr.length
-      ? `<div class="my-event-section-title">${title}<span class="count">${arr.length}</span></div>${arr.map(itemHtml).join('')}`
-      : '';
 
-    list.innerHTML =
-      section('ホスト', hostActive) +
-      section('参加', partActive) +
-      section('終了', finished);
+    if (!groups[myEventsTab]) myEventsTab = 'host';
+    const tab = (key, label) =>
+      `<button class="my-event-tab${myEventsTab===key?' active':''}" data-tab="${key}">${label}<span class="tcount">${groups[key].length}</span></button>`;
+    const activeArr = groups[myEventsTab];
+    const listHtml = activeArr.length
+      ? activeArr.map(itemHtml).join('')
+      : '<div style="text-align:center;color:#bbb;padding:20px;font-size:0.85rem;">該当するイベントはありません</div>';
 
+    list.innerHTML = `
+      <div class="my-event-tabs">
+        ${tab('host','ホスト')}${tab('part','参加')}${tab('finished','終了')}
+      </div>
+      <div class="my-event-tabbody">${listHtml}</div>`;
+
+    list.querySelectorAll('.my-event-tab').forEach(btn => {
+      btn.addEventListener('click', () => { myEventsTab = btn.dataset.tab; renderMyEvents(); });
+    });
     list.querySelectorAll('.my-event-remove').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('この一覧から削除しますか？（イベント自体は削除されません）')) return;
