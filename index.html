@@ -51,20 +51,27 @@
     .header-top .brand-leaf { color: #aacf5f; font-size: 1rem; }
     .header-top .group-name { color: rgba(255,255,255,0.6); font-size: 0.72rem; }
 
-    /* SMBCスタイル：ロゴエリア（白背景） */
+    /* ヘッダー：オリーブのアプリバー（白ロゴ） */
     .header {
-      background: white;
-      border-bottom: 1px solid var(--border);
+      background: var(--green);
+      border-bottom: 1px solid var(--green-dark);
       padding: 0 24px;
       position: sticky; top: 0; z-index: 100;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      box-shadow: 0 2px 10px rgba(46,70,50,0.18);
     }
     .header-inner {
       max-width: 960px; margin: 0 auto;
       display: flex; align-items: center; gap: 12px; height: 56px;
     }
-    .header-logo { font-size: 1.1rem; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
-    .header-logo span { color: var(--green); }
+    .header-logo { font-size: 1.1rem; font-weight: 700; color: #fff; letter-spacing: 0.04em; }
+    .header-logo span { color: #fff; }
+    /* オリーブ地に合わせて認証まわりを白系に */
+    .header #authName { color: rgba(255,255,255,0.9) !important; }
+    .header #signOutBtn { color: rgba(255,255,255,0.85) !important; border-color: rgba(255,255,255,0.4) !important; background: transparent !important; }
+    .header #signOutBtn:hover { background: rgba(255,255,255,0.12) !important; }
+    .header #myEventsNavBtn { background: rgba(255,255,255,0.16) !important; border-color: rgba(255,255,255,0.4) !important; color: #fff !important; }
+    .header #myEventsNavBtn:hover { background: rgba(255,255,255,0.26) !important; }
+    .header #authAvatar { border-color: rgba(255,255,255,0.7) !important; }
     .header-titles .subtitle { color: var(--text-muted); font-size: 0.72rem; margin-left: 8px; }
 
     .page { max-width: 960px; margin: 0 auto; padding: 28px 16px 0; }
