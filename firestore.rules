@@ -11,6 +11,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // FCMプッシュ通知トークン：本人のみ。送信はCloud Functions(Admin)が読む。
+    match /fcmTokens/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /events/{eventId} {
       // 閲覧は誰でも可（参加者がリアルタイム購読するため必須）
       allow read: if true;

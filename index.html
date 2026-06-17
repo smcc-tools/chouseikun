@@ -560,6 +560,15 @@
       <button class="btn btn-secondary" id="copyParticipantUrlBtn" style="white-space:nowrap;">コピー</button>
     </div>
   </div>
+  <!-- ホスト専用：参加登録のプッシュ通知設定 -->
+  <div id="notifyWrap" class="host-only" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
+      <input type="checkbox" id="notifyToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
+      <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が回答を登録したらプッシュ通知を受け取る</span>
+    </label>
+    <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">オンにすると、この端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
+  </div>
+
   <!-- ホスト専用：共同ホスト管理（アカウントコード方式） -->
   <div id="coHostWrap" class="host-only" style="display:none;background:#fff8f0;border:1px solid #f5d5a0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:600;color:#b8860b;margin-bottom:8px;">共同ホスト管理</div>
@@ -697,6 +706,10 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+  import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
+
+  // FCM Web Push 公開鍵（Firebaseコンソール → プロジェクト設定 → Cloud Messaging → ウェブ構成 で発行して貼り付け）
+  const FCM_VAPID_KEY = "PUT_YOUR_VAPID_PUBLIC_KEY_HERE";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDkczQ9y3u3XaPgWtwBkXm0wwt3bsOGsZ4",
@@ -711,6 +724,35 @@
   const db = getFirestore(app);
   const auth = getAuth(app);
   let currentUser = null;
+  let messaging = null;
+  isMessagingSupported().then(ok => { if (ok) { messaging = getMessaging(app); initForegroundMessages(); } }).catch(() => {});
+
+  // FCMトークンを取得して fcmTokens/{uid} に保存
+  async function registerFcmToken() {
+    if (!messaging || !currentUser) return null;
+    if (Notification.permission === 'denied') return null;
+    const perm = Notification.permission === 'granted'
+      ? 'granted' : await Notification.requestPermission();
+    if (perm !== 'granted') return null;
+    const reg = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('sw.js');
+    const token = await getToken(messaging, { vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: reg });
+    if (!token) return null;
+    const ref = doc(db, 'fcmTokens', currentUser.uid);
+    const snap = await getDoc(ref);
+    const tokens = (snap.exists() && Array.isArray(snap.data().tokens)) ? snap.data().tokens : [];
+    if (!tokens.includes(token)) tokens.push(token);
+    await setDoc(ref, { tokens }, { merge: true });
+    return token;
+  }
+
+  // 前面表示中のプッシュはトーストで表示
+  function initForegroundMessages() {
+    if (!messaging) return;
+    onMessage(messaging, payload => {
+      const t = payload?.notification?.title || payload?.data?.title || '通知';
+      showToast(`🔔 ${t}`);
+    });
+  }
 
   // ── ユーティリティ ──────────────────────────
 
@@ -1303,6 +1345,11 @@
       const base = `${location.origin}${location.pathname}`;
       document.getElementById('participantUrlView').value = `${base}?event=${eventId}`;
       renderCoHostList(ownerUids, base, eventId);
+      // 通知トグルの状態を反映
+      const notifyToggle = document.getElementById('notifyToggle');
+      if (notifyToggle && currentUser) {
+        notifyToggle.checked = (data.notifyUids || []).includes(currentUser.uid);
+      }
     }
     // 開いたイベントをマイイベントに記録（ホスト/参加者問わず、ログイン時）
     saveMyEvent(data);
@@ -1465,6 +1512,38 @@
     document.getElementById('copyMyCodeBtn')?.addEventListener('click', () => {
       if (!currentUser) { showToast('ログインが必要です'); return; }
       copyText(currentUser.uid, document.getElementById('copyMyCodeBtn'), 'ホストコード');
+    });
+
+    // 参加登録のプッシュ通知 ON/OFF（イベント毎・ホスト本人のuidを notifyUids に出し入れ）
+    document.getElementById('notifyToggle')?.addEventListener('change', async (e) => {
+      const toggle = e.target;
+      if (!currentUser) { showToast('ログインが必要です'); toggle.checked = false; return; }
+      if (toggle.checked) {
+        const token = await registerFcmToken();
+        if (!token) {
+          toggle.checked = false;
+          showToast('通知を有効にできませんでした（通知許可が必要です）');
+          return;
+        }
+        try {
+          await runTransaction(db, async (tx) => {
+            const ref = doc(db, 'events', eventId);
+            const uids = (await tx.get(ref)).data().notifyUids || [];
+            if (!uids.includes(currentUser.uid)) uids.push(currentUser.uid);
+            tx.update(ref, { notifyUids: uids });
+          });
+          showToast('🔔 参加登録の通知をオンにしました');
+        } catch (err) { toggle.checked = false; showToast('設定に失敗しました'); console.error(err); }
+      } else {
+        try {
+          await runTransaction(db, async (tx) => {
+            const ref = doc(db, 'events', eventId);
+            const uids = (await tx.get(ref)).data().notifyUids || [];
+            tx.update(ref, { notifyUids: uids.filter(u => u !== currentUser.uid) });
+          });
+          showToast('通知をオフにしました');
+        } catch (err) { showToast('設定に失敗しました'); console.error(err); }
+      }
     });
 
     document.getElementById('addMemoBtn')?.addEventListener('click', () => {
