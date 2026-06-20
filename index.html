@@ -1604,7 +1604,8 @@
           ${idx < entries.length - 1 ? `<button class="reorder-btn" data-name="${en}" data-dir="right" aria-label="右へ移動">▶</button>` : ''}
         </div>` : '';
       return `<th class="participant-th" data-col="${en}">
-        ${en}<br>
+        <span class="pname-display">${en}</span>
+        <input class="pname-input" type="text" data-name="${en}" value="${en}" aria-label="名前を編集" style="display:none;width:72px;padding:2px 5px;border:1px solid var(--green-mid);border-radius:5px;font-size:0.8rem;text-align:center;color:var(--text);"><br>
         <button class="edit-btn" data-name="${en}">変更・削除</button><br>
         <button class="del-btn" data-name="${en}">削除する</button>
         ${reorderBtns}
@@ -1717,8 +1718,45 @@
         const cells = wrap.querySelectorAll(`td[data-col="${CSS.escape(name)}"]`);
         const delBtn = wrap.querySelector(`.del-btn[data-name="${CSS.escape(name)}"]`);
 
+        const th = wrap.querySelector(`th.participant-th[data-col="${CSS.escape(name)}"]`);
+        const nameInput = th?.querySelector('.pname-input');
+
         if (isEditing) {
-          // 完了：現在のUI状態をFirebaseに一括保存
+          // 名前が変更されたかチェック
+          const newName = nameInput ? nameInput.value.trim() : name;
+          if (newName !== name) {
+            const err = validateParticipantName(newName);
+            if (err) { showToast(err); return; } // 編集モードのまま中断
+            try {
+              await runTransaction(db, async (tx) => {
+                const ref = doc(db, 'events', eventId);
+                const data = (await tx.get(ref)).data();
+                const ps = { ...(data.participants || {}) };
+                if (!ps[name]) throw new Error('GONE');
+                if (Object.keys(ps).some(n => n !== name && normalizeName(n) === normalizeName(newName))) throw new Error('DUP');
+                // UIの投票・備考を反映してから新キーへ移し替え
+                const cur = { ...ps[name] };
+                dates.forEach((_, i) => {
+                  const sel = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
+                  if (sel) cur[i] = sel.dataset.key;
+                });
+                const ni = wrap.querySelector(`.note-input[data-name="${CSS.escape(name)}"]`);
+                if (ni) cur._note = ni.value.trim();
+                delete ps[name];
+                ps[newName] = cur;
+                const order = (Array.isArray(data.participantOrder) ? data.participantOrder : []).map(n => n === name ? newName : n);
+                tx.update(ref, { participants: ps, participantOrder: order });
+              });
+              showToast('変更を保存しました');
+            } catch (e) {
+              if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
+              else if (e.message === 'GONE') showToast('対象の参加者が見つかりません');
+              else { showToast('変更に失敗しました'); console.error(e); }
+            }
+            return; // 再描画はonSnapshotに任せる
+          }
+
+          // 名前変更なし：従来どおり投票・備考を保存
           const updates = {};
           dates.forEach((_, i) => {
             const selected = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
@@ -1728,6 +1766,11 @@
           if (noteInput) updates[`participants.${name}._note`] = noteInput.value.trim();
           if (Object.keys(updates).length > 0) {
             await updateDoc(doc(db, 'events', eventId), updates);
+          }
+          if (th) {
+            const disp = th.querySelector('.pname-display');
+            if (disp) disp.style.display = '';
+            if (nameInput) nameInput.style.display = 'none';
           }
           btn.classList.remove('editing');
           btn.textContent = '変更・削除';
@@ -1759,6 +1802,12 @@
             td.querySelectorAll('.vote-display, .vote-display-empty').forEach(el => el.style.display = 'none');
             td.querySelectorAll('.vote-btns').forEach(b => b.style.display = 'flex');
           });
+          // 名前を編集可能に
+          if (th) {
+            const disp = th.querySelector('.pname-display');
+            if (disp) disp.style.display = 'none';
+            if (nameInput) { nameInput.style.display = 'inline-block'; nameInput.value = name; }
+          }
           delBtn.classList.add('visible');
         }
       });
