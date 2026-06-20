@@ -137,7 +137,7 @@
     }
     .day-badge.weekend { background: #8BA888; }
     .btn-remove {
-      background: none; border: none; color: #ccc; font-size: 1.1rem;
+      background: none; border: none; color: #8a8a80; font-size: 1.1rem;
       cursor: pointer; padding: 4px 8px; border-radius: 6px;
       transition: color 0.15s; flex-shrink: 0;
     }
@@ -172,7 +172,8 @@
       background: #1a1a1a; color: white; padding: 12px 20px;
       border-radius: 10px; font-size: 0.9rem; font-weight: 500;
       z-index: 1000; transition: transform 0.3s ease;
-      pointer-events: none; white-space: nowrap;
+      pointer-events: none;
+      max-width: calc(100vw - 32px); text-align: center; line-height: 1.5;
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
     /* 入力列（テーブル右端） */
@@ -198,18 +199,19 @@
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 300px; }
     thead tr { background: #F6F5EE; }
     th { padding: 11px 6px; text-align: center; color: #5A6B4E; font-weight: 600; white-space: nowrap; font-size: 0.82rem; border-bottom: 1.5px solid var(--green-mid); }
-    th.date-col { text-align: left; min-width: 76px; }
+    th.date-col { text-align: left; min-width: 76px; position: sticky; left: 0; z-index: 3; background: #F6F5EE; }
     tbody tr { transition: background 0.1s; }
     tbody tr:hover { background: #FAF9F3; }
     tbody tr:last-child td { border-bottom: none; }
     td { padding: 8px 6px; text-align: center; border-bottom: 1px solid #F1F0E9; }
-    td.date-cell { text-align: left; font-weight: 600; color: var(--text); white-space: nowrap; font-size: 0.85rem; }
+    td.date-cell { text-align: left; font-weight: 600; color: var(--text); white-space: nowrap; font-size: 0.85rem; position: sticky; left: 0; z-index: 1; background: #fff; }
+    tbody tr:hover td.date-cell { background: #FAF9F3; }
     td.date-cell.is-best { color: var(--green); background: var(--green-light); }
     td.date-cell.is-best::before { content: '★ '; color: var(--gold); }
     .vote-btn {
       background: none; border: 2px solid transparent; border-radius: 6px;
       font-size: 1.1rem; cursor: pointer; padding: 2px 3px;
-      opacity: 0.2; transition: all 0.15s; display: inline-block;
+      opacity: 0.42; transition: all 0.15s; display: inline-block;
     }
     .vote-btn:hover { opacity: 0.6; transform: scale(1.1); }
     .vote-btn.selected { border-color: currentColor; opacity: 1; transform: scale(1.05); }
@@ -410,6 +412,21 @@
       border-radius:8px;
     }
     #addDateWrap label { font-size:0.78rem; font-weight:600; color:var(--text-muted); white-space:nowrap; }
+
+    /* ── 小画面（スマホ）最適化 ── */
+    @media (max-width: 520px) {
+      .page { padding: 16px 10px 0; }
+      .card { padding: 18px; border-radius: 14px; }
+      .card-title { font-size: 0.95rem; margin-bottom: 16px; }
+      h1.header-logo { font-size: 1rem; }
+      #viewTitle { font-size: 1.15rem; }
+      .settle-summary { gap: 10px 14px; padding: 12px; }
+      .settle-summary-item .val { font-size: 1.1rem; }
+      table { font-size: 0.82rem; }
+      th, td { padding: 7px 4px; }
+      .vote-btn { font-size: 1rem; }
+      .toast { bottom: 16px; font-size: 0.85rem; padding: 11px 16px; }
+    }
   </style>
 </head>
 <body>
@@ -417,9 +434,9 @@
 <div class="header-top">
   <div class="header-top-inner"></div>
 </div>
-<div class="header">
+<header class="header">
   <div class="header-inner">
-    <div class="header-logo">調整くん</div>
+    <h1 class="header-logo">調整くん</h1>
     <div id="authArea" style="margin-left:auto;display:flex;align-items:center;gap:10px;">
       <div id="authUser" style="display:none;align-items:center;gap:8px;">
         <a id="myEventsNavBtn" href="#" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:4px 12px;font-size:0.78rem;color:var(--green);cursor:pointer;font-weight:600;text-decoration:none;white-space:nowrap;">マイイベント</a>
@@ -432,13 +449,13 @@
       </button>
     </div>
   </div>
-</div>
+</header>
 
-<div class="page">
+<main class="page">
 
 <!-- マイイベント一覧カード -->
 <div class="card" id="myEventsCard" style="display:none;">
-  <div class="card-title">マイイベント</div>
+  <h2 class="card-title">マイイベント</h2>
   <div id="myEventsList"></div>
   <button class="btn btn-ghost" id="newEventBtn" style="margin-top:12px;width:100%;">＋ 新しいイベントを作成</button>
   <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);font-size:0.74rem;color:var(--text-muted);line-height:1.6;">
@@ -450,7 +467,7 @@
 
 <!-- イベント作成カード -->
 <div class="card" id="setupCard">
-  <div class="card-title">イベントを作成</div>
+  <h2 class="card-title">イベントを作成</h2>
 
   <div class="field">
     <label>イベント名</label>
@@ -535,7 +552,7 @@
   <div class="card-title" style="justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:8px;">
       
-      <span id="viewTitle">出欠を回答する</span>
+      <h2 id="viewTitle" style="margin:0;font-size:inherit;font-weight:inherit;color:inherit;">出欠を回答する</h2>
       <button id="editTitleBtn" class="host-only" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">編集</button>
     </div>
     <div id="hostBadge" style="display:none;background:#C0705A;color:white;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:0.04em;">HOST</div>
@@ -616,7 +633,7 @@
   <div class="card-title" style="justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:8px;">
       
-      <span id="settleTitle">精算</span>
+      <h2 id="settleTitle" style="margin:0;font-size:inherit;font-weight:inherit;color:inherit;">精算</h2>
     </div>
     <button id="backToEventBtn" style="background:none;border:1px solid var(--border);border-radius:4px;padding:4px 12px;font-size:0.8rem;color:var(--text-muted);cursor:pointer;">← 回答画面に戻る</button>
   </div>
@@ -699,7 +716,7 @@
   </div>
 </div>
 
-</div>
+</main>
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -834,6 +851,8 @@
   };
 
   const WEEKS = ['日','月','火','水','木','金','土'];
+  // 投票記号のスクリーンリーダー用ラベル
+  const VOTE_LABEL = { o: '参加できる', t: 'おそらく参加可能', x: '参加できない' };
 
   function toDateStr(d) {
     const yyyy = d.getFullYear();
@@ -877,6 +896,7 @@
     const btn = document.createElement('button');
     btn.className = 'btn-remove';
     btn.textContent = '✕';
+    btn.setAttribute('aria-label', 'この候補日を削除');
     btn.addEventListener('click', () => row.remove());
 
     row.appendChild(input);
@@ -971,6 +991,7 @@
     const btn = document.createElement('button');
     btn.className = 'btn-remove';
     btn.textContent = '✕';
+    btn.setAttribute('aria-label', 'この参加者を削除');
     btn.addEventListener('click', () => row.remove());
     row.appendChild(input);
     row.appendChild(btn);
@@ -1094,7 +1115,7 @@
         <div class="my-event-actions">
           <a class="btn btn-secondary my-event-open" href="${base}?event=${encodeURIComponent(e.eventId)}${e.hostKey ? `&host=${encodeURIComponent(e.hostKey)}` : ''}">開く</a>
           ${toggleBtn}
-          <button class="my-event-remove" data-id="${escHtml(e.eventId)}" title="一覧から削除">✕</button>
+          <button class="my-event-remove" data-id="${escHtml(e.eventId)}" title="一覧から削除" aria-label="一覧から削除">✕</button>
         </div>
       </div>`;
     };
@@ -1579,8 +1600,8 @@
       const en = escHtml(name);
       const reorderBtns = isHost ? `
         <div style="margin-top:3px;">
-          ${idx > 0 ? `<button class="reorder-btn" data-name="${en}" data-dir="left">◀</button>` : ''}
-          ${idx < entries.length - 1 ? `<button class="reorder-btn" data-name="${en}" data-dir="right">▶</button>` : ''}
+          ${idx > 0 ? `<button class="reorder-btn" data-name="${en}" data-dir="left" aria-label="左へ移動">◀</button>` : ''}
+          ${idx < entries.length - 1 ? `<button class="reorder-btn" data-name="${en}" data-dir="right" aria-label="右へ移動">▶</button>` : ''}
         </div>` : '';
       return `<th class="participant-th" data-col="${en}">
         ${en}<br>
@@ -1612,7 +1633,7 @@
       const inputCell = `<td class="input-col">
         <div class="vote-btns">
           ${[['o','◯','circle'],['t','△','triangle'],['x','✕','cross']].map(([key,lbl,cls]) =>
-            `<button class="vote-btn ${cls}" data-new-idx="${i}" data-key="${key}">${lbl}</button>`
+            `<button class="vote-btn ${cls}" data-new-idx="${i}" data-key="${key}" aria-label="${VOTE_LABEL[key]}" aria-pressed="false">${lbl}</button>`
           ).join('')}
         </div>
       </td>`;
@@ -1635,7 +1656,7 @@
     const en = escHtml(name);
     const labelMap = { o: '◯', t: '△', x: '✕' };
     const btns = [['o','◯','circle'],['t','△','triangle'],['x','✕','cross']].map(([key,label,cls]) =>
-      `<button class="vote-btn ${cls} ${current===key?'selected':''}" data-name="${en}" data-idx="${idx}" data-key="${key}">${label}</button>`
+      `<button class="vote-btn ${cls} ${current===key?'selected':''}" data-name="${en}" data-idx="${idx}" data-key="${key}" aria-label="${VOTE_LABEL[key]}" aria-pressed="${current===key}">${label}</button>`
     ).join('');
     // プリセット（全未回答）または未回答セル（ホストが後から追加した日程）：ボタンを直接表示
     if (isPreset || !current) {
@@ -1665,8 +1686,9 @@
         const name = btn.dataset.name;
         const idx = btn.dataset.idx;
         wrap.querySelectorAll(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${idx}"]`)
-          .forEach(b => b.classList.remove('selected'));
+          .forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
         btn.classList.add('selected');
+        btn.setAttribute('aria-pressed', 'true');
       });
     });
     // 入力列：新規回答の選択
@@ -1674,8 +1696,9 @@
       btn.addEventListener('click', () => {
         const idx = btn.dataset.newIdx;
         wrap.querySelectorAll(`.vote-btn[data-new-idx="${idx}"]`)
-          .forEach(b => b.classList.remove('selected'));
+          .forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
         btn.classList.add('selected');
+        btn.setAttribute('aria-pressed', 'true');
       });
     });
   }
