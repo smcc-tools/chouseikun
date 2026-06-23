@@ -569,6 +569,27 @@
     <button id="addMemoBtn" style="background:none;border:1px dashed var(--green-mid);border-radius:6px;padding:8px 16px;font-size:0.82rem;color:var(--text-muted);cursor:pointer;width:100%;">＋ メモを追加</button>
   </div>
 
+  <!-- お店・行き方（参加者には内容があるときだけ表示） -->
+  <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ お店・行き方</div>
+    <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
+    <div id="venueStationRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">出発駅：</span><span id="venueStationText"></span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;">ルートを見る（Googleマップ）</a>
+      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">お店の地図</a>
+    </div>
+    <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
+  </div>
+
+  <!-- ホスト専用：お店・行き方の入力 -->
+  <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">お店・行き方を設定（入力すると参加者に表示されます）</div>
+    <input type="text" id="venueShopInput" placeholder="お店の名前 or 住所（例：○○居酒屋 渋谷店）" style="margin-bottom:8px;">
+    <input type="text" id="venueStationInput" placeholder="出発駅（例：新宿駅）" style="margin-bottom:8px;">
+    <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
+    <button class="btn btn-primary" id="saveVenueBtn" style="width:100%;">保存して参加者に表示</button>
+  </div>
+
   <!-- ホスト専用：参加者用URL表示 -->
   <div id="participantUrlWrap" class="host-only" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
@@ -1417,6 +1438,9 @@
         if (isHost && addMemoWrap) addMemoWrap.style.display = 'block';
       }
 
+      // お店・行き方
+      renderVenue(data.venue || {});
+
       renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
 
       // 精算公開状態を反映（参加者向け）
@@ -1533,6 +1557,17 @@
     document.getElementById('copyMyCodeBtn')?.addEventListener('click', () => {
       if (!currentUser) { showToast('ログインが必要です'); return; }
       copyText(currentUser.uid, document.getElementById('copyMyCodeBtn'), 'ホストコード');
+    });
+
+    // お店・行き方の保存（ホスト）
+    document.getElementById('saveVenueBtn')?.addEventListener('click', async () => {
+      const shop = (document.getElementById('venueShopInput')?.value || '').trim();
+      const station = (document.getElementById('venueStationInput')?.value || '').trim();
+      const note = (document.getElementById('venueNoteInput')?.value || '').trim();
+      try {
+        await updateDoc(doc(db, 'events', eventId), { venue: { shop, station, note } });
+        showToast((shop || station || note) ? '🏠 お店・行き方を保存しました' : 'お店・行き方をクリアしました');
+      } catch (e) { showToast('保存に失敗しました'); console.error(e); }
     });
 
     // 参加登録のプッシュ通知 ON/OFF（イベント毎・ホスト本人のuidを notifyUids に出し入れ）
@@ -1828,6 +1863,50 @@
           showToast(`${name} さんの回答を削除しました`);
         } catch (e) { showToast('削除に失敗しました'); console.error(e); }
       });
+    });
+  }
+
+  // お店・行き方の表示（参加者には内容があるときだけ表示）
+  function renderVenue(venue) {
+    const shop = (venue.shop || '').trim();
+    const station = (venue.station || '').trim();
+    const note = (venue.note || '').trim();
+    const hasVenue = !!(shop || station || note);
+
+    const wrap = document.getElementById('venueWrap');
+    if (wrap) {
+      const shopRow = document.getElementById('venueShopRow');
+      const stationRow = document.getElementById('venueStationRow');
+      document.getElementById('venueShopText').textContent = shop;
+      document.getElementById('venueStationText').textContent = station;
+      shopRow.style.display = shop ? 'block' : 'none';
+      stationRow.style.display = station ? 'block' : 'none';
+
+      const routeBtn = document.getElementById('venueRouteBtn');
+      if (shop && station) {
+        routeBtn.href = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(station)}&destination=${encodeURIComponent(shop)}&travelmode=transit`;
+        routeBtn.style.display = 'inline-flex';
+      } else {
+        routeBtn.style.display = 'none';
+      }
+      const mapBtn = document.getElementById('venueShopMapBtn');
+      if (shop) {
+        mapBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop)}`;
+        mapBtn.style.display = 'inline-flex';
+      } else {
+        mapBtn.style.display = 'none';
+      }
+      const noteRow = document.getElementById('venueNoteRow');
+      noteRow.textContent = note;
+      noteRow.style.display = note ? 'block' : 'none';
+
+      wrap.style.display = hasVenue ? 'block' : 'none';
+    }
+
+    // ホスト用の入力欄に反映（入力中は上書きしない）
+    [['venueShopInput', shop], ['venueStationInput', station], ['venueNoteInput', note]].forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && document.activeElement !== el) el.value = val;
     });
   }
 
