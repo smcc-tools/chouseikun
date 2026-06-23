@@ -571,7 +571,9 @@
 
   <!-- お店・行き方（参加者には内容があるときだけ表示） -->
   <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ お店・行き方</div>
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
+    <div id="venueMeetTimeRow" style="display:none;font-size:0.95rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">集合時間：</span><span id="venueMeetTimeText" style="font-weight:700;color:var(--green);"></span></div>
+    <div id="venueMeetPlaceRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">集合場所：</span><span id="venueMeetPlaceText"></span></div>
     <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
     <div id="venueStationRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">出発駅：</span><span id="venueStationText"></span></div>
     <!-- 食べログ等のリッチプレビューカード -->
@@ -595,7 +597,11 @@
 
   <!-- ホスト専用：お店・行き方の入力 -->
   <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">お店・行き方を設定（入力すると参加者に表示されます）</div>
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">集合・お店を設定（入力すると参加者に表示されます）</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input type="text" id="venueMeetTimeInput" placeholder="集合時間（例：19:00）" style="flex:1;margin-bottom:0;">
+      <input type="text" id="venueMeetPlaceInput" placeholder="集合場所（例：○○駅 改札前）" style="flex:2;margin-bottom:0;">
+    </div>
     <input type="text" id="venueShopInput" placeholder="店名／住所／食べログURL（店名＋URLも可）" style="margin-bottom:8px;">
     <input type="text" id="venueStationInput" placeholder="出発駅（例：新宿駅）" style="margin-bottom:8px;">
     <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
@@ -1576,12 +1582,15 @@
       const shop = (document.getElementById('venueShopInput')?.value || '').trim();
       const station = (document.getElementById('venueStationInput')?.value || '').trim();
       const note = (document.getElementById('venueNoteInput')?.value || '').trim();
+      const meetTime = (document.getElementById('venueMeetTimeInput')?.value || '').trim();
+      const meetPlace = (document.getElementById('venueMeetPlaceInput')?.value || '').trim();
       try {
-        // ドット記法でshop/station/noteのみ更新（Functionが付与するvenue.previewを保持）
+        // ドット記法でフィールドのみ更新（Functionが付与するvenue.previewを保持）
         await updateDoc(doc(db, 'events', eventId), {
-          'venue.shop': shop, 'venue.station': station, 'venue.note': note
+          'venue.shop': shop, 'venue.station': station, 'venue.note': note,
+          'venue.meetTime': meetTime, 'venue.meetPlace': meetPlace
         });
-        showToast((shop || station || note) ? '🏠 お店・行き方を保存しました' : 'お店・行き方をクリアしました');
+        showToast((shop || station || note || meetTime || meetPlace) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
       } catch (e) { showToast('保存に失敗しました'); console.error(e); }
     });
 
@@ -1886,7 +1895,9 @@
     const shop = (venue.shop || '').trim();
     const station = (venue.station || '').trim();
     const note = (venue.note || '').trim();
-    const hasVenue = !!(shop || station || note);
+    const meetTime = (venue.meetTime || '').trim();
+    const meetPlace = (venue.meetPlace || '').trim();
+    const hasVenue = !!(shop || station || note || meetTime || meetPlace);
 
     // お店欄からURLを抽出（食べログ等）。URLを除いた部分を地図検索用の店名として使う。
     const urlMatch = shop.match(/https?:\/\/[^\s]+/);
@@ -1897,6 +1908,12 @@
 
     const wrap = document.getElementById('venueWrap');
     if (wrap) {
+      // 集合時間・集合場所
+      document.getElementById('venueMeetTimeText').textContent = meetTime;
+      document.getElementById('venueMeetTimeRow').style.display = meetTime ? 'block' : 'none';
+      document.getElementById('venueMeetPlaceText').textContent = meetPlace;
+      document.getElementById('venueMeetPlaceRow').style.display = meetPlace ? 'block' : 'none';
+
       const shopRow = document.getElementById('venueShopRow');
       const stationRow = document.getElementById('venueStationRow');
       document.getElementById('venueShopText').textContent = shopName;
@@ -1953,7 +1970,7 @@
     }
 
     // ホスト用の入力欄に反映（入力中は上書きしない）
-    [['venueShopInput', shop], ['venueStationInput', station], ['venueNoteInput', note]].forEach(([id, val]) => {
+    [['venueMeetTimeInput', meetTime], ['venueMeetPlaceInput', meetPlace], ['venueShopInput', shop], ['venueStationInput', station], ['venueNoteInput', note]].forEach(([id, val]) => {
       const el = document.getElementById(id);
       if (el && document.activeElement !== el) el.value = val;
     });
