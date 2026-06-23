@@ -70,13 +70,20 @@ exports.fetchVenuePreview = onDocumentUpdated('events/{eventId}', async (event) 
   const after  = event.data.after.data()  || {};
   const beforeUrl = extractUrl(before.venue && before.venue.shop);
   const afterUrl  = extractUrl(after.venue && after.venue.shop);
-  if (afterUrl === beforeUrl) return; // URL変化なし（preview書き込みでの再発火を防ぐ）
+  const curPreview = after.venue && after.venue.preview;
 
   const ref = admin.firestore().doc(`events/${event.params.eventId}`);
+
   if (!afterUrl) {
-    await ref.update({ 'venue.preview': admin.firestore.FieldValue.delete() }).catch(() => {});
+    // URLが無くなった → previewを掃除
+    if (beforeUrl || (curPreview && curPreview.url)) {
+      await ref.update({ 'venue.preview': admin.firestore.FieldValue.delete() }).catch(() => {});
+    }
     return;
   }
+  // 既に現URLのpreviewが付いている → 何もしない（書き込みでの再発火を防ぐ）
+  if (curPreview && curPreview.url === afterUrl && curPreview.image) return;
+
   try {
     const preview = await fetchPreview(afterUrl);
     if (preview) await ref.update({ 'venue.preview': preview });
