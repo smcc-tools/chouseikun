@@ -574,6 +574,17 @@
     <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ お店・行き方</div>
     <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
     <div id="venueStationRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">出発駅：</span><span id="venueStationText"></span></div>
+    <!-- 食べログ等のリッチプレビューカード -->
+    <a id="venuePreview" href="#" target="_blank" rel="noopener" style="display:none;text-decoration:none;margin-bottom:10px;">
+      <div style="display:flex;gap:12px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px;align-items:center;">
+        <img id="venuePreviewImg" alt="" style="width:76px;height:76px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#eee;">
+        <div style="min-width:0;flex:1;">
+          <div id="venuePreviewTitle" style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+          <div id="venuePreviewMeta" style="font-size:0.82rem;color:var(--gold);font-weight:700;margin-top:2px;"></div>
+          <div id="venuePreviewSub" style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+        </div>
+      </div>
+    </a>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;">ルートを見る（Googleマップ）</a>
       <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">お店の地図</a>
@@ -1566,7 +1577,10 @@
       const station = (document.getElementById('venueStationInput')?.value || '').trim();
       const note = (document.getElementById('venueNoteInput')?.value || '').trim();
       try {
-        await updateDoc(doc(db, 'events', eventId), { venue: { shop, station, note } });
+        // ドット記法でshop/station/noteのみ更新（Functionが付与するvenue.previewを保持）
+        await updateDoc(doc(db, 'events', eventId), {
+          'venue.shop': shop, 'venue.station': station, 'venue.note': note
+        });
         showToast((shop || station || note) ? '🏠 お店・行き方を保存しました' : 'お店・行き方をクリアしました');
       } catch (e) { showToast('保存に失敗しました'); console.error(e); }
     });
@@ -1904,8 +1918,27 @@
       } else {
         mapBtn.style.display = 'none';
       }
+      // リッチプレビューカード（Cloud Functionが取得した写真付き情報）
+      const preview = venue.preview;
+      const pv = document.getElementById('venuePreview');
+      const hasPreview = !!(shopUrl && preview && preview.image);
+      if (hasPreview) {
+        pv.href = shopUrl;
+        document.getElementById('venuePreviewImg').src = preview.image;
+        document.getElementById('venuePreviewTitle').textContent = preview.title || shopName || 'お店の情報';
+        const metaParts = [];
+        if (preview.rating) metaParts.push(`★ ${preview.rating}${preview.reviews ? `（${preview.reviews}）` : ''}`);
+        if (preview.price) metaParts.push(preview.price);
+        document.getElementById('venuePreviewMeta').textContent = metaParts.join('　・　');
+        document.getElementById('venuePreviewSub').textContent = preview.genre || '';
+        pv.style.display = 'block';
+      } else {
+        pv.style.display = 'none';
+      }
+
+      // 食べログ等のテキストリンク（プレビューカードが出ているときは省略）
       const urlBtn = document.getElementById('venueShopUrlBtn');
-      if (shopUrl) {
+      if (shopUrl && !hasPreview) {
         urlBtn.href = shopUrl;
         urlBtn.textContent = isTabelog ? '食べログで見る' : 'お店のページを見る';
         urlBtn.style.display = 'inline-flex';
