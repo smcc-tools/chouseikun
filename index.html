@@ -2935,7 +2935,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
       ${readOnly ? '' : `
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
-          各次会セルの「割合」は<strong>均等割り＝100%</strong>が基準です。割合を変えるとその人の金額だけが変わります（他の人は自動調整されません）。各次会ヘッダーの「平均100%」と「金額一致」が両方そろうよう、各人の割合または金額を調整してください。金額を直接入力すると割合も自動で逆算表示されます。
+          各次会セルの「割合」は<strong>均等割り＝100%</strong>が基準です。割合を変えるとその人の金額だけが変わります（他の人は自動調整されません）。各次会ヘッダーに「あと何%増やす/減らすか」が出るので、「✅ 割合OK」と「金額一致」になるよう各人の割合（または金額）を調整してください。金額を直接入力すると割合も自動で逆算表示されます。
         </div>
         <button class="btn btn-secondary btn-full" id="resetAmountsBtn">均等割りに戻す</button>`}
     `;
@@ -3060,10 +3060,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
           result.querySelectorAll(`.settle-weight[data-party="${pi}"]`).forEach(s => { sum += parseInt(s.value) || 0; n++; });
           const el = result.querySelector(`#wsum-${pi}`);
           if (!el) continue;
-          const avg = n > 0 ? sum / n : 0;
-          const ok = sum === n * 100; // 平均がちょうど100%
-          const avgStr = Number.isInteger(avg) ? avg : avg.toFixed(1);
-          el.textContent = `平均 ${avgStr}%`;
+          // 目標は「割合の合計＝人数×100%（＝平均100%）」。あと何%増減すればよいかを表示。
+          const gap = n * 100 - sum; // +なら不足（増やす）／−なら超過（減らす）
+          const ok = gap === 0;
+          el.textContent = ok
+            ? '✅ 割合OK'
+            : (gap > 0 ? `⚠️ あと +${gap}%` : `⚠️ あと −${-gap}%`);
           el.style.color = ok ? '#bff0c0' : '#ffd27a';
         }
       }
