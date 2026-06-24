@@ -11,11 +11,35 @@ exports.notifyOnParticipantRegister = onDocumentUpdated('events/{eventId}', asyn
   const notifyUids = after.notifyUids || [];
   if (!notifyUids.length) return;
 
+  const eventName = after.name || 'イベント';
+  const url = `https://smcc-tools.github.io/chouseikun/?event=${event.params.eventId}`;
+  const notifications = [];
+
+  // ① 新規回答登録
   const beforeP = before.participants || {};
   const afterP  = after.participants  || {};
-  // 新たに追加された参加者名のみ（既存の編集は対象外）
   const newNames = Object.keys(afterP).filter(n => !(n in beforeP));
-  if (!newNames.length) return;
+  if (newNames.length) {
+    notifications.push({
+      title: `「${eventName}」に新しい回答`,
+      body: `${newNames.join('、')} さんが回答を登録しました`,
+      tag: `evt-${event.params.eventId}`
+    });
+  }
+
+  // ② 支払済みにした
+  const beforePaid = (before.settle && before.settle.paid) || {};
+  const afterPaid  = (after.settle && after.settle.paid)  || {};
+  const newlyPaid = Object.keys(afterPaid).filter(n => afterPaid[n] === true && beforePaid[n] !== true);
+  if (newlyPaid.length) {
+    notifications.push({
+      title: `「${eventName}」の精算`,
+      body: `${newlyPaid.join('、')} さんが支払済みにしました`,
+      tag: `paid-${event.params.eventId}`
+    });
+  }
+
+  if (!notifications.length) return;
 
   const db = admin.firestore();
 
@@ -28,30 +52,23 @@ exports.notifyOnParticipantRegister = onDocumentUpdated('events/{eventId}', asyn
   tokens = [...new Set(tokens)];
   if (!tokens.length) return;
 
-  const eventName = after.name || 'イベント';
-  const who = newNames.join('、');
-  const url = `https://smcc-tools.github.io/chouseikun/?event=${event.params.eventId}`;
-
   // data-only メッセージ（表示はService Worker側で行う）
-  const resp = await admin.messaging().sendEachForMulticast({
-    tokens,
-    data: {
-      title: `「${eventName}」に新しい回答`,
-      body: `${who} さんが回答を登録しました`,
-      url,
-      tag: `evt-${event.params.eventId}`
-    }
-  });
+  const invalid = new Set();
+  for (const n of notifications) {
+    const resp = await admin.messaging().sendEachForMulticast({
+      tokens,
+      data: { title: n.title, body: n.body, url, tag: n.tag }
+    });
+    resp.responses.forEach((r, i) => {
+      const code = r.error && r.error.code;
+      if (!r.success && (code === 'messaging/invalid-registration-token' ||
+                         code === 'messaging/registration-token-not-registered')) {
+        invalid.add(tokens[i]);
+      }
+    });
+  }
 
   // 無効になったトークンを掃除
-  const invalid = new Set();
-  resp.responses.forEach((r, i) => {
-    const code = r.error && r.error.code;
-    if (!r.success && (code === 'messaging/invalid-registration-token' ||
-                       code === 'messaging/registration-token-not-registered')) {
-      invalid.add(tokens[i]);
-    }
-  });
   if (invalid.size) {
     for (const uid of notifyUids) {
       const ref = db.doc(`fcmTokens/${uid}`);
