@@ -1976,7 +1976,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const shopUrl = urlMatch ? urlMatch[0] : '';
     const shopName = shop.replace(shopUrl, '').trim();
     const isTabelog = /tabelog\.com/i.test(shopUrl);
-    const placeQuery = shopName; // 地図/ルートに使える店名（URLのみの場合は空）
+    // 店名が無くても、取得済みプレビューの店名を地図/ルートのクエリに使う（URLだけ入力時の対策）
+    const previewTitle = (venue.preview && venue.preview.title) ? venue.preview.title.trim() : '';
+    const placeQuery = shopName || previewTitle;
 
     const wrap = document.getElementById('venueWrap');
     if (wrap) {
