@@ -282,6 +282,10 @@ tbody tr { transition: background 0.12s; }
 tbody tr:hover { background: #FAFBF4; }
 tbody tr:last-child td { border-bottom: none; }
 td { padding: 9px 6px; text-align: center; border-bottom: 1px solid var(--line-soft); }
+/* 参加者ごとの列を縦線で区切る */
+th, td { border-left: 1px solid var(--line-soft); }
+thead th { border-left-color: var(--green-mid); }
+th:first-child, td:first-child { border-left: none; }
 td.date-cell { text-align: left; font-weight: 700; color: var(--text); white-space: nowrap; font-size: 0.86rem; position: sticky; left: 0; z-index: 1; background: #fff; }
 tbody tr:hover td.date-cell { background: #FAFBF4; }
 td.date-cell.is-best { color: var(--green); background: var(--green-light); }
