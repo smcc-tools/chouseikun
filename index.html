@@ -1457,6 +1457,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   let currentDates = [];
   let currentParticipantOrder = [];
   let prevSettlePublished = false; // 精算公開状態の変化検知用
+  let hostSettleAutoOpened = false; // ホストの初回精算自動表示済みフラグ
   let latestEventData = null;      // 認証状態変化時の再評価用
   let myEventSavedAsHost = null;   // マイイベント保存済みのロール（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
@@ -1549,6 +1550,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
           openSettlePage(data, true);
         }
         prevSettlePublished = !!data.settlePublished;
+      }
+
+      // ホスト：公開済みなら初回表示を精算画面にする（1回だけ／戻るボタンで回答画面へ）
+      if (isHost && data.settlePublished && !hostSettleAutoOpened) {
+        hostSettleAutoOpened = true;
+        openSettlePage(data, false);
       }
 
       // 精算ページが開いていれば支払済み状態をリアルタイム同期
