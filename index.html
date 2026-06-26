@@ -2947,7 +2947,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     result.innerHTML = `
       ${readOnly ? '' : buildSettleMatchBanner(collected - total, total, collected)}
-      ${buildSettleSummary(total, collected, count, overallPerPerson, readOnly)}
+      ${readOnly ? '' : buildSettleSummary(total, collected, count, overallPerPerson, readOnly)}
       ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
       ${readOnly ? '' : `
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
