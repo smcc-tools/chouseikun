@@ -2846,12 +2846,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     return `<div id="settleMatchBanner" class="${cls}">${msg}</div>`;
   }
 
-  function buildSettleSummary(total, collected, count, perPerson) {
+  function buildSettleSummary(total, collected, count, perPerson, readOnly) {
+    // 参加者画面では「個人合計」「均等割り」は非表示
+    const collectedItem = readOnly ? '' :
+      `<div class="settle-summary-item"><div class="val" id="summaryCollected">¥${collected.toLocaleString()}</div><div class="lbl">個人合計</div></div>`;
+    const perPersonItem = readOnly ? '' :
+      `<div class="settle-summary-item"><div class="val" id="summaryPerPerson">¥${perPerson.toLocaleString()}</div><div class="lbl">均等割り（1人）</div></div>`;
     return `<div class="settle-summary">
       <div class="settle-summary-item"><div class="val" id="summaryTotal">¥${total.toLocaleString()}</div><div class="lbl">合計金額</div></div>
-      <div class="settle-summary-item"><div class="val" id="summaryCollected">¥${collected.toLocaleString()}</div><div class="lbl">個人合計</div></div>
+      ${collectedItem}
       <div class="settle-summary-item"><div class="val">${count}人</div><div class="lbl">参加人数</div></div>
-      <div class="settle-summary-item"><div class="val" id="summaryPerPerson">¥${perPerson.toLocaleString()}</div><div class="lbl">均等割り（1人）</div></div>
+      ${perPersonItem}
     </div>`;
   }
 
@@ -2934,8 +2939,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const collected = names.reduce((sum, name) => sum + getPersonTotal(name), 0);
 
     result.innerHTML = `
-      ${buildSettleMatchBanner(collected - total, total, collected)}
-      ${buildSettleSummary(total, collected, count, overallPerPerson)}
+      ${readOnly ? '' : buildSettleMatchBanner(collected - total, total, collected)}
+      ${buildSettleSummary(total, collected, count, overallPerPerson, readOnly)}
       ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
       ${readOnly ? '' : `
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
