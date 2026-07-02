@@ -211,6 +211,23 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 }
 .btn-remove:hover { color: var(--clay); }
 
+/* 精算メンバーリスト（作成画面・メンバー編集画面 共通） */
+.member-box { animation: fadeUp 0.2s ease; }
+.member-line {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 0; border-bottom: 1px solid var(--line-soft);
+}
+.member-name { flex: 1; font-weight: 600; min-width: 0; word-break: break-word; }
+.member-line .mbr-rename, .member-line .mbr-del {
+  font-size: 0.74rem; padding: 4px 10px; white-space: nowrap;
+}
+.member-line .mbr-del { color: var(--clay); border-color: #E6C6BC; }
+.member-empty {
+  padding: 12px 0; color: var(--text-muted); font-size: 0.85rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+.member-add { display: flex; gap: 8px; margin-top: 14px; }
+
 /* ── ボタン ── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -685,9 +702,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
   <div class="field">
     <label>メンバー</label>
-    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">割り勘の対象者を入力してください（2名以上）。</p>
-    <div id="settleMemberList"></div>
-    <button class="btn btn-ghost" id="addSettleMemberBtn" style="margin-top:6px;">＋ メンバーを追加</button>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">割り勘の対象者を追加してください（2名以上）。</p>
+    <div id="settleDraftBox"></div>
   </div>
 
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
@@ -1197,32 +1213,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   document.getElementById('addPresetParticipantBtn').addEventListener('click', addPresetParticipantRow);
 
   // ── 精算のみ：メンバー入力 ──
-  function addSettleMemberRow() {
-    const row = document.createElement('div');
-    row.className = 'date-row';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'メンバー名を入力';
-    input.style.flex = '1';
-    const btn = document.createElement('button');
-    btn.className = 'btn-remove';
-    btn.textContent = '✕';
-    btn.setAttribute('aria-label', 'このメンバーを削除');
-    btn.addEventListener('click', () => row.remove());
-    row.appendChild(input);
-    row.appendChild(btn);
-    document.getElementById('settleMemberList').appendChild(row);
-    return input;
+  // 精算作成画面：メンバーの下書き（作成時にまとめて保存）
+  let settleDraftMembers = [];
+  function getSettleMembers() { return settleDraftMembers.slice(); }
+  function renderSettleDraft() {
+    // renderBoxedMemberList はスクリプト後方で定義（巻き上げされる関数宣言）
+    renderBoxedMemberList(document.getElementById('settleDraftBox'), settleDraftMembers, {
+      onAdd: async (name) => { settleDraftMembers.push(name); renderSettleDraft(); },
+      onRename: async (old, nn) => { settleDraftMembers = settleDraftMembers.map(x => x === old ? nn : x); renderSettleDraft(); },
+      onDelete: async (nm) => { settleDraftMembers = settleDraftMembers.filter(x => x !== nm); renderSettleDraft(); },
+    });
   }
-  function getSettleMembers() {
-    return Array.from(document.querySelectorAll('#settleMemberList .date-row input'))
-      .map(el => el.value.trim()).filter(n => n);
-  }
-  function ensureSettleMemberRows() {
-    const list = document.getElementById('settleMemberList');
-    while (list.querySelectorAll('.date-row').length < 2) addSettleMemberRow();
-  }
-  document.getElementById('addSettleMemberBtn')?.addEventListener('click', () => addSettleMemberRow().focus());
 
   // ── トップのメニュー遷移 ──
   function goToMenu() {
@@ -1241,7 +1242,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   function goToSettleSetup() {
     ['menuCard','myEventsCard','setupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
     document.getElementById('settleSetupCard').style.display = 'block';
-    ensureSettleMemberRows();
+    const nameEl = document.getElementById('settleName'); if (nameEl) nameEl.value = '';
+    settleDraftMembers = [];
+    renderSettleDraft();
     window.scrollTo(0, 0);
   }
   document.getElementById('menuScheduleBtn')?.addEventListener('click', goToSchedule);
@@ -2297,6 +2300,52 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     });
   }
 
+  // 精算のメンバーリスト（作成画面・メンバー編集画面で共通のデザイン）
+  // members: 現在のメンバー配列 / handlers: { onAdd(name), onRename(old,new), onDelete(name) }
+  function renderBoxedMemberList(container, members, handlers) {
+    if (!container) return;
+    container.innerHTML = `
+      <div class="member-box">
+        ${members.map(m => `<div class="member-line">
+          <span class="member-name">${escHtml(m)}</span>
+          <button type="button" class="btn btn-ghost mbr-rename" data-name="${escHtml(m)}">改名</button>
+          <button type="button" class="btn btn-ghost mbr-del" data-name="${escHtml(m)}">削除</button>
+        </div>`).join('') || '<div class="member-empty">メンバーがいません。下の欄から追加してください。</div>'}
+        <div class="member-add">
+          <input type="text" class="mbr-new" placeholder="メンバー名を追加" style="flex:1;margin-bottom:0;">
+          <button type="button" class="btn btn-secondary mbr-add" style="white-space:nowrap;">追加</button>
+        </div>
+      </div>`;
+
+    const newInput = container.querySelector('.mbr-new');
+    const doAdd = async () => {
+      const name = (newInput.value || '').trim();
+      const err = validateParticipantName(name);
+      if (err) { showToast(err); return; }
+      if (members.some(x => normalizeName(x) === normalizeName(name))) { showToast('同じ名前が既に登録されています'); return; }
+      await handlers.onAdd(name);
+      newInput.value = '';
+    };
+    container.querySelector('.mbr-add')?.addEventListener('click', doAdd);
+    newInput?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
+
+    container.querySelectorAll('.mbr-rename').forEach(b => b.addEventListener('click', async () => {
+      const old = b.dataset.name;
+      const nn = (prompt('新しいメンバー名', old) || '').trim();
+      if (!nn || nn === old) return;
+      const err = validateParticipantName(nn);
+      if (err) { showToast(err); return; }
+      if (members.some(x => x !== old && normalizeName(x) === normalizeName(nn))) { showToast('同じ名前が既に登録されています'); return; }
+      await handlers.onRename(old, nn);
+    }));
+    container.querySelectorAll('.mbr-del').forEach(b => b.addEventListener('click', async () => {
+      const nm = b.dataset.name;
+      if (!confirm(`「${nm}」を削除しますか？`)) return;
+      await handlers.onDelete(nm);
+    }));
+  }
+
+  // メンバー編集画面（既存イベント：変更は即保存）
   function renderSettleMembers(data) {
     const wrap = document.getElementById('tableWrap');
     if (!wrap) return;
@@ -2305,71 +2354,21 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       <div class="field" style="margin-bottom:4px;">
         <label>メンバー</label>
         <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">割り勘の対象者を編集できます（変更は自動保存されます）。</p>
-        <div id="settleMemberEditList"></div>
-        <button class="btn btn-ghost" id="smAddRowBtn" style="margin-top:6px;">＋ メンバーを追加</button>
+        <div id="settleMemberBox"></div>
       </div>`;
-
-    const list = wrap.querySelector('#settleMemberEditList');
-
-    // 既存メンバー行（インライン編集・削除）を生成
-    function makeRow(name) {
-      const row = document.createElement('div');
-      row.className = 'date-row';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.placeholder = 'メンバー名を入力';
-      input.style.flex = '1';
-      input.value = name || '';
-      input.dataset.orig = name || '';
-      const btn = document.createElement('button');
-      btn.className = 'btn-remove';
-      btn.textContent = '✕';
-      btn.setAttribute('aria-label', 'このメンバーを削除');
-
-      // 名前の追加／変更（フォーカスを離れたとき）
-      input.addEventListener('blur', async () => {
-        const orig = input.dataset.orig;
-        const val = input.value.trim();
-        if (val === orig) return;
-        if (!val) { // 空にした場合は元に戻す（削除は✕で）
-          if (orig) input.value = orig;
-          else row.remove();
-          return;
-        }
-        const err = validateParticipantName(val);
-        if (err) { showToast(err); input.value = orig; return; }
-        try {
-          if (!orig) { await addSettleMemberName(val); showToast(`${val} を追加しました`); }
-          else { await renameSettleMemberName(orig, val); showToast('変更しました'); }
-        } catch (e) {
-          if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
-          else { showToast('保存に失敗しました'); console.error(e); }
-          input.value = orig;
-        }
-      });
-      input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
-
-      // 削除
-      btn.addEventListener('click', async () => {
-        const orig = input.dataset.orig;
-        if (!orig) { row.remove(); return; } // 未保存の空行はそのまま除去
-        if (!confirm(`「${orig}」を削除しますか？`)) return;
-        try { await deleteSettleMemberName(orig); showToast(`${orig} を削除しました`); }
+    renderBoxedMemberList(wrap.querySelector('#settleMemberBox'), members, {
+      onAdd: async (name) => {
+        try { await addSettleMemberName(name); showToast(`${name} を追加しました`); }
+        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '追加に失敗しました'); console.error(e); }
+      },
+      onRename: async (old, nn) => {
+        try { await renameSettleMemberName(old, nn); showToast('変更しました'); }
+        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '変更に失敗しました'); console.error(e); }
+      },
+      onDelete: async (nm) => {
+        try { await deleteSettleMemberName(nm); showToast(`${nm} を削除しました`); }
         catch (e) { showToast('削除に失敗しました'); console.error(e); }
-      });
-
-      row.appendChild(input);
-      row.appendChild(btn);
-      return row;
-    }
-
-    members.forEach(m => list.appendChild(makeRow(m)));
-
-    // メンバーを追加（空行を足してフォーカス、名前確定時に保存）
-    wrap.querySelector('#smAddRowBtn')?.addEventListener('click', () => {
-      const row = makeRow('');
-      list.appendChild(row);
-      row.querySelector('input').focus();
+      },
     });
   }
 
