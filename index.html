@@ -1700,18 +1700,30 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       // お店・行き方
       renderVenue(data.venue || {});
 
-      renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
-
-      // 精算のみモード：日程UIを隠し、戻るボタン文言を変更
       const settleOnly = !!data.settleOnly;
+
+      if (settleOnly) {
+        // 精算のみ：投票テーブルの代わりにメンバー管理／案内を表示
+        if (isHost) {
+          renderSettleMembers(data);
+        } else {
+          document.getElementById('tableWrap').innerHTML = data.settlePublished
+            ? '<p class="empty-msg">下の「精算を確認する」から精算を表示できます。</p>'
+            : '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
+        }
+      } else {
+        renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
+      }
+
+      // 精算のみモード：日程調整用UIを隠す
       const legendEl = document.getElementById('voteLegend');
       if (legendEl) legendEl.style.display = settleOnly ? 'none' : '';
       const backBtn = document.getElementById('backToEventBtn');
       if (backBtn) backBtn.textContent = settleOnly ? '← メンバー編集に戻る' : '← 回答画面に戻る';
-      // 精算のみ×参加者×未公開：メンバー表の代わりに案内を表示
-      if (settleOnly && !isHost && !data.settlePublished) {
-        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
-      }
+      const goSettleBtn = document.getElementById('goSettleBtn');
+      if (goSettleBtn) goSettleBtn.textContent = settleOnly ? '精算画面を開く' : '会が終了したので精算に進む';
+      const addMemoWrapEl = document.getElementById('addMemoWrap');
+      if (addMemoWrapEl && settleOnly) addMemoWrapEl.style.display = 'none';
 
       // 精算公開状態を反映（参加者向け）
       if (!isHost) {
@@ -2229,6 +2241,97 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     [['venueMeetTimeInput', meetTime], ['venueMeetPlaceInput', meetPlace], ['venueShopInput', shop], ['venueNoteInput', note]].forEach(([id, val]) => {
       const el = document.getElementById(id);
       if (el && document.activeElement !== el) el.value = val;
+    });
+  }
+
+  // 精算のみ：メンバー管理画面（日程調整UIなし）
+  function renderSettleMembers(data) {
+    const wrap = document.getElementById('tableWrap');
+    if (!wrap) return;
+    const members = getSortedNames(data);
+    wrap.innerHTML = `
+      <div style="border:1px solid var(--border);border-radius:14px;padding:16px;background:#fff;">
+        <div style="font-weight:700;color:var(--forest);margin-bottom:12px;font-family:var(--font-display);">メンバー（${members.length}人）</div>
+        <div>
+          ${members.map(m => `<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line-soft);">
+            <span style="flex:1;font-weight:600;min-width:0;word-break:break-word;">${escHtml(m)}</span>
+            <button class="btn btn-ghost sm-rename" data-name="${escHtml(m)}" style="font-size:0.74rem;padding:4px 10px;">改名</button>
+            <button class="btn btn-ghost sm-del" data-name="${escHtml(m)}" style="font-size:0.74rem;padding:4px 10px;color:var(--clay);border-color:#E6C6BC;">削除</button>
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <input type="text" id="smNewName" placeholder="メンバー名を追加" style="flex:1;margin-bottom:0;">
+          <button class="btn btn-secondary" id="smAddBtn" style="white-space:nowrap;">追加</button>
+        </div>
+      </div>`;
+
+    // 追加
+    wrap.querySelector('#smAddBtn')?.addEventListener('click', async () => {
+      const input = wrap.querySelector('#smNewName');
+      const name = (input?.value || '').trim();
+      const err = validateParticipantName(name);
+      if (err) { showToast(err); return; }
+      try {
+        await runTransaction(db, async (tx) => {
+          const ref = doc(db, 'events', eventId);
+          const d = (await tx.get(ref)).data();
+          const ps = { ...(d.participants || {}) };
+          if (Object.keys(ps).some(n => normalizeName(n) === normalizeName(name))) throw new Error('DUP');
+          ps[name] = { _note: '', _joinedAt: Date.now() };
+          const order = [...(d.participantOrder || []), name];
+          tx.update(ref, { participants: ps, participantOrder: order });
+        });
+        showToast(`${name} を追加しました`);
+      } catch (e) {
+        if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
+        else { showToast('追加に失敗しました'); console.error(e); }
+      }
+    });
+
+    // 削除
+    wrap.querySelectorAll('.sm-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.name;
+        if (!confirm(`「${name}」を削除しますか？`)) return;
+        try {
+          await runTransaction(db, async (tx) => {
+            const ref = doc(db, 'events', eventId);
+            const d = (await tx.get(ref)).data();
+            const ps = { ...(d.participants || {}) };
+            delete ps[name];
+            const order = (d.participantOrder || []).filter(n => n !== name);
+            tx.update(ref, { participants: ps, participantOrder: order });
+          });
+          showToast(`${name} を削除しました`);
+        } catch (e) { showToast('削除に失敗しました'); console.error(e); }
+      });
+    });
+
+    // 改名
+    wrap.querySelectorAll('.sm-rename').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.name;
+        const newName = (prompt('新しいメンバー名', name) || '').trim();
+        if (!newName || newName === name) return;
+        const err = validateParticipantName(newName);
+        if (err) { showToast(err); return; }
+        try {
+          await runTransaction(db, async (tx) => {
+            const ref = doc(db, 'events', eventId);
+            const d = (await tx.get(ref)).data();
+            const ps = { ...(d.participants || {}) };
+            if (!ps[name]) throw new Error('GONE');
+            if (Object.keys(ps).some(n => n !== name && normalizeName(n) === normalizeName(newName))) throw new Error('DUP');
+            ps[newName] = ps[name]; delete ps[name];
+            const order = (d.participantOrder || []).map(n => n === name ? newName : n);
+            tx.update(ref, { participants: ps, participantOrder: order });
+          });
+          showToast('変更しました');
+        } catch (e) {
+          if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
+          else { showToast('変更に失敗しました'); console.error(e); }
+        }
+      });
     });
   }
 
