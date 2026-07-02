@@ -228,6 +228,49 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 }
 .member-add { display: flex; gap: 8px; margin-top: 14px; }
 
+/* 立替・割り勘 */
+.wl-expense {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px; background: #fff; border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 8px; animation: fadeUp 0.2s ease;
+}
+.wl-expense .wl-main { flex: 1; min-width: 0; }
+.wl-expense .wl-title { font-weight: 600; word-break: break-word; }
+.wl-expense .wl-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.wl-expense .wl-amount { font-weight: 700; white-space: nowrap; font-family: var(--font-display); }
+.wl-expense .wl-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.wl-expense .wl-actions button {
+  background: none; border: none; cursor: pointer; padding: 4px 6px;
+  border-radius: 6px; font-size: 0.9rem; color: #B6B3A2;
+}
+.wl-expense .wl-actions button:hover { color: var(--clay); }
+.wl-empty { padding: 14px; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border); border-radius: 10px; }
+.wl-form {
+  background: var(--green-light); border: 1px solid var(--green-mid);
+  border-radius: 12px; padding: 14px 16px; margin-top: 10px; animation: fadeUp 0.2s ease;
+}
+.wl-form .wl-form-row { margin-bottom: 10px; }
+.wl-form label { display: block; font-size: 0.76rem; font-weight: 700; color: var(--green); margin-bottom: 5px; text-transform: none; letter-spacing: 0; }
+.wl-form input, .wl-form select { width: 100%; margin-bottom: 0; }
+.wl-share-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.wl-share-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px;
+  border: 1.5px solid var(--border); border-radius: 999px; font-size: 0.84rem;
+  cursor: pointer; background: #fff; user-select: none;
+}
+.wl-share-chip input { width: auto !important; accent-color: var(--green); cursor: pointer; }
+.wl-share-chip.on { border-color: var(--green); background: #eef4e4; color: var(--green); font-weight: 600; }
+.wl-form-actions { display: flex; gap: 8px; margin-top: 4px; }
+.wl-settle-line {
+  display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
+}
+.wl-settle-line .wl-from { font-weight: 600; }
+.wl-settle-line .wl-arrow { color: var(--green); font-weight: 700; }
+.wl-settle-line .wl-to { font-weight: 600; }
+.wl-settle-line .wl-pay { margin-left: auto; font-weight: 700; font-family: var(--font-display); color: var(--clay); }
+.wl-settle-done { padding: 14px; text-align: center; color: var(--green); font-weight: 600; font-size: 0.9rem; background: #eef4e4; border: 1px solid var(--green-mid); border-radius: 10px; }
+
 /* ── ボタン ── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -592,6 +635,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       <div class="mt-title">精算する</div>
       <div class="mt-desc">日程調整なしで割り勘・傾斜精算</div>
     </div>
+    <div class="menu-tile" id="menuWalicaBtn" role="button" tabindex="0">
+      <div class="mt-icon">
+        <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="13" stroke="#EFE5CD" stroke-width="6"/>
+          <circle cx="50" cy="50" r="13" stroke="#EFE5CD" stroke-width="6"/>
+          <path d="M35 30 L50 45" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="mt-title">立替・割り勘</div>
+      <div class="mt-desc">誰が何を立て替えたか記録し、最小回数で精算</div>
+    </div>
   </div>
 </div>
 
@@ -707,6 +761,26 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   </div>
 
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
+</div>
+
+<!-- 立替・割り勘 作成カード -->
+<div class="card" id="walicaSetupCard" style="display:none;">
+  <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+  <h2 class="card-title">立替・割り勘を作成</h2>
+  <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.7;font-weight:400;">誰が何を立て替えたかを記録し、最小回数で精算します。メンバーを追加して作成し、リンクを共有すると全員で立替を入力できます。</p>
+
+  <div class="field">
+    <label>タイトル</label>
+    <input type="text" id="walicaName" placeholder="例：沖縄旅行の精算">
+  </div>
+
+  <div class="field">
+    <label>メンバー</label>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">割り勘の対象者を追加してください（2名以上）。</p>
+    <div id="walicaDraftBox"></div>
+  </div>
+
+  <button class="btn btn-primary btn-full" id="createWalicaBtn" style="padding:14px;">割り勘を作成</button>
 </div>
 
 <!-- 回答カード -->
@@ -918,6 +992,45 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         <input type="text" id="settleShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
         <button class="btn btn-secondary" id="copySettleUrlBtn" style="white-space:nowrap;">コピー</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- 立替・割り勘 ボードカード -->
+<div class="card" id="walicaCard" style="display:none;">
+  <div class="card-title" style="justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <h2 id="walicaTitle" style="margin:0;font-size:inherit;font-weight:inherit;color:inherit;">立替・割り勘</h2>
+      <button id="walicaEditTitleBtn" class="walica-host" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">編集</button>
+    </div>
+  </div>
+
+  <!-- メンバー -->
+  <div class="field" style="margin-bottom:20px;">
+    <label>メンバー</label>
+    <div id="walicaMemberBox"></div>
+  </div>
+
+  <!-- 立替の記録 -->
+  <div class="field" style="margin-bottom:20px;">
+    <label>立替の記録</label>
+    <div id="walicaExpenseList"></div>
+    <div id="walicaExpenseForm" style="display:none;"></div>
+    <button class="btn btn-secondary" id="walicaAddExpenseBtn" style="margin-top:10px;width:100%;">＋ 立替を追加</button>
+  </div>
+
+  <!-- 精算結果 -->
+  <div class="field" style="margin-bottom:20px;">
+    <label>精算結果（最小回数）</label>
+    <div id="walicaSettleResult"></div>
+  </div>
+
+  <!-- 共有URL -->
+  <div style="background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">共有用URL（開いた人全員が立替を入力できます）</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="walicaShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+      <button class="btn btn-secondary" id="copyWalicaUrlBtn" style="white-space:nowrap;">コピー</button>
     </div>
   </div>
 </div>
@@ -1225,30 +1338,49 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     });
   }
 
+  // 立替・割り勘 作成画面のメンバー下書き
+  let walicaDraftMembers = [];
+  function renderWalicaDraft() {
+    renderBoxedMemberList(document.getElementById('walicaDraftBox'), walicaDraftMembers, {
+      onAdd: async (name) => { walicaDraftMembers.push(name); renderWalicaDraft(); },
+      onRename: async (old, nn) => { walicaDraftMembers = walicaDraftMembers.map(x => x === old ? nn : x); renderWalicaDraft(); },
+      onDelete: async (nm) => { walicaDraftMembers = walicaDraftMembers.filter(x => x !== nm); renderWalicaDraft(); },
+    });
+  }
+
   // ── トップのメニュー遷移 ──
+  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard'];
   function goToMenu() {
     const menu = document.getElementById('menuCard');
     if (menu) menu.style.display = 'block';
-    const su = document.getElementById('setupCard'); if (su) su.style.display = 'none';
-    const ss = document.getElementById('settleSetupCard'); if (ss) ss.style.display = 'none';
+    SETUP_CARDS.forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
     const my = document.getElementById('myEventsCard'); if (my) my.style.display = currentUser ? 'block' : 'none';
     window.scrollTo(0, 0);
   }
   function goToSchedule() {
-    ['menuCard','myEventsCard','settleSetupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    ['menuCard','myEventsCard','settleSetupCard','walicaSetupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
     document.getElementById('setupCard').style.display = 'block';
     window.scrollTo(0, 0);
   }
   function goToSettleSetup() {
-    ['menuCard','myEventsCard','setupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    ['menuCard','myEventsCard','setupCard','walicaSetupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
     document.getElementById('settleSetupCard').style.display = 'block';
     const nameEl = document.getElementById('settleName'); if (nameEl) nameEl.value = '';
     settleDraftMembers = [];
     renderSettleDraft();
     window.scrollTo(0, 0);
   }
+  function goToWalicaSetup() {
+    ['menuCard','myEventsCard','setupCard','settleSetupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    document.getElementById('walicaSetupCard').style.display = 'block';
+    const nameEl = document.getElementById('walicaName'); if (nameEl) nameEl.value = '';
+    walicaDraftMembers = [];
+    renderWalicaDraft();
+    window.scrollTo(0, 0);
+  }
   document.getElementById('menuScheduleBtn')?.addEventListener('click', goToSchedule);
   document.getElementById('menuSettleBtn')?.addEventListener('click', goToSettleSetup);
+  document.getElementById('menuWalicaBtn')?.addEventListener('click', goToWalicaSetup);
   document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', goToMenu));
 
   // ── マイイベント管理（Firestore アカウントベース） ──────
@@ -1286,6 +1418,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     if (menu) menu.style.display = 'block';
     document.getElementById('setupCard').style.display = 'none';
     document.getElementById('settleSetupCard').style.display = 'none';
+    document.getElementById('walicaSetupCard').style.display = 'none';
 
     if (!currentUser) {
       card.style.display = 'none';
@@ -1609,6 +1742,47 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     }
   });
 
+  // 立替・割り勘を作成
+  document.getElementById('createWalicaBtn')?.addEventListener('click', async () => {
+    const name = (document.getElementById('walicaName')?.value || '').trim();
+    const members = walicaDraftMembers.slice();
+    if (!name) { showToast('タイトルを入力してください'); return; }
+    if (members.length < 2) { showToast('メンバーを2名以上追加してください'); return; }
+    for (const m of members) {
+      const err = validateParticipantName(m);
+      if (err) { showToast(`「${m}」：${err}`); return; }
+    }
+    const seen = new Set();
+    for (const m of members) {
+      const k = normalizeName(m);
+      if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
+      seen.add(k);
+    }
+    if (!currentUser) {
+      showToast('作成にはログインが必要です');
+      await signIn();
+      return;
+    }
+    const btn = document.getElementById('createWalicaBtn');
+    btn.textContent = '作成中...'; btn.disabled = true;
+    try {
+      const evId = randomId(16);
+      const now = Date.now();
+      const participants = {};
+      members.forEach((m, i) => { participants[m] = { _note: '', _joinedAt: now + i }; });
+      await setDoc(doc(db, 'events', evId), {
+        name, dates: [], memo: '', participants,
+        ownerUids: [currentUser.uid], confirmedDate: null,
+        participantOrder: members, walica: true, expenses: []
+      });
+      addMyEvent(evId, name, true);
+      location.href = `${location.origin}${location.pathname}?event=${evId}`;
+    } catch (e) {
+      btn.textContent = '割り勘を作成'; btn.disabled = false;
+      showToast('作成に失敗しました'); console.error(e);
+    }
+  });
+
   function copyText(text, btnEl, label) {
     navigator.clipboard.writeText(text).then(() => {
       btnEl.textContent = 'コピー済み';
@@ -1690,6 +1864,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       currentParticipantOrder = data.participantOrder || [];
 
       evaluateHost(data);
+
+      // 立替・割り勘：専用ボードを表示して以降の日程/精算UIはスキップ
+      if (data.walica) {
+        document.getElementById('viewCard').style.display = 'none';
+        document.getElementById('settleCard').style.display = 'none';
+        document.getElementById('walicaCard').style.display = 'block';
+        renderWalicaBoard(data);
+        return;
+      }
 
       // タイトル表示
       document.getElementById('viewTitle').textContent = data.name;
@@ -2371,6 +2554,224 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       },
     });
   }
+
+  // ══════════ 立替・割り勘（Walica式） ══════════
+  // 各人の収支から最小回数の送金を求める
+  function computeWalicaSettlement(expenses) {
+    const bal = {};
+    const add = (n, v) => { if (!n) return; bal[n] = (bal[n] || 0) + v; };
+    for (const e of (expenses || [])) {
+      const amt = Math.round(e.amount) || 0;
+      const shares = (e.sharedWith || []).filter(Boolean);
+      if (amt <= 0 || shares.length === 0) continue;
+      add(e.payer, amt);                       // 立て替えた人はプラス
+      const base = Math.floor(amt / shares.length);
+      let rem = amt - base * shares.length;    // 端数は先頭メンバーから1円ずつ
+      shares.forEach(n => { const owe = base + (rem > 0 ? 1 : 0); if (rem > 0) rem--; add(n, -owe); });
+    }
+    const creditors = [], debtors = [];
+    Object.entries(bal).forEach(([n, v]) => {
+      const r = Math.round(v);
+      if (r > 0) creditors.push({ name: n, amt: r });
+      else if (r < 0) debtors.push({ name: n, amt: -r });
+    });
+    creditors.sort((a, b) => b.amt - a.amt);
+    debtors.sort((a, b) => b.amt - a.amt);
+    const txns = [];
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const pay = Math.min(debtors[i].amt, creditors[j].amt);
+      if (pay > 0) txns.push({ from: debtors[i].name, to: creditors[j].name, amount: pay });
+      debtors[i].amt -= pay; creditors[j].amt -= pay;
+      if (debtors[i].amt === 0) i++;
+      if (creditors[j].amt === 0) j++;
+    }
+    return txns;
+  }
+
+  function renderWalicaBoard(data) {
+    const members = getSortedNames(data);
+    document.getElementById('walicaTitle').textContent = data.name || '立替・割り勘';
+    const editBtn = document.getElementById('walicaEditTitleBtn');
+    if (editBtn) editBtn.style.display = isHost ? 'inline-block' : 'none';
+
+    // メンバー（誰でも編集可・即保存）
+    renderBoxedMemberList(document.getElementById('walicaMemberBox'), members, {
+      onAdd: async (name) => {
+        try { await addSettleMemberName(name); showToast(`${name} を追加しました`); }
+        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '追加に失敗しました'); console.error(e); }
+      },
+      onRename: async (old, nn) => {
+        try { await renameSettleMemberName(old, nn); showToast('変更しました'); }
+        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '変更に失敗しました'); console.error(e); }
+      },
+      onDelete: async (nm) => {
+        try { await deleteSettleMemberName(nm); showToast(`${nm} を削除しました`); }
+        catch (e) { showToast('削除に失敗しました'); console.error(e); }
+      },
+    });
+
+    renderWalicaExpenses(data);
+    renderWalicaSettlement(data);
+    const share = document.getElementById('walicaShareUrl');
+    if (share) share.value = `${location.origin}${location.pathname}?event=${eventId}`;
+    // 立替フォームが開いている最中はスナップショットで壊さない（何もしない）
+  }
+
+  function renderWalicaExpenses(data) {
+    const list = document.getElementById('walicaExpenseList');
+    const expenses = (data.expenses || []).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    if (!expenses.length) {
+      list.innerHTML = '<div class="wl-empty">まだ立替がありません。「＋ 立替を追加」から記録してください。</div>';
+      return;
+    }
+    list.innerHTML = expenses.map(e => {
+      const shares = (e.sharedWith || []).filter(Boolean);
+      const per = shares.length ? Math.floor((Math.round(e.amount) || 0) / shares.length) : 0;
+      return `<div class="wl-expense">
+        <div class="wl-main">
+          <div class="wl-title">${escHtml(e.title || '(無題)')}</div>
+          <div class="wl-sub">${escHtml(e.payer || '?')} が立替 ・ ${shares.length}人で割り勘（1人 約¥${per.toLocaleString()}）</div>
+        </div>
+        <div class="wl-amount">¥${(Math.round(e.amount) || 0).toLocaleString()}</div>
+        <div class="wl-actions">
+          <button class="wl-edit" data-id="${escHtml(e.id)}" aria-label="編集">✎</button>
+          <button class="wl-del" data-id="${escHtml(e.id)}" aria-label="削除">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.wl-edit').forEach(b => b.addEventListener('click', () => {
+      const ex = (latestEventData.expenses || []).find(x => x.id === b.dataset.id);
+      if (ex) openWalicaExpenseForm(latestEventData, ex);
+    }));
+    list.querySelectorAll('.wl-del').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('この立替を削除しますか？')) return;
+      try { await deleteWalicaExpense(b.dataset.id); showToast('立替を削除しました'); }
+      catch (e) { showToast('削除に失敗しました'); console.error(e); }
+    }));
+  }
+
+  function renderWalicaSettlement(data) {
+    const el = document.getElementById('walicaSettleResult');
+    const txns = computeWalicaSettlement(data.expenses || []);
+    if (!txns.length) {
+      el.innerHTML = '<div class="wl-settle-done">精算の必要はありません。</div>';
+      return;
+    }
+    el.innerHTML = txns.map(t => `<div class="wl-settle-line">
+      <span class="wl-from">${escHtml(t.from)}</span>
+      <span class="wl-arrow">→</span>
+      <span class="wl-to">${escHtml(t.to)}</span>
+      <span class="wl-pay">¥${t.amount.toLocaleString()}</span>
+    </div>`).join('');
+  }
+
+  function openWalicaExpenseForm(data, existing) {
+    const members = getSortedNames(data);
+    const form = document.getElementById('walicaExpenseForm');
+    const ex = existing || { title: '', amount: '', payer: members[0] || '', sharedWith: members.slice() };
+    form.innerHTML = `
+      <div class="wl-form">
+        <div class="wl-form-row">
+          <label>内容</label>
+          <input type="text" id="wlTitle" placeholder="例：ホテル代" value="${escHtml(ex.title || '')}">
+        </div>
+        <div class="wl-form-row">
+          <label>金額（円）</label>
+          <input type="number" id="wlAmount" inputmode="numeric" min="0" placeholder="10000" value="${(ex.amount !== '' && ex.amount != null) ? Math.round(ex.amount) : ''}">
+        </div>
+        <div class="wl-form-row">
+          <label>立て替えた人</label>
+          <select id="wlPayer">${members.map(m => `<option value="${escHtml(m)}" ${m === ex.payer ? 'selected' : ''}>${escHtml(m)}</option>`).join('')}</select>
+        </div>
+        <div class="wl-form-row">
+          <label>割り勘の対象（選んだ人で等分）</label>
+          <div class="wl-share-checks" id="wlShares">
+            ${members.map(m => { const on = (ex.sharedWith || []).includes(m); return `<label class="wl-share-chip ${on ? 'on' : ''}"><input type="checkbox" value="${escHtml(m)}" ${on ? 'checked' : ''}>${escHtml(m)}</label>`; }).join('')}
+          </div>
+        </div>
+        <div class="wl-form-actions">
+          <button class="btn btn-primary" id="wlSaveExpense" style="flex:1;">${existing ? '保存' : '追加'}</button>
+          <button class="btn btn-secondary" id="wlCancelExpense">キャンセル</button>
+        </div>
+      </div>`;
+    form.style.display = 'block';
+    form.dataset.editId = existing ? existing.id : '';
+    document.getElementById('walicaAddExpenseBtn').style.display = 'none';
+    form.querySelectorAll('.wl-share-chip input').forEach(cb => cb.addEventListener('change', () => {
+      cb.closest('.wl-share-chip').classList.toggle('on', cb.checked);
+    }));
+    document.getElementById('wlCancelExpense').addEventListener('click', closeWalicaExpenseForm);
+    document.getElementById('wlSaveExpense').addEventListener('click', saveWalicaExpenseFromForm);
+  }
+
+  function closeWalicaExpenseForm() {
+    const form = document.getElementById('walicaExpenseForm');
+    form.style.display = 'none'; form.innerHTML = ''; form.dataset.editId = '';
+    const addBtn = document.getElementById('walicaAddExpenseBtn');
+    if (addBtn) addBtn.style.display = '';
+  }
+
+  async function saveWalicaExpenseFromForm() {
+    const title = (document.getElementById('wlTitle').value || '').trim();
+    const amount = Math.round(parseFloat(document.getElementById('wlAmount').value) || 0);
+    const payer = document.getElementById('wlPayer').value;
+    const sharedWith = Array.from(document.querySelectorAll('#wlShares input:checked')).map(c => c.value);
+    if (!title) { showToast('内容を入力してください'); return; }
+    if (!(amount > 0)) { showToast('金額を入力してください'); return; }
+    if (!payer) { showToast('立て替えた人を選んでください'); return; }
+    if (!sharedWith.length) { showToast('割り勘の対象を1人以上選んでください'); return; }
+    const editId = document.getElementById('walicaExpenseForm').dataset.editId;
+    try {
+      if (editId) await updateWalicaExpense(editId, { title, amount, payer, sharedWith });
+      else await addWalicaExpense({ id: randomId(12), title, amount, payer, sharedWith, createdAt: Date.now() });
+      closeWalicaExpenseForm();
+      showToast(editId ? '立替を更新しました' : '立替を追加しました');
+    } catch (e) { showToast('保存に失敗しました'); console.error(e); }
+  }
+
+  async function addWalicaExpense(exp) {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data();
+      const arr = Array.isArray(d.expenses) ? d.expenses.slice() : [];
+      arr.push(exp);
+      tx.update(ref, { expenses: arr });
+    });
+  }
+  async function updateWalicaExpense(id, patch) {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data();
+      const arr = (Array.isArray(d.expenses) ? d.expenses : []).map(e => e.id === id ? { ...e, ...patch } : e);
+      tx.update(ref, { expenses: arr });
+    });
+  }
+  async function deleteWalicaExpense(id) {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data();
+      const arr = (Array.isArray(d.expenses) ? d.expenses : []).filter(e => e.id !== id);
+      tx.update(ref, { expenses: arr });
+    });
+  }
+
+  document.getElementById('walicaAddExpenseBtn')?.addEventListener('click', () => {
+    if (latestEventData) openWalicaExpenseForm(latestEventData, null);
+  });
+  document.getElementById('copyWalicaUrlBtn')?.addEventListener('click', () => {
+    copyText(document.getElementById('walicaShareUrl').value, document.getElementById('copyWalicaUrlBtn'), '共有用URL');
+  });
+  document.getElementById('walicaEditTitleBtn')?.addEventListener('click', async () => {
+    const cur = latestEventData?.name || '';
+    const nn = (prompt('タイトルを変更', cur) || '').trim();
+    if (!nn || nn === cur) return;
+    try {
+      await updateDoc(doc(db, 'events', eventId), { name: nn });
+      showToast('タイトルを更新しました');
+      if (currentUser) addMyEvent(eventId, nn, true);
+    } catch (e) { showToast('更新に失敗しました'); console.error(e); }
+  });
 
   function renderTable(dates, participants, confirmedDate, participantOrder) {
     const wrap = document.getElementById('tableWrap');

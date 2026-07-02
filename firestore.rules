@@ -29,8 +29,8 @@ service cloud.firestore {
       // クライアントからの削除は不可
       allow delete: if false;
 
-      // 更新：ホスト本人 / 参加者の投票 / 支払済みトグル / 旧イベントの移行クレーム
-      allow update: if isOwner() || isParticipantWrite() || isPaidToggle() || isLegacyClaim();
+      // 更新：ホスト本人 / 参加者の投票 / 支払済みトグル / 立替割り勘の編集 / 旧イベントの移行クレーム
+      allow update: if isOwner() || isParticipantWrite() || isPaidToggle() || isWalicaWrite() || isLegacyClaim();
     }
 
     // ホスト本人（ownerUidsに含まれるログインユーザー）
@@ -51,6 +51,14 @@ service cloud.firestore {
       return 'settle' in resource.data
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['settle'])
         && request.resource.data.settle.diff(resource.data.settle).affectedKeys().hasOnly(['paid']);
+    }
+
+    // 立替・割り勘（walica:true）：リンクを開いた誰でも メンバー / 立替 を編集可。
+    // ホスト専用項目（name, ownerUids 等）は変更不可。
+    function isWalicaWrite() {
+      return resource.data.walica == true
+        && request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['participants', 'participantOrder', 'expenses']);
     }
 
     // 旧イベント（ownerUids未設定）をログインユーザーがクレーム（移行用・ownerUidsの新規付与のみ）
