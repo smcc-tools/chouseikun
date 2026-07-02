@@ -570,17 +570,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     </div>
     <div class="menu-tile" id="menuSettleBtn" role="button" tabindex="0">
       <div class="mt-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 3v18M7 8h6a2.5 2.5 0 0 1 0 5H7m0 0h10M6 12h8" stroke="#EFE5CD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <span style="color:#EFE5CD;font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
       </div>
       <div class="mt-title">精算する</div>
       <div class="mt-desc">日程調整なしで割り勘・傾斜精算</div>
-    </div>
-    <div class="menu-tile soon">
-      <div class="mt-icon" style="background:var(--green-mid);"></div>
-      <div class="mt-title" style="font-size:0.95rem;color:var(--text-muted);">近日追加</div>
-      <div class="mt-desc">新機能はここに追加予定</div>
     </div>
   </div>
 </div>
@@ -589,7 +582,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 <div class="card" id="myEventsCard" style="display:none;">
   <h2 class="card-title">マイイベント</h2>
   <div id="myEventsList"></div>
-  <button class="btn btn-ghost" id="newEventBtn" style="margin-top:12px;width:100%;">＋ 新しいイベントを作成</button>
   <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);font-size:0.74rem;color:var(--text-muted);line-height:1.6;">
     共同ホストに招待してもらう場合は、このホストコードを幹事に伝えてください：<br>
     <code id="myHostCodeTop" style="font-size:0.72rem;background:#f5f5f5;padding:2px 6px;border:1px solid #eee;border-radius:4px;word-break:break-all;">—</code>
@@ -1520,7 +1512,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
   // 初期表示（?event= なしのトップページのみ）
   if (!new URLSearchParams(location.search).get('event')) {
-    document.getElementById('newEventBtn')?.addEventListener('click', goToMenu);
     goToMenu(); // 認証解決前でもメニューを表示
   }
 
