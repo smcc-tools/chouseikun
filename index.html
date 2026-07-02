@@ -890,12 +890,19 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   <!-- 精算結果 -->
   <div id="settleResult"></div>
 
-  <!-- ホスト用：参加者に公開ボタン -->
+  <!-- ホスト用：保存＋参加者表示用URL -->
   <div id="publishSettleWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
     <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
-      参加者にも表示する
+      保存する
     </button>
-    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に公開済み　<button id="unpublishBtn" style="background:none;border:1px solid #ccc;border-radius:4px;padding:2px 8px;font-size:0.78rem;color:#888;cursor:pointer;margin-left:8px;">非公開に戻す</button></div>
+    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">保存しました</div>
+    <div id="settleShareWrap" style="margin-top:14px;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者表示用URL（共有すると精算を確認してもらえます）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="settleShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary" id="copySettleUrlBtn" style="white-space:nowrap;">コピー</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1724,6 +1731,16 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       if (goSettleBtn) goSettleBtn.textContent = settleOnly ? '精算画面を開く' : '会が終了したので精算に進む';
       const addMemoWrapEl = document.getElementById('addMemoWrap');
       if (addMemoWrapEl && settleOnly) addMemoWrapEl.style.display = 'none';
+      // 精算のみ：集合・お店（日程調整向けUI）は非表示
+      if (settleOnly) {
+        const venueWrapEl = document.getElementById('venueWrap');
+        const venueEditEl = document.getElementById('venueEdit');
+        if (venueWrapEl) venueWrapEl.style.display = 'none';
+        if (venueEditEl) venueEditEl.style.display = 'none';
+      }
+      // 精算のみのホスト画面のタイトル
+      const viewTitleEl = document.getElementById('viewTitle');
+      if (viewTitleEl && settleOnly && isHost) viewTitleEl.textContent = (data.name || 'イベント') + '（メンバー編集）';
 
       // 精算公開状態を反映（参加者向け）
       if (!isHost) {
@@ -1813,6 +1830,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     document.getElementById('copyParticipantUrlBtn')?.addEventListener('click', () => {
       copyText(document.getElementById('participantUrlView').value, document.getElementById('copyParticipantUrlBtn'), '参加者用URL');
+    });
+
+    document.getElementById('copySettleUrlBtn')?.addEventListener('click', () => {
+      copyText(document.getElementById('settleShareUrl').value, document.getElementById('copySettleUrlBtn'), '参加者表示用URL');
     });
 
     // 共同ホスト追加（相手のホストコード=uidを指定）
@@ -2911,6 +2932,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     // ホスト用ボタン表示制御
     const publishWrap = document.getElementById('publishSettleWrap');
     if (publishWrap) publishWrap.style.display = readOnly ? 'none' : 'block';
+    // 参加者表示用URL
+    const shareInput = document.getElementById('settleShareUrl');
+    if (shareInput) shareInput.value = `${location.origin}${location.pathname}?event=${eventId}`;
 
     const settle = data.settle || {};
     const published = data.settlePublished || false;
@@ -3049,7 +3073,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       settlePublished: true
     });
     document.getElementById('publishedBadge').style.display = 'block';
-    showToast('精算を参加者に公開しました');
+    showToast('保存しました（URLを共有すると参加者が確認できます）');
   });
 
   // 非公開に戻す
