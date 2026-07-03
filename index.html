@@ -1406,7 +1406,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId), { finished }, { merge: true });
   }
 
-  let myEventsTab = 'host'; // 'host' | 'part' | 'finished'
+  let myEventsTab = 'schedule'; // 'schedule' | 'settle' | 'walica'
 
   async function renderMyEvents() {
     const card = document.getElementById('myEventsCard');
@@ -1448,16 +1448,18 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     // 各イベントの確定日を取得（並び替え用）
     await Promise.all(events.map(async e => {
       e.confirmedTs = null;
+      e.type = 'schedule'; // 取得失敗時は日程調整扱い
       try {
         const ev = await getDoc(doc(db, 'events', e.eventId));
         if (ev.exists()) {
           const data = ev.data();
+          e.type = data.walica ? 'walica' : (data.settleOnly ? 'settle' : 'schedule');
           const ci = data.confirmedDate;
           if (ci != null && data.dates && data.dates[ci]) {
             e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
           }
         }
-      } catch (_) { /* 取得失敗時は未確定扱い */ }
+      } catch (_) { /* 取得失敗時は日程調整・未確定扱い */ }
     }));
 
     // 並び替え：未確定を最上位、確定済みは今日に近い順
@@ -1472,15 +1474,22 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     const base = `${location.origin}${location.pathname}`;
 
-    // 3分類
+    // メニュー種別ごとに分類（各種別内は 未終了→終了 の順）
+    const sortWithFinished = (a, b) => {
+      if (!!a.finished !== !!b.finished) return a.finished ? 1 : -1;
+      return sortFn(a, b);
+    };
     const groups = {
-      host:     events.filter(e => !e.finished && e.host).sort(sortFn),
-      part:     events.filter(e => !e.finished && !e.host).sort(sortFn),
-      finished: events.filter(e => e.finished).sort(sortFn),
+      schedule: events.filter(e => e.type === 'schedule').sort(sortWithFinished),
+      settle:   events.filter(e => e.type === 'settle').sort(sortWithFinished),
+      walica:   events.filter(e => e.type === 'walica').sort(sortWithFinished),
     };
 
     const itemHtml = (e) => {
-      const metaStr = e.confirmedTs != null
+      let metaStr;
+      if (e.type === 'settle') metaStr = '精算';
+      else if (e.type === 'walica') metaStr = '立替・割り勘';
+      else metaStr = e.confirmedTs != null
         ? `確定 ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
         : '日程調整中';
       const roleBadge = e.host
@@ -1502,7 +1511,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       </div>`;
     };
 
-    if (!groups[myEventsTab]) myEventsTab = 'host';
+    if (!groups[myEventsTab]) myEventsTab = 'schedule';
     const tab = (key, label) =>
       `<button class="my-event-tab${myEventsTab===key?' active':''}" data-tab="${key}">${label}<span class="tcount">${groups[key].length}</span></button>`;
     const activeArr = groups[myEventsTab];
@@ -1512,7 +1521,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     list.innerHTML = `
       <div class="my-event-tabs">
-        ${tab('host','ホスト')}${tab('part','参加')}${tab('finished','終了')}
+        ${tab('schedule','日程調整')}${tab('settle','精算')}${tab('walica','立替')}
       </div>
       <div class="my-event-tabbody">${listHtml}</div>`;
 
