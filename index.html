@@ -271,6 +271,51 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 .wl-settle-line .wl-pay { margin-left: auto; font-weight: 700; font-family: var(--font-display); color: var(--clay); }
 .wl-settle-done { padding: 14px; text-align: center; color: var(--green); font-weight: 600; font-size: 0.9rem; background: #eef4e4; border: 1px solid var(--green-mid); border-radius: 10px; }
 
+/* 座席決め */
+.seating-actions { display: flex; gap: 8px; }
+.seat-tables { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.seat-table-card {
+  background: #fff; border: 1.5px solid var(--green-mid); border-radius: 12px;
+  padding: 12px 14px; animation: fadeUp 0.25s ease;
+}
+.seat-table-card .stc-head {
+  font-family: var(--font-display); font-weight: 700; color: var(--green);
+  display: flex; justify-content: space-between; align-items: baseline; gap: 6px;
+  margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line-soft);
+}
+.seat-table-card .stc-count { font-size: 0.74rem; color: var(--text-muted); font-weight: 600; }
+.seat-person {
+  display: flex; align-items: center; gap: 6px; padding: 5px 0; font-weight: 600; font-size: 0.9rem;
+}
+.seat-person .sp-tags { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; }
+.seat-person .sp-move {
+  margin-left: auto; background: none; border: 1px solid var(--border); border-radius: 5px;
+  font-size: 0.7rem; color: var(--text-muted); cursor: pointer; padding: 2px 7px;
+}
+.seat-person .sp-move:hover { border-color: var(--green); color: var(--green); }
+.seat-empty-slot { padding: 5px 0; font-size: 0.82rem; color: #cfcabc; }
+.seat-unassigned { margin-top: 12px; background: #F7EAE6; border: 1px solid #E6C6BC; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; color: var(--clay); }
+
+/* 卓設定行・タグ行・条件行 */
+.seat-table-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.seat-table-row input.stn { flex: 1; margin-bottom: 0; }
+.seat-table-row input.stcap { width: 74px; margin-bottom: 0; text-align: center; }
+.seat-member-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+.seat-member-row .smn { flex: 1; font-weight: 600; min-width: 0; word-break: break-word; }
+.seat-member-row input.smtag { flex: 1.4; margin-bottom: 0; font-size: 0.82rem; }
+.seat-constraint-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.seat-constraint-row select { width: auto; flex: 1; min-width: 90px; margin-bottom: 0; padding: 8px 10px; }
+.seat-constraint-list { margin-bottom: 6px; }
+.seat-chip {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--green-light);
+  border: 1px solid var(--green-mid); border-radius: 999px; padding: 4px 10px 4px 12px;
+  font-size: 0.82rem; margin: 0 6px 6px 0; color: var(--green); font-weight: 600;
+}
+.seat-chip button { background: none; border: none; color: var(--clay); cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0; }
+.seat-sub { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin: 12px 0 6px; }
+.seat-balance-toggle { display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer; font-size: 0.86rem; }
+.seat-balance-toggle input { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
+
 /* ── ボタン ── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -663,6 +708,19 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       <div class="mt-title">割り勘</div>
       <div class="mt-desc">誰が何を立て替えたか記録し、最小回数で精算</div>
     </div>
+    <div class="menu-tile" id="menuSeatingBtn" role="button" tabindex="0">
+      <div class="mt-icon">
+        <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="22" y="22" width="30" height="30" rx="7" stroke="#EFE5CD" stroke-width="6"/>
+          <circle cx="37" cy="11" r="6" stroke="#EFE5CD" stroke-width="5"/>
+          <circle cx="37" cy="63" r="6" stroke="#EFE5CD" stroke-width="5"/>
+          <circle cx="11" cy="37" r="6" stroke="#EFE5CD" stroke-width="5"/>
+          <circle cx="63" cy="37" r="6" stroke="#EFE5CD" stroke-width="5"/>
+        </svg>
+      </div>
+      <div class="mt-title">座席決め</div>
+      <div class="mt-desc">条件付きランダムで卓分け・席決め</div>
+    </div>
   </div>
 </div>
 
@@ -798,6 +856,26 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   </div>
 
   <button class="btn btn-primary btn-full" id="createWalicaBtn" style="padding:14px;">割り勘を作成</button>
+</div>
+
+<!-- 座席決め 作成カード -->
+<div class="card" id="seatingSetupCard" style="display:none;">
+  <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+  <h2 class="card-title">座席決めを作成</h2>
+  <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.7;font-weight:400;">条件（同卓／別卓／卓固定／属性バランス）を指定して、卓ごとにランダムで席を決めます。まずメンバーを追加して作成し、次の画面で卓と条件を設定します。</p>
+
+  <div class="field">
+    <label>タイトル</label>
+    <input type="text" id="seatingName" placeholder="例：忘年会の座席">
+  </div>
+
+  <div class="field">
+    <label>メンバー</label>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">席に着くメンバーを追加してください（2名以上）。</p>
+    <div id="seatingDraftBox"></div>
+  </div>
+
+  <button class="btn btn-primary btn-full" id="createSeatingBtn" style="padding:14px;">座席決めを作成</button>
 </div>
 
 <!-- 回答カード -->
@@ -1065,6 +1143,60 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     <div style="display:flex;gap:8px;">
       <input type="text" id="walicaShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
       <button class="btn btn-secondary" id="copyWalicaUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+  </div>
+</div>
+
+<!-- 座席決め ボードカード -->
+<div class="card" id="seatingCard" style="display:none;">
+  <div class="card-title" style="justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <h2 id="seatingTitle" style="margin:0;font-size:inherit;font-weight:inherit;color:inherit;">座席決め</h2>
+      <button id="seatingEditTitleBtn" class="seating-host" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">編集</button>
+    </div>
+  </div>
+
+  <!-- 結果（参加者・ホスト共通で表示） -->
+  <div class="field" style="margin-bottom:20px;">
+    <label>座席表</label>
+    <div id="seatingResult"></div>
+  </div>
+
+  <!-- ホスト専用：設定エリア -->
+  <div id="seatingHostTools" class="seating-host" style="display:none;">
+    <div class="seating-actions">
+      <button class="btn btn-primary" id="seatingShuffleBtn" style="flex:1;">席を決める（シャッフル）</button>
+      <button class="btn btn-secondary" id="seatingReshuffleBtn" style="display:none;">もう一度</button>
+    </div>
+
+    <!-- メンバー -->
+    <div class="field" style="margin-top:20px;margin-bottom:18px;">
+      <label>メンバー・タグ</label>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">タグ（例：男/女、先輩/後輩）は「属性バランス」で均等分散に使われます。</p>
+      <div id="seatingMemberBox"></div>
+    </div>
+
+    <!-- 卓の設定 -->
+    <div class="field" style="margin-bottom:18px;">
+      <label>卓の設定（名前・定員）</label>
+      <div id="seatingTableBox"></div>
+      <button class="btn btn-ghost" id="seatingAddTableBtn" style="margin-top:6px;">＋ 卓を追加</button>
+      <div id="seatingCapacityHint" style="font-size:0.76rem;margin-top:8px;color:var(--text-muted);"></div>
+    </div>
+
+    <!-- 条件 -->
+    <div class="field" style="margin-bottom:18px;">
+      <label>条件</label>
+      <div id="seatingConstraintBox"></div>
+    </div>
+  </div>
+
+  <!-- 共有URL（ホスト） -->
+  <div id="seatingShareWrap" class="seating-host" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">共有用URL（参加者は座席表を閲覧できます）</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="seatingShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+      <button class="btn btn-secondary" id="copySeatingUrlBtn" style="white-space:nowrap;">コピー</button>
     </div>
   </div>
 </div>
@@ -1382,8 +1514,18 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     });
   }
 
+  // 座席決め 作成画面のメンバー下書き
+  let seatingDraftMembers = [];
+  function renderSeatingDraft() {
+    renderBoxedMemberList(document.getElementById('seatingDraftBox'), seatingDraftMembers, {
+      onAdd: async (name) => { seatingDraftMembers.push(name); renderSeatingDraft(); },
+      onRename: async (old, nn) => { seatingDraftMembers = seatingDraftMembers.map(x => x === old ? nn : x); renderSeatingDraft(); },
+      onDelete: async (nm) => { seatingDraftMembers = seatingDraftMembers.filter(x => x !== nm); renderSeatingDraft(); },
+    });
+  }
+
   // ── トップのメニュー遷移 ──
-  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard'];
+  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard'];
   function goToMenu() {
     const menu = document.getElementById('menuCard');
     if (menu) menu.style.display = 'block';
@@ -1391,13 +1533,19 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const my = document.getElementById('myEventsCard'); if (my) my.style.display = currentUser ? 'block' : 'none';
     window.scrollTo(0, 0);
   }
+  function hideOtherSetupCards(keepId) {
+    ['menuCard','myEventsCard'].concat(SETUP_CARDS).forEach(id => {
+      if (id === keepId) return;
+      const e = document.getElementById(id); if (e) e.style.display = 'none';
+    });
+  }
   function goToSchedule() {
-    ['menuCard','myEventsCard','settleSetupCard','walicaSetupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    hideOtherSetupCards('setupCard');
     document.getElementById('setupCard').style.display = 'block';
     window.scrollTo(0, 0);
   }
   function goToSettleSetup() {
-    ['menuCard','myEventsCard','setupCard','walicaSetupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    hideOtherSetupCards('settleSetupCard');
     document.getElementById('settleSetupCard').style.display = 'block';
     const nameEl = document.getElementById('settleName'); if (nameEl) nameEl.value = '';
     settleDraftMembers = [];
@@ -1405,16 +1553,25 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     window.scrollTo(0, 0);
   }
   function goToWalicaSetup() {
-    ['menuCard','myEventsCard','setupCard','settleSetupCard'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    hideOtherSetupCards('walicaSetupCard');
     document.getElementById('walicaSetupCard').style.display = 'block';
     const nameEl = document.getElementById('walicaName'); if (nameEl) nameEl.value = '';
     walicaDraftMembers = [];
     renderWalicaDraft();
     window.scrollTo(0, 0);
   }
+  function goToSeatingSetup() {
+    hideOtherSetupCards('seatingSetupCard');
+    document.getElementById('seatingSetupCard').style.display = 'block';
+    const nameEl = document.getElementById('seatingName'); if (nameEl) nameEl.value = '';
+    seatingDraftMembers = [];
+    renderSeatingDraft();
+    window.scrollTo(0, 0);
+  }
   document.getElementById('menuScheduleBtn')?.addEventListener('click', goToSchedule);
   document.getElementById('menuSettleBtn')?.addEventListener('click', goToSettleSetup);
   document.getElementById('menuWalicaBtn')?.addEventListener('click', goToWalicaSetup);
+  document.getElementById('menuSeatingBtn')?.addEventListener('click', goToSeatingSetup);
   document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', goToMenu));
 
   // ── マイイベント管理（Firestore アカウントベース） ──────
@@ -1454,6 +1611,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     document.getElementById('setupCard').style.display = 'none';
     document.getElementById('settleSetupCard').style.display = 'none';
     document.getElementById('walicaSetupCard').style.display = 'none';
+    document.getElementById('seatingSetupCard').style.display = 'none';
 
     if (!currentUser) {
       card.style.display = 'none';
@@ -1488,7 +1646,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const ev = await getDoc(doc(db, 'events', e.eventId));
         if (ev.exists()) {
           const data = ev.data();
-          e.type = data.walica ? 'walica' : (data.settleOnly ? 'settle' : 'schedule');
+          e.type = data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule'));
           const ci = data.confirmedDate;
           if (ci != null && data.dates && data.dates[ci]) {
             e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
@@ -1518,12 +1676,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       schedule: events.filter(e => e.type === 'schedule').sort(sortWithFinished),
       settle:   events.filter(e => e.type === 'settle').sort(sortWithFinished),
       walica:   events.filter(e => e.type === 'walica').sort(sortWithFinished),
+      seating:  events.filter(e => e.type === 'seating').sort(sortWithFinished),
     };
 
     const itemHtml = (e) => {
       let metaStr;
       if (e.type === 'settle') metaStr = '精算';
       else if (e.type === 'walica') metaStr = '立替・割り勘';
+      else if (e.type === 'seating') metaStr = '座席決め';
       else metaStr = e.confirmedTs != null
         ? `確定 ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
         : '日程調整中';
@@ -1568,7 +1728,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     list.innerHTML = `
       <div class="my-event-tabs">
-        ${typeTab('schedule','日程調整')}${typeTab('settle','精算')}${typeTab('walica','割り勘')}
+        ${typeTab('schedule','日程調整')}${typeTab('settle','精算')}${typeTab('walica','割り勘')}${typeTab('seating','座席')}
       </div>
       <div class="my-event-tabs my-event-subtabs">
         ${roleTab('host','ホスト')}${roleTab('part','参加')}${roleTab('finished','終了')}
@@ -1845,6 +2005,55 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     }
   });
 
+  // 座席決めを作成
+  document.getElementById('createSeatingBtn')?.addEventListener('click', async () => {
+    const name = (document.getElementById('seatingName')?.value || '').trim();
+    const members = seatingDraftMembers.slice();
+    if (!name) { showToast('タイトルを入力してください'); return; }
+    if (members.length < 2) { showToast('メンバーを2名以上追加してください'); return; }
+    for (const m of members) {
+      const err = validateParticipantName(m);
+      if (err) { showToast(`「${m}」：${err}`); return; }
+    }
+    const seen = new Set();
+    for (const m of members) {
+      const k = normalizeName(m);
+      if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
+      seen.add(k);
+    }
+    if (!currentUser) {
+      showToast('作成にはログインが必要です');
+      await signIn();
+      return;
+    }
+    const btn = document.getElementById('createSeatingBtn');
+    btn.textContent = '作成中...'; btn.disabled = true;
+    try {
+      const evId = randomId(16);
+      const now = Date.now();
+      const participants = {};
+      members.forEach((m, i) => { participants[m] = { _note: '', _joinedAt: now + i }; });
+      // 既定：2卓に均等な定員で開始
+      const half = Math.ceil(members.length / 2);
+      const seatTables = [
+        { id: randomId(6), name: '卓1', capacity: half },
+        { id: randomId(6), name: '卓2', capacity: members.length - half },
+      ];
+      await setDoc(doc(db, 'events', evId), {
+        name, dates: [], memo: '', participants,
+        ownerUids: [currentUser.uid], confirmedDate: null,
+        participantOrder: members, seating: true,
+        seatTags: {}, seatTables, seatTogether: [], seatApart: [], seatFixed: {},
+        seatBalanceOn: false, seatAssignment: null
+      });
+      addMyEvent(evId, name, true);
+      location.href = `${location.origin}${location.pathname}?event=${evId}`;
+    } catch (e) {
+      btn.textContent = '座席決めを作成'; btn.disabled = false;
+      showToast('作成に失敗しました'); console.error(e);
+    }
+  });
+
   function copyText(text, btnEl, label) {
     navigator.clipboard.writeText(text).then(() => {
       btnEl.textContent = 'コピー済み';
@@ -1933,6 +2142,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         document.getElementById('settleCard').style.display = 'none';
         document.getElementById('walicaCard').style.display = 'block';
         renderWalicaBoard(data);
+        return;
+      }
+
+      // 座席決め：専用ボードを表示
+      if (data.seating) {
+        document.getElementById('viewCard').style.display = 'none';
+        document.getElementById('settleCard').style.display = 'none';
+        document.getElementById('seatingCard').style.display = 'block';
+        renderSeatingBoard(data);
         return;
       }
 
@@ -2831,6 +3049,383 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     copyText(document.getElementById('walicaShareUrl').value, document.getElementById('copyWalicaUrlBtn'), '共有用URL');
   });
   document.getElementById('walicaEditTitleBtn')?.addEventListener('click', async () => {
+    const cur = latestEventData?.name || '';
+    const nn = (prompt('タイトルを変更', cur) || '').trim();
+    if (!nn || nn === cur) return;
+    try {
+      await updateDoc(doc(db, 'events', eventId), { name: nn });
+      showToast('タイトルを更新しました');
+      if (currentUser) addMyEvent(eventId, nn, true);
+    } catch (e) { showToast('更新に失敗しました'); console.error(e); }
+  });
+
+  // ══════════ 座席決め（条件付きランダム／卓分け） ══════════
+  async function updateSeating(patch) {
+    try { await updateDoc(doc(db, 'events', eventId), patch); }
+    catch (e) { showToast('保存に失敗しました'); console.error(e); }
+  }
+  function parseTags(str) { return (str || '').split(/[,、\s]+/).map(s => s.trim()).filter(Boolean); }
+
+  // 条件付きランダム配置：{assignment}|{error}
+  function computeSeating(data) {
+    const members = getSortedNames(data);
+    const tables = (data.seatTables || []).map(t => ({ ...t, capacity: Math.max(0, parseInt(t.capacity) || 0) }));
+    if (!tables.length) return { error: '卓がありません。卓を追加してください。' };
+    if (!members.length) return { error: 'メンバーがいません。' };
+    const totalCap = tables.reduce((s, t) => s + t.capacity, 0);
+    if (totalCap < members.length) return { error: `定員の合計（${totalCap}）がメンバー数（${members.length}）より少ないです。定員を増やしてください。` };
+
+    // 同卓（ペア）をユニオンファインドでクラスタ化
+    const parent = {}; members.forEach(m => parent[m] = m);
+    const find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
+    (data.seatTogether || []).forEach(([a, b]) => {
+      if (members.includes(a) && members.includes(b)) parent[find(a)] = find(b);
+    });
+    const clusterMap = {};
+    members.forEach(m => { const r = find(m); (clusterMap[r] = clusterMap[r] || []).push(m); });
+    let clusters = Object.values(clusterMap);
+
+    const fixed = data.seatFixed || {};
+    const tableById = {}; tables.forEach((t, i) => tableById[t.id] = i);
+    // 卓固定の矛盾チェック
+    for (const cl of clusters) {
+      const fx = [...new Set(cl.map(n => fixed[n]).filter(v => v && tableById[v] != null))];
+      if (fx.length > 1) return { error: `条件が矛盾しています：同卓グループ（${cl.join('・')}）が別々の卓に固定されています。` };
+      if (cl.length > 1 && fx.length === 1 && cl.length > tables[tableById[fx[0]]].capacity)
+        return { error: `固定先の卓の定員が、同卓グループ（${cl.join('・')}）より少ないです。` };
+    }
+    const apartPairs = (data.seatApart || []).filter(([a, b]) => members.includes(a) && members.includes(b));
+    for (const [a, b] of apartPairs) {
+      if (find(a) === find(b)) return { error: `条件が矛盾しています：${a} と ${b} は「同卓」と「別卓」の両方に該当します。` };
+    }
+
+    const tags = data.seatTags || {};
+    const balanceOn = !!data.seatBalanceOn;
+    const tagLabels = new Set();
+    if (balanceOn) members.forEach(m => (tags[m] || []).forEach(t => tagLabels.add(t)));
+
+    function attempt() {
+      const order = clusters.slice().sort(() => Math.random() - 0.5).sort((a, b) => b.length - a.length);
+      const fill = tables.map(() => []);
+      for (const cl of order) {
+        const fx = cl.map(n => fixed[n]).find(v => v && tableById[v] != null);
+        let cand = tables.map((_, i) => i);
+        if (fx) cand = [tableById[fx]];
+        cand = cand.filter(i => fill[i].length + cl.length <= tables[i].capacity);
+        cand = cand.filter(i => {
+          for (const n of cl) for (const other of fill[i])
+            if (apartPairs.some(([a, b]) => (a === n && b === other) || (b === n && a === other))) return false;
+          return true;
+        });
+        if (!cand.length) return null;
+        // 空いている卓を優先（残り定員で重み付け）＝定員内でなるべく均等に
+        const weights = cand.map(i => Math.max(1, tables[i].capacity - fill[i].length));
+        let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+        let pick = cand[cand.length - 1];
+        for (let ci = 0; ci < cand.length; ci++) { r -= weights[ci]; if (r <= 0) { pick = cand[ci]; break; } }
+        fill[pick].push(...cl);
+      }
+      return fill;
+    }
+    function score(fill) {
+      let s = 0;
+      // 各卓が定員比に応じた人数になるほど良い（＝定員内でなるべく均等に分かれる）
+      tables.forEach((t, i) => {
+        const target = totalCap > 0 ? members.length * (t.capacity / totalCap) : 0;
+        s += Math.abs(fill[i].length - target);
+      });
+      // 属性バランス（タグの偏り）を重めに評価
+      if (balanceOn) {
+        tagLabels.forEach(label => {
+          const counts = fill.map(tbl => tbl.filter(n => (tags[n] || []).includes(label)).length);
+          const total = counts.reduce((a, v) => a + v, 0);
+          const ideal = total / tables.length;
+          s += 3 * counts.reduce((a, v) => a + Math.abs(v - ideal), 0);
+        });
+      }
+      return s;
+    }
+    let best = null, bestScore = Infinity;
+    for (let k = 0; k < 400; k++) {
+      const fill = attempt();
+      if (!fill) continue;
+      const sc = score(fill);
+      if (sc < bestScore) { bestScore = sc; best = fill; }
+    }
+    if (!best) return { error: '条件を満たす配置が見つかりませんでした。定員や条件（同卓・別卓・卓固定）を見直してください。' };
+    const assignment = {};
+    tables.forEach((t, i) => { assignment[t.id] = best[i]; });
+    return { assignment };
+  }
+
+  function renderSeatingBoard(data) {
+    document.getElementById('seatingTitle').textContent = data.name || '座席決め';
+    document.querySelectorAll('.seating-host').forEach(el => el.style.display = isHost ? '' : 'none');
+    const editBtn = document.getElementById('seatingEditTitleBtn');
+    if (editBtn) editBtn.style.display = isHost ? 'inline-block' : 'none';
+    const share = document.getElementById('seatingShareUrl');
+    if (share) share.value = `${location.origin}${location.pathname}?event=${eventId}`;
+    renderSeatingResult(data);
+    if (isHost) {
+      renderSeatingMembers(data);
+      renderSeatingTables(data);
+      renderSeatingConstraints(data);
+      const shBtn = document.getElementById('seatingShuffleBtn');
+      if (shBtn) shBtn.textContent = data.seatAssignment ? 'もう一度シャッフル' : '席を決める（シャッフル）';
+    }
+  }
+
+  function renderSeatingResult(data) {
+    const el = document.getElementById('seatingResult');
+    const tables = data.seatTables || [];
+    const members = getSortedNames(data);
+    const tags = data.seatTags || {};
+    const assignment = data.seatAssignment;
+    if (!assignment) {
+      el.innerHTML = isHost
+        ? '<div class="wl-empty">下の条件・卓を設定して「席を決める」を押すと、ここに座席表が表示されます。</div>'
+        : '<div class="wl-empty">まだ座席が決まっていません。ホストの確定をお待ちください。</div>';
+      return;
+    }
+    const placed = new Set();
+    tables.forEach(t => (assignment[t.id] || []).forEach(n => { if (members.includes(n)) placed.add(n); }));
+    const unassigned = members.filter(n => !placed.has(n));
+    const tagStr = n => (tags[n] || []).length ? `<span class="sp-tags">${escHtml((tags[n] || []).join('・'))}</span>` : '';
+    const moveSel = n => isHost ? `<select class="sp-move-sel" data-name="${escHtml(n)}">${
+      tables.map(t => `<option value="${escHtml(t.id)}" ${(assignment[t.id] || []).includes(n) ? 'selected' : ''}>${escHtml(t.name)}へ</option>`).join('')
+    }<option value="">未割当へ</option></select>` : '';
+
+    let html = '<div class="seat-tables">';
+    tables.forEach(t => {
+      const people = (assignment[t.id] || []).filter(n => members.includes(n));
+      const cap = parseInt(t.capacity) || 0;
+      html += `<div class="seat-table-card">
+        <div class="stc-head"><span>${escHtml(t.name)}</span><span class="stc-count">${people.length}/${cap}</span></div>
+        ${people.map(n => `<div class="seat-person"><span>${escHtml(n)}</span>${tagStr(n)}${moveSel(n)}</div>`).join('') || '<div class="seat-empty-slot">（空き）</div>'}
+      </div>`;
+    });
+    html += '</div>';
+    if (unassigned.length) {
+      html += `<div class="seat-unassigned"><b>未割当：</b>${
+        unassigned.map(n => `<span class="seat-person" style="display:inline-flex;padding:2px 0;">${escHtml(n)}${moveSel(n)}</span>`).join(' ')
+      }</div>`;
+    }
+    el.innerHTML = html;
+    el.querySelectorAll('.sp-move-sel').forEach(sel => sel.addEventListener('change', () => {
+      moveSeatMember(sel.dataset.name, sel.value);
+    }));
+  }
+
+  function moveSeatMember(name, targetTableId) {
+    const data = latestEventData;
+    const assignment = { ...(data.seatAssignment || {}) };
+    Object.keys(assignment).forEach(tid => { assignment[tid] = (assignment[tid] || []).filter(n => n !== name); });
+    if (targetTableId) {
+      assignment[targetTableId] = [...(assignment[targetTableId] || []), name];
+      const tbl = (data.seatTables || []).find(t => t.id === targetTableId);
+      if (tbl && assignment[targetTableId].length > (parseInt(tbl.capacity) || 0)) showToast(`${tbl.name} が定員を超えています`);
+    }
+    updateSeating({ seatAssignment: assignment });
+  }
+
+  // メンバー・タグ編集
+  function renderSeatingMembers(data) {
+    const box = document.getElementById('seatingMemberBox');
+    if (!box) return;
+    const members = getSortedNames(data);
+    const tags = data.seatTags || {};
+    box.innerHTML = members.map(n => `<div class="seat-member-row">
+        <span class="smn">${escHtml(n)}</span>
+        <input type="text" class="smtag" data-name="${escHtml(n)}" placeholder="タグ（例：男 先輩）" value="${escHtml((tags[n] || []).join(' '))}">
+        <button type="button" class="btn btn-ghost smr-rename" data-name="${escHtml(n)}" style="font-size:0.72rem;padding:4px 8px;">改名</button>
+        <button type="button" class="btn-remove smr-del" data-name="${escHtml(n)}" aria-label="削除">✕</button>
+      </div>`).join('') +
+      `<div class="member-add" style="margin-top:10px;"><input type="text" id="seatNewMember" placeholder="メンバー名を追加" style="flex:1;margin-bottom:0;"><button type="button" class="btn btn-secondary" id="seatAddMemberBtn" style="white-space:nowrap;">追加</button></div>`;
+
+    box.querySelectorAll('.smtag').forEach(inp => inp.addEventListener('blur', () => {
+      seatingSetTags(inp.dataset.name, parseTags(inp.value));
+    }));
+    box.querySelectorAll('.smr-del').forEach(b => b.addEventListener('click', () => {
+      if (confirm(`「${b.dataset.name}」を削除しますか？`)) seatingDeleteMember(b.dataset.name);
+    }));
+    box.querySelectorAll('.smr-rename').forEach(b => b.addEventListener('click', () => {
+      const nn = (prompt('新しいメンバー名', b.dataset.name) || '').trim();
+      if (!nn || nn === b.dataset.name) return;
+      const err = validateParticipantName(nn); if (err) { showToast(err); return; }
+      seatingRenameMember(b.dataset.name, nn);
+    }));
+    const addFn = () => {
+      const inp = box.querySelector('#seatNewMember');
+      const name = (inp.value || '').trim();
+      const err = validateParticipantName(name); if (err) { showToast(err); return; }
+      seatingAddMember(name);
+    };
+    box.querySelector('#seatAddMemberBtn')?.addEventListener('click', addFn);
+    box.querySelector('#seatNewMember')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addFn(); } });
+  }
+  async function seatingAddMember(name) {
+    const data = latestEventData;
+    const ps = { ...(data.participants || {}) };
+    if (Object.keys(ps).some(n => normalizeName(n) === normalizeName(name))) { showToast('同じ名前が既に登録されています'); return; }
+    ps[name] = { _note: '', _joinedAt: Date.now() };
+    await updateSeating({ participants: ps, participantOrder: [...(data.participantOrder || []), name] });
+    showToast(`${name} を追加しました`);
+  }
+  async function seatingDeleteMember(name) {
+    const data = latestEventData;
+    const ps = { ...(data.participants || {}) }; delete ps[name];
+    const tags = { ...(data.seatTags || {}) }; delete tags[name];
+    const together = (data.seatTogether || []).filter(([a, b]) => a !== name && b !== name);
+    const apart = (data.seatApart || []).filter(([a, b]) => a !== name && b !== name);
+    const fixed = { ...(data.seatFixed || {}) }; delete fixed[name];
+    const assignment = data.seatAssignment
+      ? Object.fromEntries(Object.entries(data.seatAssignment).map(([tid, arr]) => [tid, arr.filter(n => n !== name)]))
+      : data.seatAssignment;
+    await updateSeating({
+      participants: ps, participantOrder: (data.participantOrder || []).filter(n => n !== name),
+      seatTags: tags, seatTogether: together, seatApart: apart, seatFixed: fixed, seatAssignment: assignment
+    });
+  }
+  async function seatingRenameMember(old, nn) {
+    const data = latestEventData;
+    const ps = { ...(data.participants || {}) };
+    if (Object.keys(ps).some(n => n !== old && normalizeName(n) === normalizeName(nn))) { showToast('同じ名前が既に登録されています'); return; }
+    ps[nn] = ps[old]; delete ps[old];
+    const tags = { ...(data.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
+    const together = (data.seatTogether || []).map(([a, b]) => [a === old ? nn : a, b === old ? nn : b]);
+    const apart = (data.seatApart || []).map(([a, b]) => [a === old ? nn : a, b === old ? nn : b]);
+    const fixed = { ...(data.seatFixed || {}) }; if (old in fixed) { fixed[nn] = fixed[old]; delete fixed[old]; }
+    const assignment = data.seatAssignment
+      ? Object.fromEntries(Object.entries(data.seatAssignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)]))
+      : data.seatAssignment;
+    await updateSeating({
+      participants: ps, participantOrder: (data.participantOrder || []).map(n => n === old ? nn : n),
+      seatTags: tags, seatTogether: together, seatApart: apart, seatFixed: fixed, seatAssignment: assignment
+    });
+  }
+  async function seatingSetTags(name, tagsArr) {
+    const data = latestEventData;
+    const tags = { ...(data.seatTags || {}) };
+    if (tagsArr.length) tags[name] = tagsArr; else delete tags[name];
+    await updateSeating({ seatTags: tags });
+  }
+
+  // 卓の設定
+  function renderSeatingTables(data) {
+    const box = document.getElementById('seatingTableBox');
+    if (!box) return;
+    const tables = data.seatTables || [];
+    box.innerHTML = tables.map(t => `<div class="seat-table-row" data-id="${escHtml(t.id)}">
+        <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
+        <input type="number" class="stcap" min="0" value="${parseInt(t.capacity) || 0}" placeholder="定員">
+        <button type="button" class="btn-remove st-del" data-id="${escHtml(t.id)}" aria-label="卓を削除">✕</button>
+      </div>`).join('');
+    const members = getSortedNames(data);
+    const totalCap = tables.reduce((s, t) => s + (parseInt(t.capacity) || 0), 0);
+    const hint = document.getElementById('seatingCapacityHint');
+    if (hint) {
+      hint.textContent = `総定員 ${totalCap} ／ メンバー ${members.length}人` + (totalCap < members.length ? '　⚠️ 定員が不足しています' : '');
+      hint.style.color = totalCap < members.length ? 'var(--clay)' : 'var(--text-muted)';
+    }
+    box.querySelectorAll('.seat-table-row').forEach(row => {
+      const id = row.dataset.id;
+      const save = () => {
+        const name = row.querySelector('.stn').value.trim() || '卓';
+        const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
+        const next = (latestEventData.seatTables || []).map(t => t.id === id ? { ...t, name, capacity } : t);
+        updateSeating({ seatTables: next });
+      };
+      row.querySelector('.stn').addEventListener('blur', save);
+      row.querySelector('.stcap').addEventListener('blur', save);
+    });
+    box.querySelectorAll('.st-del').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.id;
+      const next = (latestEventData.seatTables || []).filter(t => t.id !== id);
+      const assignment = latestEventData.seatAssignment ? { ...latestEventData.seatAssignment } : null;
+      if (assignment) delete assignment[id];
+      updateSeating({ seatTables: next, seatAssignment: assignment });
+    }));
+  }
+  document.getElementById('seatingAddTableBtn')?.addEventListener('click', () => {
+    const tables = (latestEventData.seatTables || []).slice();
+    tables.push({ id: randomId(6), name: `卓${tables.length + 1}`, capacity: 4 });
+    updateSeating({ seatTables: tables });
+  });
+
+  // 条件（同卓・別卓・卓固定・属性バランス）
+  function renderSeatingConstraints(data) {
+    const box = document.getElementById('seatingConstraintBox');
+    if (!box) return;
+    const members = getSortedNames(data);
+    const tables = data.seatTables || [];
+    const opt = (list, sel, valFn, labFn) => list.map(x => `<option value="${escHtml(valFn(x))}" ${valFn(x) === sel ? 'selected' : ''}>${escHtml(labFn(x))}</option>`).join('');
+    const memOpts = s => `<option value="">選択</option>` + opt(members, s, m => m, m => m);
+    const tblOpts = s => `<option value="">選択</option>` + opt(tables, s, t => t.id, t => t.name);
+    const together = data.seatTogether || [];
+    const apart = data.seatApart || [];
+    const fixed = data.seatFixed || {};
+    const tableName = id => (tables.find(t => t.id === id) || {}).name || '?';
+
+    box.innerHTML = `
+      <div class="seat-sub">同じ卓にしたい（ペア）</div>
+      <div class="seat-constraint-list">${together.map((p, i) => `<span class="seat-chip">${escHtml(p[0])}・${escHtml(p[1])}<button type="button" data-kind="together" data-idx="${i}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
+      <div class="seat-constraint-row"><select class="sc-a" data-kind="together">${memOpts('')}</select><span>と</span><select class="sc-b" data-kind="together">${memOpts('')}</select><button type="button" class="btn btn-secondary sc-add" data-kind="together" style="white-space:nowrap;">追加</button></div>
+
+      <div class="seat-sub">別の卓にしたい（ペア）</div>
+      <div class="seat-constraint-list">${apart.map((p, i) => `<span class="seat-chip">${escHtml(p[0])}⇔${escHtml(p[1])}<button type="button" data-kind="apart" data-idx="${i}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
+      <div class="seat-constraint-row"><select class="sc-a" data-kind="apart">${memOpts('')}</select><span>と</span><select class="sc-b" data-kind="apart">${memOpts('')}</select><button type="button" class="btn btn-secondary sc-add" data-kind="apart" style="white-space:nowrap;">追加</button></div>
+
+      <div class="seat-sub">特定の人を特定の卓に固定</div>
+      <div class="seat-constraint-list">${Object.entries(fixed).filter(([n]) => members.includes(n)).map(([n, tid]) => `<span class="seat-chip">${escHtml(n)}→${escHtml(tableName(tid))}<button type="button" data-kind="fixed" data-name="${escHtml(n)}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
+      <div class="seat-constraint-row"><select class="sc-fn">${memOpts('')}</select><span>を</span><select class="sc-ft">${tblOpts('')}</select><button type="button" class="btn btn-secondary sc-fixadd" style="white-space:nowrap;">固定</button></div>
+
+      <label class="seat-balance-toggle"><input type="checkbox" id="seatBalanceChk" ${data.seatBalanceOn ? 'checked' : ''}><span>属性（タグ）が各卓に均等になるようバランスを取る</span></label>`;
+
+    box.querySelectorAll('.seat-chip button').forEach(b => b.addEventListener('click', () => {
+      const kind = b.dataset.kind;
+      if (kind === 'fixed') {
+        const fx = { ...(latestEventData.seatFixed || {}) }; delete fx[b.dataset.name];
+        updateSeating({ seatFixed: fx });
+      } else {
+        const key = kind === 'together' ? 'seatTogether' : 'seatApart';
+        const arr = (latestEventData[key] || []).slice();
+        arr.splice(parseInt(b.dataset.idx), 1);
+        updateSeating({ [key]: arr });
+      }
+    }));
+    box.querySelectorAll('.sc-add').forEach(btn => btn.addEventListener('click', () => {
+      const kind = btn.dataset.kind;
+      const row = btn.closest('.seat-constraint-row');
+      const a = row.querySelector('.sc-a').value, b = row.querySelector('.sc-b').value;
+      if (!a || !b || a === b) { showToast('異なる2名を選んでください'); return; }
+      const key = kind === 'together' ? 'seatTogether' : 'seatApart';
+      const arr = (latestEventData[key] || []).slice();
+      if (arr.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a))) { showToast('その組み合わせは既にあります'); return; }
+      arr.push([a, b]);
+      updateSeating({ [key]: arr });
+    }));
+    box.querySelector('.sc-fixadd')?.addEventListener('click', () => {
+      const n = box.querySelector('.sc-fn').value, tid = box.querySelector('.sc-ft').value;
+      if (!n || !tid) { showToast('メンバーと卓を選んでください'); return; }
+      updateSeating({ seatFixed: { ...(latestEventData.seatFixed || {}), [n]: tid } });
+    });
+    box.querySelector('#seatBalanceChk')?.addEventListener('change', e => {
+      updateSeating({ seatBalanceOn: e.target.checked });
+    });
+  }
+
+  function doSeatingShuffle() {
+    const res = computeSeating(latestEventData);
+    if (res.error) { showToast(res.error); return; }
+    updateSeating({ seatAssignment: res.assignment });
+    showToast('席を決めました');
+  }
+  document.getElementById('seatingShuffleBtn')?.addEventListener('click', doSeatingShuffle);
+  document.getElementById('seatingReshuffleBtn')?.addEventListener('click', doSeatingShuffle);
+  document.getElementById('copySeatingUrlBtn')?.addEventListener('click', () => {
+    copyText(document.getElementById('seatingShareUrl').value, document.getElementById('copySeatingUrlBtn'), '共有用URL');
+  });
+  document.getElementById('seatingEditTitleBtn')?.addEventListener('click', async () => {
     const cur = latestEventData?.name || '';
     const nn = (prompt('タイトルを変更', cur) || '').trim();
     if (!nn || nn === cur) return;
