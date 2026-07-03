@@ -371,8 +371,21 @@ td.date-cell.is-best::before { content: '★ '; color: var(--gold); }
 /* 確定日 */
 tr.confirmed-row td { background: #FBF4E2 !important; }
 tr.confirmed-row td.date-cell { color: #94701C; font-weight: 800; }
-tr.confirmed-row td.date-cell::before { content: '✓ '; color: var(--gold); }
 tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important; }
+/* 確定日を目立たせるバッジ */
+.confirmed-flag {
+  display: inline-block; background: var(--gold); color: #fff;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em;
+  padding: 3px 9px; border-radius: 999px; margin-right: 7px;
+  vertical-align: middle; white-space: nowrap;
+  box-shadow: 0 2px 7px rgba(176,136,58,0.4);
+  animation: confirmedPop 0.35s ease;
+}
+@keyframes confirmedPop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 .confirm-btn {
   font-size: 0.68rem; background: none;
@@ -2223,8 +2236,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const deleteDateBtn = isHost
         ? `<button class="date-del-btn" data-date-idx="${i}">削除</button>`
         : '';
+      const confirmedFlag = isConfirmed ? '<span class="confirmed-flag">🎉 開催決定</span>' : '';
       return `<tr class="${isConfirmed?'confirmed-row':''}">
-        <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${dateLabel}${confirmBtn}${deleteDateBtn}</td>
+        <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${confirmedFlag}${dateLabel}${confirmBtn}${deleteDateBtn}</td>
         ${cells}
         ${inputCell}
         <td class="point-cell${isBest&&!isConfirmed?' is-best':''}">${countStr}</td>
