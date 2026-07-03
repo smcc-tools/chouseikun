@@ -915,6 +915,16 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     <button id="backToEventBtn" style="background:none;border:1px solid var(--border);border-radius:4px;padding:4px 12px;font-size:0.8rem;color:var(--text-muted);cursor:pointer;">← 回答画面に戻る</button>
   </div>
 
+  <!-- 精算のみモード：ホスト用ツール（メンバー編集／通知／共同ホスト／参加者URL）をこの画面に集約 -->
+  <div id="settleHostTools" style="display:none;margin-bottom:20px;">
+    <div class="field" style="margin-bottom:16px;">
+      <label>メンバー</label>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">割り勘の対象者を編集できます（変更は自動保存されます）。</p>
+      <div id="settleInlineMemberBox"></div>
+    </div>
+    <div id="settleToolsMount"></div>
+  </div>
+
   <!-- 何次会・合計金額 -->
   <div class="field" id="partiesField">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;" id="partiesCountRow">
@@ -1928,10 +1938,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const settleOnly = !!data.settleOnly;
 
       if (settleOnly) {
-        // 精算のみ：投票テーブルの代わりにメンバー管理／案内を表示
-        if (isHost) {
-          renderSettleMembers(data);
-        } else {
+        // 精算のみ：ホスト用ツール（メンバー編集等）は精算画面に集約するため viewCard には描画しない
+        if (!isHost) {
           document.getElementById('tableWrap').innerHTML = data.settlePublished
             ? '<p class="empty-msg">下の「精算を確認する」から精算を表示できます。</p>'
             : '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
@@ -1943,8 +1951,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       // 精算のみモード：日程調整用UIを隠す
       const legendEl = document.getElementById('voteLegend');
       if (legendEl) legendEl.style.display = settleOnly ? 'none' : '';
-      const backBtn = document.getElementById('backToEventBtn');
-      if (backBtn) backBtn.textContent = settleOnly ? '← メンバー編集に戻る' : '← 回答画面に戻る';
       const goSettleBtn = document.getElementById('goSettleBtn');
       if (goSettleBtn) goSettleBtn.textContent = settleOnly ? '精算画面を開く' : '会が終了したので精算に進む';
       const addMemoWrapEl = document.getElementById('addMemoWrap');
@@ -1994,6 +2000,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
             if (row) row.classList.toggle('paid', paid[name]);
           }
         });
+        // 精算のみホスト：画面内のメンバー編集をライブ更新
+        if (settleOnly && isHost) renderSettleInlineMembers(data);
       }
     });
 
@@ -3377,6 +3385,40 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     });
   }
 
+  // 精算のみモード：通知/共同ホスト/参加者URL を精算画面へ移設（1回だけ）
+  let settleToolsMounted = false;
+  function mountSettleHostTools() {
+    if (settleToolsMounted) return;
+    const mount = document.getElementById('settleToolsMount');
+    if (!mount) return;
+    ['participantUrlWrap', 'notifyWrap', 'coHostWrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) mount.appendChild(el);
+    });
+    settleToolsMounted = true;
+  }
+
+  // 精算画面内のメンバー編集（変更は即保存）
+  function renderSettleInlineMembers(data) {
+    const box = document.getElementById('settleInlineMemberBox');
+    if (!box) return;
+    const members = getSortedNames(data);
+    renderBoxedMemberList(box, members, {
+      onAdd: async (name) => {
+        try { await addSettleMemberName(name); showToast(`${name} を追加しました`); }
+        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '追加に失敗しました'); console.error(e); }
+      },
+      onRename: async (old, nn) => {
+        try { await renameSettleMemberName(old, nn); showToast('変更しました'); }
+        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '変更に失敗しました'); console.error(e); }
+      },
+      onDelete: async (nm) => {
+        try { await deleteSettleMemberName(nm); showToast(`${nm} を削除しました`); }
+        catch (e) { showToast('削除に失敗しました'); console.error(e); }
+      },
+    });
+  }
+
   function openSettlePage(data, readOnly) {
     settleNames = getSortedNames(data);
     settleReadOnly = readOnly;
@@ -3391,6 +3433,24 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     // 参加者表示用URL
     const shareInput = document.getElementById('settleShareUrl');
     if (shareInput) shareInput.value = `${location.origin}${location.pathname}?event=${eventId}`;
+
+    // 精算のみモード：ホスト用ツール（メンバー編集／通知／共同ホスト／参加者URL）をこの画面に集約
+    const settleOnly = !!data.settleOnly;
+    const backBtn = document.getElementById('backToEventBtn');
+    const hostTools = document.getElementById('settleHostTools');
+    if (settleOnly) {
+      if (backBtn) backBtn.style.display = 'none'; // 「メンバー編集に戻る」は廃止
+      if (!readOnly) {
+        mountSettleHostTools();
+        renderSettleInlineMembers(data);
+        if (hostTools) hostTools.style.display = 'block';
+      } else if (hostTools) {
+        hostTools.style.display = 'none';
+      }
+    } else {
+      if (backBtn) backBtn.style.display = '';
+      if (hostTools) hostTools.style.display = 'none';
+    }
 
     const settle = data.settle || {};
     const published = data.settlePublished || false;
