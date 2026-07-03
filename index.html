@@ -2243,7 +2243,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const deleteDateBtn = isHost
         ? `<button class="date-del-btn" data-date-idx="${i}">削除</button>`
         : '';
-      const confirmedFlag = isConfirmed ? '<span class="confirmed-flag">🎉 開催決定</span>' : '';
+      const confirmedFlag = isConfirmed ? '<span class="confirmed-flag">🎉 確定</span>' : '';
       return `<tr class="${isConfirmed?'confirmed-row':''}">
         <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${confirmedFlag}${dateLabel}${confirmBtn}${deleteDateBtn}</td>
         ${cells}
