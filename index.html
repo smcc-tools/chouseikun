@@ -1917,12 +1917,19 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       if (goSettleBtn) goSettleBtn.textContent = settleOnly ? '精算画面を開く' : '会が終了したので精算に進む';
       const addMemoWrapEl = document.getElementById('addMemoWrap');
       if (addMemoWrapEl && settleOnly) addMemoWrapEl.style.display = 'none';
-      // 精算のみ：精算メニューの作成画面と同じ、メンバー編集だけの画面にする
+      // 精算のみ：集合・お店（日程調整向けUI）は非表示。
+      // 通知設定・共同ホスト管理・参加者用URLはホストに表示する。
       if (settleOnly) {
-        ['venueWrap','venueEdit','participantUrlWrap','notifyWrap','coHostWrap'].forEach(id => {
+        ['venueWrap','venueEdit'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });
+        if (isHost) {
+          ['participantUrlWrap','notifyWrap','coHostWrap'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+          });
+        }
       }
 
       // 精算公開状態を反映（参加者向け）
