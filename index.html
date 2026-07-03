@@ -1557,9 +1557,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     if (!roleGroups[myEventsRole]) myEventsRole = 'host';
 
     const typeTab = (key, label) =>
-      `<button class="my-event-tab${myEventsType===key?' active':''}" data-type="${key}">${label}<span class="tcount">${groups[key].length}</span></button>`;
+      `<button class="my-event-tab${myEventsType===key?' active':''}" data-type="${key}">${label}</button>`;
     const roleTab = (key, label) =>
-      `<button class="my-event-tab${myEventsRole===key?' active':''}" data-role="${key}">${label}<span class="tcount">${roleGroups[key].length}</span></button>`;
+      `<button class="my-event-tab${myEventsRole===key?' active':''}" data-role="${key}">${label}</button>`;
 
     const activeArr = roleGroups[myEventsRole];
     const listHtml = activeArr.length
