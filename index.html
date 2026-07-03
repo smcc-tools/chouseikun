@@ -1003,6 +1003,13 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         <input type="text" id="bankAccount" placeholder="例：1234567" style="margin-bottom:0;">
       </div>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer;font-size:0.82rem;color:var(--text);">
+      <input type="checkbox" id="saveBankToProfile" checked style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;">
+      <span>この口座をGoogleアカウントに保存し、次回から自動入力する</span>
+    </label>
+    <div id="bankSavedHint" style="display:none;font-size:0.74rem;color:var(--green);margin-top:6px;">
+      保存済みの口座を自動入力しました　<button type="button" id="clearBankProfileBtn" style="background:none;border:1px solid var(--green-mid);border-radius:4px;padding:1px 7px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;margin-left:4px;">保存を削除</button>
+    </div>
   </div>
   <!-- 精算結果 -->
   <div id="settleResult"></div>
@@ -3433,6 +3440,56 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     });
   }
 
+  // ── 振込先口座をGoogleアカウント(uid)に紐づけ ──
+  function readBankInputs() {
+    return {
+      name: document.getElementById('bankName')?.value.trim() || '',
+      branchCode: document.getElementById('bankBranchCode')?.value.trim() || '',
+      branch: document.getElementById('bankBranch')?.value.trim() || '',
+      account: document.getElementById('bankAccount')?.value.trim() || '',
+    };
+  }
+  async function loadHostBankInfo() {
+    if (!currentUser) return null;
+    try {
+      const snap = await getDoc(doc(db, 'users', currentUser.uid, 'settings', 'bank'));
+      return snap.exists() ? snap.data() : null;
+    } catch (e) { console.error('bank load error:', e); return null; }
+  }
+  async function saveHostBankInfo(bankInfo) {
+    if (!currentUser) return;
+    try { await setDoc(doc(db, 'users', currentUser.uid, 'settings', 'bank'), bankInfo, { merge: true }); }
+    catch (e) { console.error('bank save error:', e); }
+  }
+  async function clearHostBankInfo() {
+    if (!currentUser) return;
+    try { await deleteDoc(doc(db, 'users', currentUser.uid, 'settings', 'bank')); }
+    catch (e) { console.error('bank clear error:', e); }
+  }
+  // イベントに口座が未設定なら、保存済みの口座を自動入力
+  async function prefillBankFromProfile() {
+    const hint = document.getElementById('bankSavedHint');
+    const cur = readBankInputs();
+    if (cur.name || cur.branchCode || cur.branch || cur.account) { if (hint) hint.style.display = 'none'; return; }
+    const info = await loadHostBankInfo();
+    if (!info || !(info.name || info.branch || info.account)) { if (hint) hint.style.display = 'none'; return; }
+    const nameEl = document.getElementById('bankName');
+    const brcEl  = document.getElementById('bankBranchCode');
+    const brEl   = document.getElementById('bankBranch');
+    const accEl  = document.getElementById('bankAccount');
+    if (nameEl) nameEl.value = info.name || '';
+    if (brcEl) { brcEl.value = info.branchCode || ''; if (typeof lookupBranchName === 'function') lookupBranchName(); }
+    if (brEl && !brEl.value) brEl.value = info.branch || '';
+    if (accEl) accEl.value = info.account || '';
+    if (hint) hint.style.display = 'block';
+  }
+  document.getElementById('clearBankProfileBtn')?.addEventListener('click', async () => {
+    await clearHostBankInfo();
+    const hint = document.getElementById('bankSavedHint');
+    if (hint) hint.style.display = 'none';
+    showToast('保存済みの口座を削除しました');
+  });
+
   function openSettlePage(data, readOnly) {
     settleNames = getSortedNames(data);
     settleReadOnly = readOnly;
@@ -3507,6 +3564,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         if (nameInput && !nameInput.value) nameInput.value = bankInfo.branch || '';
       }
       if (document.getElementById('bankAccount')) document.getElementById('bankAccount').value = bankInfo.account || '';
+      // イベントに口座が無ければ、アカウントに保存済みの口座を自動入力
+      prefillBankFromProfile();
     }
 
     const sPartyCount   = settle.partyCount   || 1;
@@ -3602,6 +3661,11 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
                 weights: settleWeights },
       settlePublished: true
     });
+    // 口座をアカウントに保存（次回から自動入力）
+    const saveBank = document.getElementById('saveBankToProfile');
+    if (saveBank?.checked && (bankInfo.name || bankInfo.branch || bankInfo.account)) {
+      saveHostBankInfo(bankInfo);
+    }
     document.getElementById('publishedBadge').style.display = 'block';
     showToast('保存しました（URLを共有すると参加者が確認できます）');
   });
