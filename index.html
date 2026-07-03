@@ -537,6 +537,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   background: rgba(0,0,0,0.06); color: inherit;
 }
 .my-event-tab.active .tcount { background: rgba(255,255,255,0.25); }
+.my-event-subtabs { margin-top: -8px; background: var(--surface-2); border-color: var(--border); }
+.my-event-subtabs .my-event-tab { font-size: 0.78rem; padding: 7px 6px; }
+.my-event-subtabs .my-event-tab.active { background: var(--green-mid); color: var(--green); box-shadow: none; }
+.my-event-subtabs .my-event-tab.active .tcount { background: rgba(46,70,50,0.15); }
 .my-event-finish, .my-event-unfinish {
   white-space: nowrap; font-size: 0.74rem; padding: 5px 12px; border-radius: 999px;
   border: 1px solid var(--border); background: white; color: var(--text-muted); cursor: pointer; transition: all 0.15s;
@@ -625,14 +629,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
           <line x1="49" y1="9" x2="49" y2="21" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="mt-title">日程を調整する</div>
+      <div class="mt-title">日程調整</div>
       <div class="mt-desc">候補日で◯△✕投票、開催日を決める</div>
     </div>
     <div class="menu-tile" id="menuSettleBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <span style="color:#EFE5CD;font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
       </div>
-      <div class="mt-title">精算する</div>
+      <div class="mt-title">精算</div>
       <div class="mt-desc">日程調整なしで割り勘・傾斜精算</div>
     </div>
     <div class="menu-tile" id="menuWalicaBtn" role="button" tabindex="0">
@@ -643,7 +647,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
           <path d="M35 30 L50 45" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="mt-title">立替・割り勘</div>
+      <div class="mt-title">立替</div>
       <div class="mt-desc">誰が何を立て替えたか記録し、最小回数で精算</div>
     </div>
   </div>
@@ -1406,7 +1410,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId), { finished }, { merge: true });
   }
 
-  let myEventsTab = 'schedule'; // 'schedule' | 'settle' | 'walica'
+  let myEventsType = 'schedule'; // 'schedule' | 'settle' | 'walica'
+  let myEventsRole = 'host';     // 'host' | 'part' | 'finished'
 
   async function renderMyEvents() {
     const card = document.getElementById('myEventsCard');
@@ -1511,22 +1516,40 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       </div>`;
     };
 
-    if (!groups[myEventsTab]) myEventsTab = 'schedule';
-    const tab = (key, label) =>
-      `<button class="my-event-tab${myEventsTab===key?' active':''}" data-tab="${key}">${label}<span class="tcount">${groups[key].length}</span></button>`;
-    const activeArr = groups[myEventsTab];
+    // 上段：機能種別。下段：ホスト／参加／終了。
+    if (!groups[myEventsType]) myEventsType = 'schedule';
+    const typeArr = groups[myEventsType];
+    const roleGroups = {
+      host:     typeArr.filter(e => !e.finished && e.host),
+      part:     typeArr.filter(e => !e.finished && !e.host),
+      finished: typeArr.filter(e => e.finished),
+    };
+    if (!roleGroups[myEventsRole]) myEventsRole = 'host';
+
+    const typeTab = (key, label) =>
+      `<button class="my-event-tab${myEventsType===key?' active':''}" data-type="${key}">${label}<span class="tcount">${groups[key].length}</span></button>`;
+    const roleTab = (key, label) =>
+      `<button class="my-event-tab${myEventsRole===key?' active':''}" data-role="${key}">${label}<span class="tcount">${roleGroups[key].length}</span></button>`;
+
+    const activeArr = roleGroups[myEventsRole];
     const listHtml = activeArr.length
       ? activeArr.map(itemHtml).join('')
       : '<div style="text-align:center;color:#bbb;padding:20px;font-size:0.85rem;">該当するイベントはありません</div>';
 
     list.innerHTML = `
       <div class="my-event-tabs">
-        ${tab('schedule','日程調整')}${tab('settle','精算')}${tab('walica','立替')}
+        ${typeTab('schedule','日程調整')}${typeTab('settle','精算')}${typeTab('walica','立替')}
+      </div>
+      <div class="my-event-tabs my-event-subtabs">
+        ${roleTab('host','ホスト')}${roleTab('part','参加')}${roleTab('finished','終了')}
       </div>
       <div class="my-event-tabbody">${listHtml}</div>`;
 
-    list.querySelectorAll('.my-event-tab').forEach(btn => {
-      btn.addEventListener('click', () => { myEventsTab = btn.dataset.tab; renderMyEvents(); });
+    list.querySelectorAll('[data-type]').forEach(btn => {
+      btn.addEventListener('click', () => { myEventsType = btn.dataset.type; renderMyEvents(); });
+    });
+    list.querySelectorAll('[data-role]').forEach(btn => {
+      btn.addEventListener('click', () => { myEventsRole = btn.dataset.role; renderMyEvents(); });
     });
     list.querySelectorAll('.my-event-remove').forEach(btn => {
       btn.addEventListener('click', async () => {
