@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chouseikun-v5';
+const CACHE_NAME = 'chouseikun-v6';
 
 // ── FCM（プッシュ通知）バックグラウンド受信 ──
 importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-app-compat.js');
@@ -44,13 +44,20 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
 });
 
 // ネットワーク優先（Firebase等の動的データはキャッシュしない）
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // ページ本体（HTML）は常に最新を取得（ブラウザのHTTPキャッシュも回避）
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request).then(r => r || caches.match('./')))
+    );
+    return;
+  }
   e.respondWith(
     fetch(e.request).catch(() => caches.match(e.request))
   );
