@@ -2203,13 +2203,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       participants[pName] = votes;
     });
     await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants, ownerUids: [currentUser.uid], confirmedDate: null, participantOrder: presetNames });
-    const base = `${location.origin}${location.pathname}`;
-    const url = `${base}?event=${eventId}`;
-    document.getElementById('shareUrl').value = url;
-    document.getElementById('shareBox').style.display = 'block';
-    btn.textContent = '作成済み';
     addMyEvent(eventId, name, true);
-    showToast('イベントを作成しました！');
+    // 作成後は自動でイベントページ（候補日の回答/日程入力画面）へ遷移。
+    // 共有用URLはその画面のホスト欄に表示される。
+    location.href = `${location.origin}${location.pathname}?event=${eventId}`;
   });
 
   // ── 精算のみ：作成 ──
