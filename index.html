@@ -351,6 +351,19 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
   background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
   font-size: 0.82rem; line-height: 1; flex-shrink: 0;
 }
+@keyframes seatFlicker { 0%,100% { transform: scale(0.96); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } }
+.seat-chip.flicker {
+  animation: seatFlicker 0.26s infinite ease-in-out;
+  border-color: var(--gold); color: #94701C; background: #FBF4E2;
+}
+.seat-chip.seat-settled { animation: confirmedPop 0.32s ease; border-color: var(--green); }
+.seat-shuffle-badge {
+  display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--gold);
+  background: #FBF4E2; border: 1px solid var(--green-mid); border-radius: 999px;
+  padding: 7px 16px; margin-bottom: 12px; font-size: 0.9rem;
+}
+.seat-shuffle-badge .dice { display: inline-block; animation: diceSpin 0.5s linear infinite; }
+@keyframes diceSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 .seat-round { position: relative; width: 100%; max-width: 300px; aspect-ratio: 1; margin: 4px auto; }
 .seat-round .srt-table {
   position: absolute; inset: 26%; border-radius: 50%;
@@ -3276,6 +3289,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
   // 席の入れ替え用の選択状態：{ t:卓id, i:席index } または { u:未割当の名前 }
   let seatSel = null;
+  let seatingAnimating = false;
 
   // 割当を「卓id → 定員長の配列（空席は null）」に正規化
   function normalizeSeatAssignment(data) {
@@ -3290,6 +3304,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   }
 
   function renderSeatingResult(data) {
+    if (seatingAnimating) return; // アニメーション中は上書きしない
     const el = document.getElementById('seatingResult');
     const tables = data.seatTables || [];
     const members = getSortedNames(data);
@@ -3613,11 +3628,90 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     });
   }
 
+  // シャッフル演出用：与えられた割当で座席マップを描画（操作なし）
+  function seatMapAnimHTML(data, assignment, settledSet) {
+    const tables = data.seatTables || [];
+    const lockSet = new Set(data.seatLocks || []);
+    let html = '<div class="seat-shuffle-badge"><span class="dice">🎲</span>シャッフル中…</div>';
+    tables.forEach(t => {
+      const cap = parseInt(t.capacity) || 0;
+      const arr = assignment[t.id] || [];
+      const chip = (n, i) => {
+        const pos = `${t.id}:${i}`;
+        const locked = n && lockSet.has(pos);
+        const state = locked ? 'locked' : (settledSet.has(pos) ? 'seat-settled' : 'flicker');
+        return `<div class="seat-chip${n ? '' : ' empty'} ${state}"><span class="sc-name">${n ? escHtml(n) : '空'}</span></div>`;
+      };
+      html += `<div class="seat-table-block"><div class="stb-name"><span>${escHtml(t.name)}</span><span class="stc-count">${arr.filter(Boolean).length}/${cap}</span></div>`;
+      if ((t.shape || 'rect') === 'round') {
+        const R = 44;
+        html += `<div class="seat-round"><div class="srt-table">${escHtml(t.name)}</div>`;
+        arr.forEach((n, i) => {
+          const ang = (-90 + i * 360 / Math.max(cap, 1)) * Math.PI / 180;
+          const x = 50 + R * Math.cos(ang), y = 50 + R * Math.sin(ang);
+          html += `<div style="position:absolute;left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;transform:translate(-50%,-50%);">${chip(n, i)}</div>`;
+        });
+        html += `</div>`;
+      } else {
+        const half = Math.ceil(cap / 2);
+        html += `<div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, i)).join('')}</div>
+          <div class="seat-table-bar">TABLE</div>
+          <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, half + i)).join('')}</div>`;
+      }
+      html += `</div>`;
+    });
+    return html;
+  }
+
+  function animateSeatingShuffle(data, finalAssign) {
+    const el = document.getElementById('seatingResult');
+    const tables = data.seatTables || [];
+    const members = getSortedNames(data);
+    const cur = normalizeSeatAssignment(data);
+    const lockedPos = {};
+    (data.seatLocks || []).forEach(pos => {
+      const sep = pos.lastIndexOf(':'); const tid = pos.slice(0, sep); const idx = parseInt(pos.slice(sep + 1));
+      const nm = cur[tid] ? cur[tid][idx] : null;
+      if (nm && members.includes(nm)) lockedPos[pos] = nm;
+    });
+    const lockedNames = new Set(Object.values(lockedPos));
+    const pool = members.filter(n => !lockedNames.has(n));
+    const slots = [];
+    tables.forEach(t => { const cap = parseInt(t.capacity) || 0; for (let i = 0; i < cap; i++) if (!lockedPos[`${t.id}:${i}`]) slots.push({ tid: t.id, i }); });
+    // 各席がいつ確定するか（スロットマシン風に順次止まる）
+    const settleAt = slots.map((_, i) => 500 + (i / Math.max(slots.length, 1)) * 900 + Math.random() * 150);
+    const DURATION = Math.max(1200, (settleAt.length ? Math.max(...settleAt) : 0) + 200);
+    const btn = document.getElementById('seatingShuffleBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'シャッフル中…'; }
+    seatingAnimating = true;
+    const start = performance.now();
+
+    function tick() {
+      const elapsed = performance.now() - start;
+      const a = {}; tables.forEach(t => { a[t.id] = Array.from({ length: parseInt(t.capacity) || 0 }, () => null); });
+      Object.entries(lockedPos).forEach(([pos, nm]) => { const sep = pos.lastIndexOf(':'); a[pos.slice(0, sep)][parseInt(pos.slice(sep + 1))] = nm; });
+      const settled = new Set();
+      slots.forEach((s, i) => {
+        if (elapsed >= settleAt[i]) { a[s.tid][s.i] = finalAssign[s.tid][s.i]; settled.add(`${s.tid}:${s.i}`); }
+        else { a[s.tid][s.i] = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null; }
+      });
+      el.innerHTML = seatMapAnimHTML(data, a, settled);
+      if (elapsed < DURATION) { setTimeout(tick, 85); }
+      else {
+        seatingAnimating = false;
+        if (btn) btn.disabled = false;
+        updateSeating({ seatAssignment: finalAssign });
+        showToast('席が決まりました🎉');
+      }
+    }
+    tick();
+  }
+
   function doSeatingShuffle() {
+    if (seatingAnimating) return;
     const res = computeSeating(latestEventData);
     if (res.error) { showToast(res.error); return; }
-    updateSeating({ seatAssignment: res.assignment });
-    showToast('席を決めました');
+    animateSeatingShuffle(latestEventData, res.assignment);
   }
   document.getElementById('seatingShuffleBtn')?.addEventListener('click', doSeatingShuffle);
   document.getElementById('seatingReshuffleBtn')?.addEventListener('click', doSeatingShuffle);
