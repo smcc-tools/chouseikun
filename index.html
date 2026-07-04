@@ -2127,7 +2127,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, seating: true,
-        seatTags: {}, seatTables, seatTogether: [], seatApart: [], seatFixed: {},
+        seatTags: {}, seatTables, seatFixed: {},
         seatBalanceOn: false, seatAssignment: null, seatLocks: []
       });
       addMyEvent(evId, name, true);
@@ -3174,28 +3174,21 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       }
     });
 
-    // 同卓（ペア）をユニオンファインドでクラスタ化
-    const parent = {}; members.forEach(m => parent[m] = m);
-    const find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
-    (data.seatTogether || []).forEach(([a, b]) => {
-      if (members.includes(a) && members.includes(b)) parent[find(a)] = find(b);
-    });
-    const clusterMap = {};
-    members.forEach(m => { const r = find(m); (clusterMap[r] = clusterMap[r] || []).push(m); });
-    let clusters = Object.values(clusterMap);
+    // 各メンバーを個別に配置（同卓／別卓ペア機能は廃止）
+    let clusters = members.map(m => [m]);
 
     const fixed = data.seatFixed || {};
     const tableById = {}; tables.forEach((t, i) => tableById[t.id] = i);
     const tableOfLocked = {}; // name -> tid
     Object.entries(lockedByTable).forEach(([tid, names]) => names.forEach(n => tableOfLocked[n] = tid));
 
-    // クラスタごとの強制卓（卓固定 or ロック位置の卓）を算出し、矛盾を検出
+    // 強制卓（卓固定 or ロック位置の卓）を算出し、矛盾を検出
     const forcedByCluster = new Map();
     for (const cl of clusters) {
       const set = new Set();
       cl.forEach(n => { if (fixed[n] && tableById[fixed[n]] != null) set.add(fixed[n]); });
       cl.forEach(n => { if (tableOfLocked[n]) set.add(tableOfLocked[n]); });
-      if (set.size > 1) return { error: `条件が矛盾しています：同卓グループ（${cl.join('・')}）が別々の卓に固定されています。` };
+      if (set.size > 1) return { error: `条件が矛盾しています：${cl.join('・')} が別々の卓に固定されています（🔒と卓固定が別の卓）。` };
       forcedByCluster.set(cl, set.size ? [...set][0] : null);
     }
     // 強制卓の定員チェック（その卓に固定される未ロック人数＋ロック済み ≤ 定員）
@@ -3209,11 +3202,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const cap = tables[tableById[tid]].capacity;
       const lockedCnt = (lockedByTable[tid] || []).length;
       if (need + lockedCnt > cap) return { error: `${tables[tableById[tid]].name} の定員が、固定・ロックされた人数より少ないです。` };
-    }
-
-    const apartPairs = (data.seatApart || []).filter(([a, b]) => members.includes(a) && members.includes(b));
-    for (const [a, b] of apartPairs) {
-      if (find(a) === find(b)) return { error: `条件が矛盾しています：${a} と ${b} は「同卓」と「別卓」の両方に該当します。` };
     }
 
     const tags = data.seatTags || {};
@@ -3232,11 +3220,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         let cand = tables.map((_, i) => i);
         if (forced) cand = [tableById[forced]];
         cand = cand.filter(i => fill[i].length + toPlace.length <= tables[i].capacity);
-        cand = cand.filter(i => {
-          for (const n of toPlace) for (const other of fill[i])
-            if (apartPairs.some(([a, b]) => (a === n && b === other) || (b === n && a === other))) return false;
-          return true;
-        });
         if (!cand.length) return null;
         // 空いている卓を優先（残り定員で重み付け）＝定員内でなるべく均等に
         const weights = cand.map(i => Math.max(1, tables[i].capacity - fill[i].length));
@@ -3509,15 +3492,13 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const data = latestEventData;
     const ps = { ...(data.participants || {}) }; delete ps[name];
     const tags = { ...(data.seatTags || {}) }; delete tags[name];
-    const together = (data.seatTogether || []).filter(([a, b]) => a !== name && b !== name);
-    const apart = (data.seatApart || []).filter(([a, b]) => a !== name && b !== name);
     const fixed = { ...(data.seatFixed || {}) }; delete fixed[name];
     const assignment = data.seatAssignment
       ? Object.fromEntries(Object.entries(data.seatAssignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)]))
       : data.seatAssignment;
     await updateSeating({
       participants: ps, participantOrder: (data.participantOrder || []).filter(n => n !== name),
-      seatTags: tags, seatTogether: together, seatApart: apart, seatFixed: fixed, seatAssignment: assignment
+      seatTags: tags, seatFixed: fixed, seatAssignment: assignment
     });
   }
   async function seatingRenameMember(old, nn) {
@@ -3526,15 +3507,13 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     if (Object.keys(ps).some(n => n !== old && normalizeName(n) === normalizeName(nn))) { showToast('同じ名前が既に登録されています'); return; }
     ps[nn] = ps[old]; delete ps[old];
     const tags = { ...(data.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
-    const together = (data.seatTogether || []).map(([a, b]) => [a === old ? nn : a, b === old ? nn : b]);
-    const apart = (data.seatApart || []).map(([a, b]) => [a === old ? nn : a, b === old ? nn : b]);
     const fixed = { ...(data.seatFixed || {}) }; if (old in fixed) { fixed[nn] = fixed[old]; delete fixed[old]; }
     const assignment = data.seatAssignment
       ? Object.fromEntries(Object.entries(data.seatAssignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)]))
       : data.seatAssignment;
     await updateSeating({
       participants: ps, participantOrder: (data.participantOrder || []).map(n => n === old ? nn : n),
-      seatTags: tags, seatTogether: together, seatApart: apart, seatFixed: fixed, seatAssignment: assignment
+      seatTags: tags, seatFixed: fixed, seatAssignment: assignment
     });
   }
   async function seatingSetTags(name, tagsArr) {
@@ -3601,48 +3580,19 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const opt = (list, sel, valFn, labFn) => list.map(x => `<option value="${escHtml(valFn(x))}" ${valFn(x) === sel ? 'selected' : ''}>${escHtml(labFn(x))}</option>`).join('');
     const memOpts = s => `<option value="">選択</option>` + opt(members, s, m => m, m => m);
     const tblOpts = s => `<option value="">選択</option>` + opt(tables, s, t => t.id, t => t.name);
-    const together = data.seatTogether || [];
-    const apart = data.seatApart || [];
     const fixed = data.seatFixed || {};
     const tableName = id => (tables.find(t => t.id === id) || {}).name || '?';
 
     box.innerHTML = `
-      <div class="seat-sub">同じ卓にしたい（ペア）</div>
-      <div class="seat-constraint-list">${together.map((p, i) => `<span class="seat-chip">${escHtml(p[0])}・${escHtml(p[1])}<button type="button" data-kind="together" data-idx="${i}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
-      <div class="seat-constraint-row"><select class="sc-a" data-kind="together">${memOpts('')}</select><span>と</span><select class="sc-b" data-kind="together">${memOpts('')}</select><button type="button" class="btn btn-secondary sc-add" data-kind="together" style="white-space:nowrap;">追加</button></div>
-
-      <div class="seat-sub">別の卓にしたい（ペア）</div>
-      <div class="seat-constraint-list">${apart.map((p, i) => `<span class="seat-chip">${escHtml(p[0])}⇔${escHtml(p[1])}<button type="button" data-kind="apart" data-idx="${i}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
-      <div class="seat-constraint-row"><select class="sc-a" data-kind="apart">${memOpts('')}</select><span>と</span><select class="sc-b" data-kind="apart">${memOpts('')}</select><button type="button" class="btn btn-secondary sc-add" data-kind="apart" style="white-space:nowrap;">追加</button></div>
-
       <div class="seat-sub">特定の人を特定の卓に固定</div>
       <div class="seat-constraint-list">${Object.entries(fixed).filter(([n]) => members.includes(n)).map(([n, tid]) => `<span class="seat-chip">${escHtml(n)}→${escHtml(tableName(tid))}<button type="button" data-kind="fixed" data-name="${escHtml(n)}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
       <div class="seat-constraint-row"><select class="sc-fn">${memOpts('')}</select><span>を</span><select class="sc-ft">${tblOpts('')}</select><button type="button" class="btn btn-secondary sc-fixadd" style="white-space:nowrap;">固定</button></div>
 
       <label class="seat-balance-toggle"><input type="checkbox" id="seatBalanceChk" ${data.seatBalanceOn ? 'checked' : ''}><span>属性（タグ）が各卓に均等になるようバランスを取る</span></label>`;
 
-    box.querySelectorAll('.seat-chip button').forEach(b => b.addEventListener('click', () => {
-      const kind = b.dataset.kind;
-      if (kind === 'fixed') {
-        const fx = { ...(latestEventData.seatFixed || {}) }; delete fx[b.dataset.name];
-        updateSeating({ seatFixed: fx });
-      } else {
-        const key = kind === 'together' ? 'seatTogether' : 'seatApart';
-        const arr = (latestEventData[key] || []).slice();
-        arr.splice(parseInt(b.dataset.idx), 1);
-        updateSeating({ [key]: arr });
-      }
-    }));
-    box.querySelectorAll('.sc-add').forEach(btn => btn.addEventListener('click', () => {
-      const kind = btn.dataset.kind;
-      const row = btn.closest('.seat-constraint-row');
-      const a = row.querySelector('.sc-a').value, b = row.querySelector('.sc-b').value;
-      if (!a || !b || a === b) { showToast('異なる2名を選んでください'); return; }
-      const key = kind === 'together' ? 'seatTogether' : 'seatApart';
-      const arr = (latestEventData[key] || []).slice();
-      if (arr.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a))) { showToast('その組み合わせは既にあります'); return; }
-      arr.push([a, b]);
-      updateSeating({ [key]: arr });
+    box.querySelectorAll('.seat-chip button[data-kind="fixed"]').forEach(b => b.addEventListener('click', () => {
+      const fx = { ...(latestEventData.seatFixed || {}) }; delete fx[b.dataset.name];
+      updateSeating({ seatFixed: fx });
     }));
     box.querySelector('.sc-fixadd')?.addEventListener('click', () => {
       const n = box.querySelector('.sc-fn').value, tid = box.querySelector('.sc-ft').value;
