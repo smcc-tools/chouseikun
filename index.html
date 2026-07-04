@@ -324,8 +324,6 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 }
 .seat-chip button { background: none; border: none; color: var(--clay); cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0; }
 .seat-sub { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin: 12px 0 6px; }
-.seat-balance-toggle { display: flex; align-items: center; gap: 8px; margin-top: 12px; cursor: pointer; font-size: 0.86rem; }
-.seat-balance-toggle input { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
 
 /* 座席マップ（図） */
 .seat-table-block {
@@ -1268,7 +1266,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     <!-- メンバー -->
     <div class="field" style="margin-top:20px;margin-bottom:18px;">
       <label>メンバー・色タグ</label>
-      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">色でグループ分けできます（例：男=青／女=赤）。下の「色バランス」で各卓に均等分散します。もう一度押すと解除。</p>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">色でグループ分けできます（例：男=セージブルー／女=テラコッタ）。同じ色はシャッフル時に自動で散らばります。もう一度押すと色を解除。</p>
       <div id="seatingMemberBox"></div>
     </div>
 
@@ -2140,7 +2138,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, seating: true,
         seatTags: {}, seatTables, seatFixed: {},
-        seatBalanceOn: false, seatAssignment: null, seatLocks: []
+        seatAssignment: null, seatLocks: []
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -3215,9 +3213,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       if (need + lockedCnt > cap) return { error: `${tables[tableById[tid]].name} の定員が、固定・ロックされた人数より少ないです。` };
     }
 
-    const balanceOn = !!data.seatBalanceOn;
+    // 色は常に各卓へ均等分散（トグル不要）
     const colorKeys = new Set();
-    if (balanceOn) members.forEach(m => { const c = seatColorOf(data, m); if (c) colorKeys.add(c); });
+    members.forEach(m => { const c = seatColorOf(data, m); if (c) colorKeys.add(c); });
 
     function attempt() {
       const order = clusters.slice().sort(() => Math.random() - 0.5).sort((a, b) => b.length - a.length);
@@ -3247,19 +3245,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const target = totalCap > 0 ? members.length * (t.capacity / totalCap) : 0;
         s += Math.abs(fill[i].length - target);
       });
-      // 属性バランス（タグの偏り）を重めに評価
-      if (balanceOn) {
-        colorKeys.forEach(key => {
-          const counts = fill.map(tbl => tbl.filter(n => seatColorOf(data, n) === key).length);
-          const total = counts.reduce((a, v) => a + v, 0);
-          const ideal = total / tables.length;
-          s += 3 * counts.reduce((a, v) => a + Math.abs(v - ideal), 0);
-        });
-      }
+      // 色（タグ）の卓間の偏りを強めに評価＝できる限り色を散らす
+      colorKeys.forEach(key => {
+        const counts = fill.map(tbl => tbl.filter(n => seatColorOf(data, n) === key).length);
+        const total = counts.reduce((a, v) => a + v, 0);
+        const ideal = total / tables.length;
+        s += 6 * counts.reduce((a, v) => a + Math.abs(v - ideal), 0);
+      });
       return s;
     }
     let best = null, bestScore = Infinity;
-    for (let k = 0; k < 400; k++) {
+    for (let k = 0; k < 600; k++) {
       const fill = attempt();
       if (!fill) continue;
       const sc = score(fill);
@@ -3631,7 +3627,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       <div class="seat-constraint-list">${Object.entries(fixed).filter(([n]) => members.includes(n)).map(([n, tid]) => `<span class="seat-chip">${escHtml(n)}→${escHtml(tableName(tid))}<button type="button" data-kind="fixed" data-name="${escHtml(n)}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
       <div class="seat-constraint-row"><select class="sc-fn">${memOpts('')}</select><span>を</span><select class="sc-ft">${tblOpts('')}</select><button type="button" class="btn btn-secondary sc-fixadd" style="white-space:nowrap;">固定</button></div>
 
-      <label class="seat-balance-toggle"><input type="checkbox" id="seatBalanceChk" ${data.seatBalanceOn ? 'checked' : ''}><span>色（タグ）が各卓に均等になるようバランスを取る</span></label>`;
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:12px;line-height:1.6;">💡 色タグは、シャッフル時に各卓・卓内の席ともできる限り均等に散らばるよう自動配置されます。</div>`;
 
     box.querySelectorAll('.seat-chip button[data-kind="fixed"]').forEach(b => b.addEventListener('click', () => {
       const fx = { ...(latestEventData.seatFixed || {}) }; delete fx[b.dataset.name];
@@ -3641,9 +3637,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const n = box.querySelector('.sc-fn').value, tid = box.querySelector('.sc-ft').value;
       if (!n || !tid) { showToast('メンバーと卓を選んでください'); return; }
       updateSeating({ seatFixed: { ...(latestEventData.seatFixed || {}), [n]: tid } });
-    });
-    box.querySelector('#seatBalanceChk')?.addEventListener('change', e => {
-      updateSeating({ seatBalanceOn: e.target.checked });
     });
   }
 
