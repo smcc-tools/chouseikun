@@ -1364,15 +1364,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       appId: "1:372499119823:web:bcf75f587b6ef9ef8cc1ba",
       vapidKey: "BFWloY-CKBjBZw8m4MU1ZXvXwxNbTTMQnB663s1t_iVBXLJGb6Cb9uedfRdL4n-AzigYV05C4FBjc-0FABBYqwo",
     },
-    // ★テスト用Firebaseプロジェクトの設定（Phase 2で差し替え）。projectId が 'REPLACE_ME' の間は本番にフォールバック。
+    // テスト用Firebaseプロジェクト（chouseikun-test）。projectId が 'REPLACE_ME' の間は本番にフォールバック。
     test: {
-      apiKey: "REPLACE_ME",
-      authDomain: "REPLACE_ME.firebaseapp.com",
-      projectId: "REPLACE_ME",
-      storageBucket: "REPLACE_ME.firebasestorage.app",
-      messagingSenderId: "REPLACE_ME",
-      appId: "REPLACE_ME",
-      vapidKey: "REPLACE_ME",
+      apiKey: "AIzaSyAHvFwqarw7orrJycZT8bAkzEDcw1uyE3E",
+      authDomain: "chouseikun-test.firebaseapp.com",
+      projectId: "chouseikun-test",
+      storageBucket: "chouseikun-test.firebasestorage.app",
+      messagingSenderId: "13097244305",
+      appId: "1:13097244305:web:53e4568b25ede60bb25130",
+      vapidKey: "REPLACE_ME", // 通知テスト時に Cloud Messaging の VAPID 公開鍵を貼り付け
     },
   };
   const _cfg = (APP_ENV === 'test' && FB_CONFIGS.test.projectId !== 'REPLACE_ME') ? FB_CONFIGS.test : FB_CONFIGS.prod;

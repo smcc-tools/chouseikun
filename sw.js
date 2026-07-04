@@ -14,14 +14,14 @@ const FB_PROD = {
   messagingSenderId: "372499119823",
   appId: "1:372499119823:web:bcf75f587b6ef9ef8cc1ba"
 };
-// ★テスト用Firebase設定（Phase 2で差し替え）。projectIdが 'REPLACE_ME' の間は本番にフォールバック。
+// テスト用Firebase（chouseikun-test）。projectIdが 'REPLACE_ME' の間は本番にフォールバック。
 const FB_TEST = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME.firebasestorage.app",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME"
+  apiKey: "AIzaSyAHvFwqarw7orrJycZT8bAkzEDcw1uyE3E",
+  authDomain: "chouseikun-test.firebaseapp.com",
+  projectId: "chouseikun-test",
+  storageBucket: "chouseikun-test.firebasestorage.app",
+  messagingSenderId: "13097244305",
+  appId: "1:13097244305:web:53e4568b25ede60bb25130"
 };
 firebase.initializeApp((IS_TEST && FB_TEST.projectId !== 'REPLACE_ME') ? FB_TEST : FB_PROD);
 

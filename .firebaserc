@@ -2,6 +2,6 @@
   "projects": {
     "default": "nomikai-42968",
     "prod": "nomikai-42968",
-    "test": "REPLACE_ME_TEST_PROJECT_ID"
+    "test": "chouseikun-test"
   }
 }
