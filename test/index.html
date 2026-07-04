@@ -3972,7 +3972,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         setTimeout(() => el.classList.remove('seat-result-reveal'), 500);
         launchConfetti();
         updateActiveParty({ assignment: finalAssign });
-        showToast('席が決まりました🎉');
+        if (window.ChoseikunCelebration) window.ChoseikunCelebration.show({ title: '座席が決まりました！', subtitle: 'たのしい会になりますように' });
+        else showToast('席が決まりました🎉');
       }
     }
     tick();
@@ -5210,6 +5211,130 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(e => console.error('SW error:', e));
   }
+</script>
+<!-- お祝い演出（調整ねこ）: window.ChoseikunCelebration / showChoseikunCelebration を提供 -->
+<script>
+(function (global) {
+  'use strict';
+  var STYLE_ID = 'cc-celebration-style';
+  var COLORS = ['#3D5A3A', '#9DB87C', '#B0883A', '#B65F45', '#EFE5CD', '#6FA0C4'];
+  var CAT_SVG =
+    '<svg viewBox="0 0 200 210" width="128" height="134" fill="none" aria-hidden="true">' +
+      '<path d="M150 178 C182 172 188 146 172 132" stroke="#F4ECDD" stroke-width="19" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="172" cy="132" r="10" fill="#B79B84"/>' +
+      '<ellipse cx="100" cy="174" rx="45" ry="34" fill="#F4ECDD"/>' +
+      '<ellipse cx="100" cy="180" rx="26" ry="24" fill="#FBF5EA"/>' +
+      '<ellipse cx="48" cy="130" rx="11" ry="16" fill="#F4ECDD" transform="rotate(28 48 130)"/>' +
+      '<ellipse cx="152" cy="130" rx="11" ry="16" fill="#F4ECDD" transform="rotate(-28 152 130)"/>' +
+      '<path d="M50 68 L59 26 L91 56 Z" fill="#B79B84" stroke="#B79B84" stroke-width="7" stroke-linejoin="round"/>' +
+      '<path d="M150 68 L141 26 L109 56 Z" fill="#B79B84" stroke="#B79B84" stroke-width="7" stroke-linejoin="round"/>' +
+      '<path d="M60 58 L64 39 L80 55 Z" fill="#E0AE9A" stroke="#E0AE9A" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path d="M140 58 L136 39 L120 55 Z" fill="#E0AE9A" stroke="#E0AE9A" stroke-width="3" stroke-linejoin="round"/>' +
+      '<circle cx="100" cy="94" r="52" fill="#F4ECDD"/>' +
+      '<ellipse cx="100" cy="112" rx="28" ry="21" fill="#FBF5EA"/>' +
+      '<ellipse cx="72" cy="107" rx="8" ry="5" fill="#E8A98C" opacity=".55"/>' +
+      '<ellipse cx="128" cy="107" rx="8" ry="5" fill="#E8A98C" opacity=".55"/>' +
+      '<path d="M75 93 Q82 86 89 93" stroke="#26404F" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+      '<path d="M111 93 Q118 86 125 93" stroke="#26404F" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+      '<path d="M74 108 L50 104 M126 108 L150 104" stroke="#D8CBB6" stroke-width="1.8" stroke-linecap="round"/>' +
+      '<path d="M95 103 L105 103 L100 108 Z" fill="#C88C86"/>' +
+      '<path d="M87 111 Q100 126 113 111 Q100 119 87 111 Z" fill="#B5544A"/>' +
+      '<path d="M60 135 Q100 156 140 135" stroke="#3D5A3A" stroke-width="9" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="100" cy="150" r="6.5" fill="#B0883A"/>' +
+    '</svg>';
+  var CSS =
+    '.cc-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;' +
+      'background:rgba(43,66,40,.34);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);' +
+      'animation:cc-fade .22s ease both;font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI",sans-serif;}' +
+    '.cc-overlay.cc-out{animation:cc-fade .28s ease reverse both;}' +
+    '.cc-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;}' +
+    '.cc-piece{position:absolute;top:-24px;will-change:transform,opacity;opacity:0;' +
+      'animation:cc-fall var(--dur) cubic-bezier(.25,.6,.5,1) var(--delay) forwards;}' +
+    '.cc-card{position:relative;z-index:1;background:#fff;border:1px solid #E8E3D6;border-radius:24px;' +
+      'padding:26px 34px 30px;text-align:center;max-width:340px;width:calc(100vw - 48px);' +
+      'box-shadow:0 24px 60px rgba(43,66,40,.28);animation:cc-pop .5s cubic-bezier(.2,.9,.3,1.25) both;}' +
+    '.cc-catwrap{position:relative;width:150px;height:150px;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;}' +
+    '.cc-ring{position:absolute;width:126px;height:126px;border-radius:50%;background:#EEF2E8;animation:cc-ring .7s ease-out .05s both;}' +
+    '.cc-cat{position:relative;animation:cc-bob 1.6s ease-in-out .5s infinite;}' +
+    '.cc-title{font-family:"Shippori Mincho","Hiragino Mincho ProN",serif;font-weight:700;' +
+      'font-size:20px;color:#2B4228;margin:6px 0 0;letter-spacing:.01em;line-height:1.4;}' +
+    '.cc-sub{font-size:13.5px;color:#6E7464;margin:8px 0 0;line-height:1.7;}' +
+    '.cc-hint{font-size:11px;color:#A0A48F;margin-top:16px;}' +
+    '@keyframes cc-fade{from{opacity:0}to{opacity:1}}' +
+    '@keyframes cc-pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}' +
+    '@keyframes cc-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}' +
+    '@keyframes cc-ring{0%{transform:scale(.4);opacity:.6}100%{transform:scale(1.7);opacity:0}}' +
+    '@keyframes cc-fall{0%{transform:translate3d(0,-30px,0) rotate(0);opacity:0}' +
+      '10%{opacity:1}100%{transform:translate3d(var(--dx),108vh,0) rotate(var(--rot));opacity:1}}' +
+    '@media (prefers-reduced-motion:reduce){' +
+      '.cc-piece{display:none}.cc-cat{animation:none}.cc-ring{animation:none;opacity:0}' +
+      '.cc-card{animation:cc-fade .25s ease both}}';
+  function injectStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    var s = document.createElement('style'); s.id = STYLE_ID; s.textContent = CSS; document.head.appendChild(s);
+  }
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function spawnConfetti(container, count) {
+    var reduce = global.matchMedia && global.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    if (reduce) return;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < count; i++) {
+      var p = document.createElement('div'); p.className = 'cc-piece';
+      var size = rand(7, 13); var round = Math.random() < 0.35;
+      p.style.left = rand(0, 100) + 'vw'; p.style.width = size + 'px';
+      p.style.height = (round ? size : rand(6, 15)) + 'px';
+      p.style.background = COLORS[(Math.random() * COLORS.length) | 0];
+      p.style.borderRadius = round ? '50%' : '2px';
+      p.style.setProperty('--dx', rand(-90, 90) + 'px');
+      p.style.setProperty('--rot', rand(-520, 520) + 'deg');
+      p.style.setProperty('--dur', rand(2.1, 3.4).toFixed(2) + 's');
+      p.style.setProperty('--delay', rand(0, 0.5).toFixed(2) + 's');
+      frag.appendChild(p);
+    }
+    container.appendChild(frag);
+  }
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+  }
+  function show(opts) {
+    opts = opts || {};
+    var title = opts.title != null ? opts.title : 'おめでとう！';
+    var subtitle = opts.subtitle || '';
+    var duration = opts.duration != null ? opts.duration : 2800;
+    var confetti = opts.confetti != null ? opts.confetti : 46;
+    var onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
+    injectStyle();
+    var overlay = document.createElement('div');
+    overlay.className = 'cc-overlay'; overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-label', title);
+    var confettiLayer = document.createElement('div'); confettiLayer.className = 'cc-confetti'; overlay.appendChild(confettiLayer);
+    var card = document.createElement('div'); card.className = 'cc-card';
+    card.innerHTML =
+      '<div class="cc-catwrap"><span class="cc-ring"></span><span class="cc-cat">' + CAT_SVG + '</span></div>' +
+      (title ? '<h2 class="cc-title">' + escapeHtml(title) + '</h2>' : '') +
+      (subtitle ? '<p class="cc-sub">' + escapeHtml(subtitle) + '</p>' : '') +
+      '<div class="cc-hint">タップで閉じる</div>';
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    spawnConfetti(confettiLayer, confetti);
+    var closed = false, timer = null;
+    function close() {
+      if (closed) return; closed = true; if (timer) clearTimeout(timer);
+      overlay.classList.add('cc-out');
+      setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); if (onClose) onClose(); }, 280);
+    }
+    overlay.addEventListener('click', close);
+    if (duration > 0) timer = setTimeout(close, duration);
+    return close;
+  }
+  var api = {
+    show: show,
+    answered: function () { return show({ title: '回答を登録しました！', subtitle: 'ご協力ありがとうございます' }); },
+    confirmed: function () { return show({ title: '日程が確定しました！', subtitle: 'みんなに共有しましょう' }); },
+    settled: function () { return show({ title: '精算が完了しました！', subtitle: 'おつかれさまでした' }); }
+  };
+  global.ChoseikunCelebration = api;
+  global.showChoseikunCelebration = show;
+})(window);
 </script>
 </body>
 </html>
