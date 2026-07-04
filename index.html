@@ -302,7 +302,18 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 .seat-table-row input.stcap { width: 74px; margin-bottom: 0; text-align: center; }
 .seat-member-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
 .seat-member-row .smn { flex: 1; font-weight: 600; min-width: 0; word-break: break-word; }
-.seat-member-row input.smtag { flex: 1.4; margin-bottom: 0; font-size: 0.82rem; }
+.seat-color-picker { display: flex; gap: 5px; flex-shrink: 0; }
+.seat-color-swatch {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border); cursor: pointer; padding: 0; flex-shrink: 0;
+  transition: transform 0.12s;
+}
+.seat-color-swatch:hover { transform: scale(1.14); }
+.seat-color-swatch.active { box-shadow: 0 0 0 2px var(--text); transform: scale(1.14); }
+.seat-color-dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  margin-right: 5px; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
+}
 .seat-constraint-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
 .seat-constraint-row select { width: auto; flex: 1; min-width: 90px; margin-bottom: 0; padding: 8px 10px; }
 .seat-constraint-list { margin-bottom: 6px; }
@@ -1255,8 +1266,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     <!-- メンバー -->
     <div class="field" style="margin-top:20px;margin-bottom:18px;">
-      <label>メンバー・タグ</label>
-      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">タグ（例：男/女、先輩/後輩）は「属性バランス」で均等分散に使われます。</p>
+      <label>メンバー・色タグ</label>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">色でグループ分けできます（例：男=青／女=赤）。下の「色バランス」で各卓に均等分散します。もう一度押すと解除。</p>
       <div id="seatingMemberBox"></div>
     </div>
 
@@ -3148,7 +3159,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     try { await updateDoc(doc(db, 'events', eventId), patch); }
     catch (e) { showToast('保存に失敗しました'); console.error(e); }
   }
-  function parseTags(str) { return (str || '').split(/[,、\s]+/).map(s => s.trim()).filter(Boolean); }
 
   // 条件付きランダム配置：{assignment}|{error}
   function computeSeating(data) {
@@ -3204,10 +3214,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       if (need + lockedCnt > cap) return { error: `${tables[tableById[tid]].name} の定員が、固定・ロックされた人数より少ないです。` };
     }
 
-    const tags = data.seatTags || {};
     const balanceOn = !!data.seatBalanceOn;
-    const tagLabels = new Set();
-    if (balanceOn) members.forEach(m => (tags[m] || []).forEach(t => tagLabels.add(t)));
+    const colorKeys = new Set();
+    if (balanceOn) members.forEach(m => { const c = seatColorOf(data, m); if (c) colorKeys.add(c); });
 
     function attempt() {
       const order = clusters.slice().sort(() => Math.random() - 0.5).sort((a, b) => b.length - a.length);
@@ -3239,8 +3248,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       });
       // 属性バランス（タグの偏り）を重めに評価
       if (balanceOn) {
-        tagLabels.forEach(label => {
-          const counts = fill.map(tbl => tbl.filter(n => (tags[n] || []).includes(label)).length);
+        colorKeys.forEach(key => {
+          const counts = fill.map(tbl => tbl.filter(n => seatColorOf(data, n) === key).length);
           const total = counts.reduce((a, v) => a + v, 0);
           const ideal = total / tables.length;
           s += 3 * counts.reduce((a, v) => a + Math.abs(v - ideal), 0);
@@ -3300,6 +3309,20 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   let seatSel = null;
   let seatingAnimating = false;
 
+  // 座席タグ：5色でグループ分け
+  const SEAT_TAG_COLORS = [
+    { key: 'c0', color: '#E4572E', name: '赤' },
+    { key: 'c1', color: '#4A90D9', name: '青' },
+    { key: 'c2', color: '#4CA36B', name: '緑' },
+    { key: 'c3', color: '#E9B44C', name: '黄' },
+    { key: 'c4', color: '#9B6BB3', name: '紫' },
+  ];
+  const seatColorOf = (data, name) => {
+    const v = (data.seatTags || {})[name];
+    return (typeof v === 'string' && SEAT_TAG_COLORS.some(c => c.key === v)) ? v : null;
+  };
+  const seatColorHex = key => (SEAT_TAG_COLORS.find(c => c.key === key) || {}).color || null;
+
   // 割当を「卓id → 定員長の配列（空席は null）」に正規化
   function normalizeSeatAssignment(data) {
     const out = {};
@@ -3334,12 +3357,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const pos = `${tid}:${idx}`;
       const locked = !!name && lockSet.has(pos);
       const sel = seatSel && seatSel.t === tid && seatSel.i === idx;
-      const tagTip = name && (tags[name] || []).length ? `${(tags[name] || []).join('・')}` : '';
-      const title = `席${idx + 1}${tagTip ? '｜' + tagTip : ''}${locked ? '｜固定中' : ''}`;
+      const colKey = name ? seatColorOf(data, name) : null;
+      const colHex = seatColorHex(colKey);
+      const colName = colKey ? (SEAT_TAG_COLORS.find(c => c.key === colKey) || {}).name : '';
+      const title = `席${idx + 1}${colName ? '｜' + colName : ''}${locked ? '｜固定中' : ''}`;
       const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${locked ? ' locked' : ''}${isHost ? ' clickable' : ''}`;
       const dataAttr = isHost ? ` data-t="${escHtml(tid)}" data-i="${idx}"` : '';
       const lockBtn = (isHost && name) ? `<button type="button" class="seat-lock-btn" data-lock="${escHtml(pos)}" title="${locked ? '固定を解除' : 'この席に固定'}">${locked ? '🔒' : '🔓'}</button>` : '';
-      return `<div class="${cls}"${dataAttr} title="${escHtml(title)}"><span class="sc-name">${name ? escHtml(name) : '空'}</span>${lockBtn}</div>`;
+      const dot = (name && colHex) ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
+      return `<div class="${cls}"${dataAttr} title="${escHtml(title)}"><span class="sc-name">${dot}${name ? escHtml(name) : '空'}</span>${lockBtn}</div>`;
     };
 
     let html = isHost ? '<div class="seat-swap-hint">💡 席をタップ→移動先をタップで入れ替え／🔓を押すとその席に固定（シャッフル対象外）</div>' : '';
@@ -3450,17 +3476,22 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const box = document.getElementById('seatingMemberBox');
     if (!box) return;
     const members = getSortedNames(data);
-    const tags = data.seatTags || {};
-    box.innerHTML = members.map(n => `<div class="seat-member-row">
+    box.innerHTML = members.map(n => {
+      const cur = seatColorOf(data, n);
+      const swatches = SEAT_TAG_COLORS.map(c =>
+        `<button type="button" class="seat-color-swatch${cur === c.key ? ' active' : ''}" data-name="${escHtml(n)}" data-color="${c.key}" title="${c.name}" style="background:${c.color};"></button>`
+      ).join('');
+      return `<div class="seat-member-row">
         <span class="smn">${escHtml(n)}</span>
-        <input type="text" class="smtag" data-name="${escHtml(n)}" placeholder="タグ（例：男 先輩）" value="${escHtml((tags[n] || []).join(' '))}">
+        <div class="seat-color-picker">${swatches}</div>
         <button type="button" class="btn btn-ghost smr-rename" data-name="${escHtml(n)}" style="font-size:0.72rem;padding:4px 8px;">改名</button>
         <button type="button" class="btn-remove smr-del" data-name="${escHtml(n)}" aria-label="削除">✕</button>
-      </div>`).join('') +
+      </div>`;
+    }).join('') +
       `<div class="member-add" style="margin-top:10px;"><input type="text" id="seatNewMember" placeholder="メンバー名を追加" style="flex:1;margin-bottom:0;"><button type="button" class="btn btn-secondary" id="seatAddMemberBtn" style="white-space:nowrap;">追加</button></div>`;
 
-    box.querySelectorAll('.smtag').forEach(inp => inp.addEventListener('blur', () => {
-      seatingSetTags(inp.dataset.name, parseTags(inp.value));
+    box.querySelectorAll('.seat-color-swatch').forEach(sw => sw.addEventListener('click', () => {
+      seatingSetColor(sw.dataset.name, sw.dataset.color);
     }));
     box.querySelectorAll('.smr-del').forEach(b => b.addEventListener('click', () => {
       if (confirm(`「${b.dataset.name}」を削除しますか？`)) seatingDeleteMember(b.dataset.name);
@@ -3516,10 +3547,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       seatTags: tags, seatFixed: fixed, seatAssignment: assignment
     });
   }
-  async function seatingSetTags(name, tagsArr) {
+  async function seatingSetColor(name, key) {
     const data = latestEventData;
     const tags = { ...(data.seatTags || {}) };
-    if (tagsArr.length) tags[name] = tagsArr; else delete tags[name];
+    if (tags[name] === key) delete tags[name]; else tags[name] = key; // 同じ色を再タップで解除
     await updateSeating({ seatTags: tags });
   }
 
@@ -3588,7 +3619,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       <div class="seat-constraint-list">${Object.entries(fixed).filter(([n]) => members.includes(n)).map(([n, tid]) => `<span class="seat-chip">${escHtml(n)}→${escHtml(tableName(tid))}<button type="button" data-kind="fixed" data-name="${escHtml(n)}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
       <div class="seat-constraint-row"><select class="sc-fn">${memOpts('')}</select><span>を</span><select class="sc-ft">${tblOpts('')}</select><button type="button" class="btn btn-secondary sc-fixadd" style="white-space:nowrap;">固定</button></div>
 
-      <label class="seat-balance-toggle"><input type="checkbox" id="seatBalanceChk" ${data.seatBalanceOn ? 'checked' : ''}><span>属性（タグ）が各卓に均等になるようバランスを取る</span></label>`;
+      <label class="seat-balance-toggle"><input type="checkbox" id="seatBalanceChk" ${data.seatBalanceOn ? 'checked' : ''}><span>色（タグ）が各卓に均等になるようバランスを取る</span></label>`;
 
     box.querySelectorAll('.seat-chip button[data-kind="fixed"]').forEach(b => b.addEventListener('click', () => {
       const fx = { ...(latestEventData.seatFixed || {}) }; delete fx[b.dataset.name];
@@ -3616,7 +3647,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const pos = `${t.id}:${i}`;
         const locked = n && lockSet.has(pos);
         const state = locked ? 'locked' : (settledSet.has(pos) ? 'seat-settled' : 'flicker');
-        return `<div class="seat-chip${n ? '' : ' empty'} ${state}"><span class="sc-name">${n ? escHtml(n) : '空'}</span></div>`;
+        const colHex = n ? seatColorHex(seatColorOf(data, n)) : null;
+        const dot = colHex ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
+        return `<div class="seat-chip${n ? '' : ' empty'} ${state}"><span class="sc-name">${dot}${n ? escHtml(n) : '空'}</span></div>`;
       };
       html += `<div class="seat-table-block"><div class="stb-name"><span>${escHtml(t.name)}</span><span class="stc-count">${arr.filter(Boolean).length}/${cap}</span></div>`;
       if ((t.shape || 'rect') === 'round') {
