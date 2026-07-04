@@ -397,9 +397,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 }
 @keyframes confettiPop {
   0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-  12%  { opacity: 1; }
-  45%  { transform: translate(calc(var(--dx) * 0.6), var(--peak)) rotate(calc(var(--rot) * 0.5)); opacity: 1; }
-  100% { transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--peak)) rotate(var(--rot)); opacity: 0; }
 }
 @keyframes seatResultReveal { from { transform: scale(0.985); opacity: 0.6; } to { transform: scale(1); opacity: 1; } }
 .seat-result-reveal { animation: seatResultReveal 0.4s ease; }
@@ -3742,15 +3741,13 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const startX = fromLeft ? (Math.random() * 16) : (84 + Math.random() * 12);
       const dir = fromLeft ? 1 : -1;                      // 左からは右上へ、右からは左上へ
       const dx = dir * (22 + Math.random() * 48);         // 斜め方向の横移動(vw)
-      const peak = -(48 + Math.random() * 34);            // 上へ打ち上げ(vh)
-      const fall = 6 + Math.random() * 16;                // 弧を描いて落下(vh)
+      const peak = -(55 + Math.random() * 40);            // 斜め上へ飛ばす(vh)
       const rot = Math.random() * 900 - 450;
-      const dur = 1.7 + Math.random() * 1.1;
+      const dur = 1.5 + Math.random() * 1.0;
       p.style.left = startX + 'vw';
       p.style.background = colors[k % colors.length];
       p.style.setProperty('--dx', dx + 'vw');
       p.style.setProperty('--peak', peak + 'vh');
-      p.style.setProperty('--fall', fall + 'vh');
       p.style.setProperty('--rot', rot + 'deg');
       p.style.setProperty('--dur', dur + 's');
       p.style.animationDelay = (Math.random() * 0.25) + 's';
