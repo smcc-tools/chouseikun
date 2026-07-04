@@ -3657,10 +3657,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
       const filled = arr.filter(Boolean).length;
-      html += `<div class="seat-table-block"><div class="stb-name"><span>${escHtml(t.name)}</span><span class="stc-count">${filled}/${cap}</span></div>`;
+      html += `<div class="seat-table-block"><div class="stb-name" style="justify-content:flex-end;"><span class="stc-count">${filled}/${cap}</span></div>`;
       if ((t.shape || 'rect') === 'round') {
         const R = 44;
-        html += `<div class="seat-round"><div class="srt-table">${escHtml(t.name)}</div>`;
+        html += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
         arr.forEach((n, i) => {
           const ang = (-90 + i * 360 / Math.max(cap, 1)) * Math.PI / 180;
           const x = 50 + R * Math.cos(ang), y = 50 + R * Math.sin(ang);
@@ -3671,7 +3671,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const half = Math.ceil(cap / 2);
         html += `<div class="seat-longtable"><div class="seat-longtable-inner">
           <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, t.id, i)).join('')}</div>
-          <div class="seat-table-bar">${escHtml(t.name)}</div>
+          <div class="seat-table-bar">TABLE</div>
           <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, t.id, half + i)).join('')}</div>
         </div></div>`;
       }
@@ -3884,10 +3884,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const dot = colHex ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
         return `<div class="seat-chip${n ? '' : ' empty'} ${state}"><span class="sc-name">${dot}${n ? escHtml(n) : '空'}</span></div>`;
       };
-      html += `<div class="seat-table-block"><div class="stb-name"><span>${escHtml(t.name)}</span><span class="stc-count">${arr.filter(Boolean).length}/${cap}</span></div>`;
+      html += `<div class="seat-table-block"><div class="stb-name" style="justify-content:flex-end;"><span class="stc-count">${arr.filter(Boolean).length}/${cap}</span></div>`;
       if ((t.shape || 'rect') === 'round') {
         const R = 44;
-        html += `<div class="seat-round"><div class="srt-table">${escHtml(t.name)}</div>`;
+        html += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
         arr.forEach((n, i) => {
           const ang = (-90 + i * 360 / Math.max(cap, 1)) * Math.PI / 180;
           const x = 50 + R * Math.cos(ang), y = 50 + R * Math.sin(ang);
@@ -3898,7 +3898,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const half = Math.ceil(cap / 2);
         html += `<div class="seat-longtable"><div class="seat-longtable-inner">
           <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, i)).join('')}</div>
-          <div class="seat-table-bar">${escHtml(t.name)}</div>
+          <div class="seat-table-bar">TABLE</div>
           <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, half + i)).join('')}</div>
         </div></div>`;
       }
