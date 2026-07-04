@@ -3262,26 +3262,19 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       if (sc < bestScore) { bestScore = sc; best = fill; }
     }
     if (!best) return { error: '条件を満たす配置が見つかりませんでした。定員・ロック・条件（同卓・別卓・卓固定）を見直してください。' };
-    // 席位置まで決める：ロック席は固定、残りの人だけを空き席へランダム配置
+    // 席位置まで決める：ロック席は固定、残りは隣接・対面とも同色が並びにくいよう配置
     const assignment = {};
     tables.forEach((t, i) => {
       const cap = t.capacity;
-      const seatArr = Array.from({ length: cap }, () => null);
-      const lockedIdxHere = new Set();
+      const lockedSeat = {}; // idx -> name
       lockPositions.forEach(pos => {
         const sep = pos.lastIndexOf(':'); if (pos.slice(0, sep) !== t.id) return;
         const idx = parseInt(pos.slice(sep + 1));
         const nm = lockedPersonAt[pos];
-        if (nm != null && idx >= 0 && idx < cap) { seatArr[idx] = nm; lockedIdxHere.add(idx); }
+        if (nm != null && idx >= 0 && idx < cap) lockedSeat[idx] = nm;
       });
-      // 卓内でも色が均等に散るように席順を決める
-      const unlocked = spreadByColor(best[i].filter(n => !lockedNames.has(n)), n => seatColorOf(data, n));
-      let u = 0;
-      for (let k = 0; k < cap && u < unlocked.length; k++) {
-        if (lockedIdxHere.has(k)) continue;
-        seatArr[k] = unlocked[u++];
-      }
-      assignment[t.id] = seatArr;
+      const people = best[i].filter(n => !lockedNames.has(n));
+      assignment[t.id] = arrangeTableSeats(cap, t.shape, lockedSeat, people, n => seatColorOf(data, n));
     });
     return { assignment };
   }
@@ -3329,6 +3322,49 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const result = []; let added = true;
     while (added) { added = false; for (const g of order) if (g.length) { result.push(g.shift()); added = true; } }
     return result;
+  }
+
+  // 卓レイアウトに応じた「隣り合う席」ペア（長机=左右＋対面／円卓=円周）
+  function seatNeighborPairs(cap, shape) {
+    const pairs = [];
+    if (cap <= 1) return pairs;
+    if ((shape || 'rect') === 'round') {
+      for (let i = 0; i < cap; i++) { const j = (i + 1) % cap; if (i !== j) pairs.push([i, j]); }
+    } else {
+      const half = Math.ceil(cap / 2);
+      for (let i = 0; i < half - 1; i++) pairs.push([i, i + 1]);         // 上段の左右
+      for (let i = half; i < cap - 1; i++) pairs.push([i, i + 1]);       // 下段の左右
+      for (let i = 0; i < cap - half; i++) pairs.push([i, half + i]);    // 向かい合い（対面）
+    }
+    return pairs;
+  }
+
+  // 卓内の席順を、隣接・対面とも同色が並びにくいよう最適化
+  function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf) {
+    const neighbors = seatNeighborPairs(cap, shape);
+    const freeIdx = []; for (let i = 0; i < cap; i++) if (!(i in lockedSeat)) freeIdx.push(i);
+    const conflicts = arr => {
+      let s = 0;
+      for (const [a, b] of neighbors) {
+        const ca = arr[a] ? colorOf(arr[a]) : null, cb = arr[b] ? colorOf(arr[b]) : null;
+        if (ca && cb && ca === cb) s++;
+      }
+      return s;
+    };
+    const buildFrom = order => {
+      const arr = Array.from({ length: cap }, () => null);
+      Object.keys(lockedSeat).forEach(i => { arr[i] = lockedSeat[i]; });
+      let u = 0; for (const idx of freeIdx) if (u < order.length) arr[idx] = order[u++];
+      return arr;
+    };
+    let best = null, bestS = Infinity;
+    for (let t = 0; t < 300; t++) {
+      const order = (t === 0) ? spreadByColor(people, colorOf) : people.slice().sort(() => Math.random() - 0.5);
+      const arr = buildFrom(order);
+      const s = conflicts(arr);
+      if (s < bestS) { bestS = s; best = arr; if (s === 0) break; }
+    }
+    return best || buildFrom(people);
   }
 
   // 割当を「卓id → 定員長の配列（空席は null）」に正規化
