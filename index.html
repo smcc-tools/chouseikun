@@ -1381,7 +1381,13 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     apiKey: _cfg.apiKey, authDomain: _cfg.authDomain, projectId: _cfg.projectId,
     storageBucket: _cfg.storageBucket, messagingSenderId: _cfg.messagingSenderId, appId: _cfg.appId,
   };
-  if (APP_ENV === 'test') { try { document.title = '[TEST] ' + document.title; } catch (_) {} }
+  if (APP_ENV === 'test') {
+    try {
+      document.title = '[TEST] ' + document.title;
+      const m = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (m) m.content = '調整くんTEST';
+    } catch (_) {}
+  }
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
