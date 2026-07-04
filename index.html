@@ -1278,9 +1278,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       <div id="seatingCapacityHint" style="font-size:0.76rem;margin-top:8px;color:var(--text-muted);"></div>
     </div>
 
-    <!-- 条件 -->
+    <!-- ヒント -->
     <div class="field" style="margin-bottom:18px;">
-      <label>条件</label>
       <div id="seatingConstraintBox"></div>
     </div>
   </div>
@@ -2137,7 +2136,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, seating: true,
-        seatTags: {}, seatTables, seatFixed: {},
+        seatTags: {}, seatTables,
         seatAssignment: null, seatLocks: []
       });
       addMyEvent(evId, name, true);
@@ -3186,31 +3185,11 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     // 各メンバーを個別に配置（同卓／別卓ペア機能は廃止）
     let clusters = members.map(m => [m]);
 
-    const fixed = data.seatFixed || {};
     const tableById = {}; tables.forEach((t, i) => tableById[t.id] = i);
-    const tableOfLocked = {}; // name -> tid
-    Object.entries(lockedByTable).forEach(([tid, names]) => names.forEach(n => tableOfLocked[n] = tid));
-
-    // 強制卓（卓固定 or ロック位置の卓）を算出し、矛盾を検出
-    const forcedByCluster = new Map();
-    for (const cl of clusters) {
-      const set = new Set();
-      cl.forEach(n => { if (fixed[n] && tableById[fixed[n]] != null) set.add(fixed[n]); });
-      cl.forEach(n => { if (tableOfLocked[n]) set.add(tableOfLocked[n]); });
-      if (set.size > 1) return { error: `条件が矛盾しています：${cl.join('・')} が別々の卓に固定されています（🔒と卓固定が別の卓）。` };
-      forcedByCluster.set(cl, set.size ? [...set][0] : null);
-    }
-    // 強制卓の定員チェック（その卓に固定される未ロック人数＋ロック済み ≤ 定員）
-    const forcedNeed = {};
-    for (const cl of clusters) {
-      const tid = forcedByCluster.get(cl);
-      if (!tid) continue;
-      forcedNeed[tid] = (forcedNeed[tid] || 0) + cl.filter(n => !lockedNames.has(n)).length;
-    }
-    for (const [tid, need] of Object.entries(forcedNeed)) {
-      const cap = tables[tableById[tid]].capacity;
-      const lockedCnt = (lockedByTable[tid] || []).length;
-      if (need + lockedCnt > cap) return { error: `${tables[tableById[tid]].name} の定員が、固定・ロックされた人数より少ないです。` };
+    // ロック(🔒)された席が卓の定員を超えていないか
+    for (const [tid, names] of Object.entries(lockedByTable)) {
+      if (tableById[tid] != null && names.length > tables[tableById[tid]].capacity)
+        return { error: `${tables[tableById[tid]].name} の定員が、固定(🔒)された人数より少ないです。` };
     }
 
     // 色は常に各卓へ均等分散（トグル不要）
@@ -3223,10 +3202,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const fill = tables.map(t => (lockedByTable[t.id] || []).slice());
       for (const cl of order) {
         const toPlace = cl.filter(n => !lockedNames.has(n));
-        if (!toPlace.length) continue; // 全員ロック済み
-        const forced = forcedByCluster.get(cl);
+        if (!toPlace.length) continue; // ロック済み
         let cand = tables.map((_, i) => i);
-        if (forced) cand = [tableById[forced]];
         cand = cand.filter(i => fill[i].length + toPlace.length <= tables[i].capacity);
         if (!cand.length) return null;
         // 空いている卓を優先（残り定員で重み付け）＝定員内でなるべく均等に
@@ -3567,13 +3544,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const data = latestEventData;
     const ps = { ...(data.participants || {}) }; delete ps[name];
     const tags = { ...(data.seatTags || {}) }; delete tags[name];
-    const fixed = { ...(data.seatFixed || {}) }; delete fixed[name];
     const assignment = data.seatAssignment
       ? Object.fromEntries(Object.entries(data.seatAssignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)]))
       : data.seatAssignment;
     await updateSeating({
       participants: ps, participantOrder: (data.participantOrder || []).filter(n => n !== name),
-      seatTags: tags, seatFixed: fixed, seatAssignment: assignment
+      seatTags: tags, seatAssignment: assignment
     });
   }
   async function seatingRenameMember(old, nn) {
@@ -3582,13 +3558,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     if (Object.keys(ps).some(n => n !== old && normalizeName(n) === normalizeName(nn))) { showToast('同じ名前が既に登録されています'); return; }
     ps[nn] = ps[old]; delete ps[old];
     const tags = { ...(data.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
-    const fixed = { ...(data.seatFixed || {}) }; if (old in fixed) { fixed[nn] = fixed[old]; delete fixed[old]; }
     const assignment = data.seatAssignment
       ? Object.fromEntries(Object.entries(data.seatAssignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)]))
       : data.seatAssignment;
     await updateSeating({
       participants: ps, participantOrder: (data.participantOrder || []).map(n => n === old ? nn : n),
-      seatTags: tags, seatFixed: fixed, seatAssignment: assignment
+      seatTags: tags, seatAssignment: assignment
     });
   }
   async function seatingSetColor(name, key) {
@@ -3646,34 +3621,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     updateSeating({ seatTables: tables });
   });
 
-  // 条件（同卓・別卓・卓固定・属性バランス）
   function renderSeatingConstraints(data) {
     const box = document.getElementById('seatingConstraintBox');
     if (!box) return;
-    const members = getSortedNames(data);
-    const tables = data.seatTables || [];
-    const opt = (list, sel, valFn, labFn) => list.map(x => `<option value="${escHtml(valFn(x))}" ${valFn(x) === sel ? 'selected' : ''}>${escHtml(labFn(x))}</option>`).join('');
-    const memOpts = s => `<option value="">選択</option>` + opt(members, s, m => m, m => m);
-    const tblOpts = s => `<option value="">選択</option>` + opt(tables, s, t => t.id, t => t.name);
-    const fixed = data.seatFixed || {};
-    const tableName = id => (tables.find(t => t.id === id) || {}).name || '?';
-
-    box.innerHTML = `
-      <div class="seat-sub">特定の人を特定の卓に固定</div>
-      <div class="seat-constraint-list">${Object.entries(fixed).filter(([n]) => members.includes(n)).map(([n, tid]) => `<span class="seat-chip">${escHtml(n)}→${escHtml(tableName(tid))}<button type="button" data-kind="fixed" data-name="${escHtml(n)}">✕</button></span>`).join('') || '<span style="font-size:0.8rem;color:var(--text-muted);">なし</span>'}</div>
-      <div class="seat-constraint-row"><select class="sc-fn">${memOpts('')}</select><span>を</span><select class="sc-ft">${tblOpts('')}</select><button type="button" class="btn btn-secondary sc-fixadd" style="white-space:nowrap;">固定</button></div>
-
-      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:12px;line-height:1.6;">💡 色タグは、シャッフル時に各卓・卓内の席ともできる限り均等に散らばるよう自動配置されます。</div>`;
-
-    box.querySelectorAll('.seat-chip button[data-kind="fixed"]').forEach(b => b.addEventListener('click', () => {
-      const fx = { ...(latestEventData.seatFixed || {}) }; delete fx[b.dataset.name];
-      updateSeating({ seatFixed: fx });
-    }));
-    box.querySelector('.sc-fixadd')?.addEventListener('click', () => {
-      const n = box.querySelector('.sc-fn').value, tid = box.querySelector('.sc-ft').value;
-      if (!n || !tid) { showToast('メンバーと卓を選んでください'); return; }
-      updateSeating({ seatFixed: { ...(latestEventData.seatFixed || {}), [n]: tid } });
-    });
+    box.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;">💡 色タグは、シャッフル時に各卓・卓内の席（隣・向かい）とも同じ色ができる限り散らばるよう自動配置されます。特定の人を動かしたくない場合は座席表の 🔓 で席を固定できます。</div>`;
   }
 
   // シャッフル演出用：与えられた割当で座席マップを描画（操作なし）
