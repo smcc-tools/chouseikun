@@ -2471,13 +2471,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
       }
 
-      // 確定後：Googleカレンダー追加ボタン（日程調整のみ）
+      // 確定後：Googleカレンダー追加ボタン（日程調整のみ・ホスト/参加者両方）。
+      // 実際のURLは押下時に最新情報から生成する。
       const calBtn = document.getElementById('addCalendarBtn');
-      if (calBtn) {
-        const calUrl = settleOnly ? null : buildGoogleCalendarUrl(data);
-        if (calUrl) { calBtn.href = calUrl; calBtn.style.display = 'flex'; }
-        else calBtn.style.display = 'none';
-      }
+      if (calBtn) calBtn.style.display = (!settleOnly && data.confirmedDate != null) ? 'flex' : 'none';
 
       // 精算のみモード：日程調整用UIを隠す
       const legendEl = document.getElementById('voteLegend');
@@ -4075,6 +4072,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     if (ctz) params.set('ctz', ctz);
     return 'https://calendar.google.com/calendar/render?' + params.toString();
   }
+  document.getElementById('addCalendarBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const url = latestEventData ? buildGoogleCalendarUrl(latestEventData) : null;
+    if (url) window.open(url, '_blank', 'noopener');
+    else showToast('日程が確定していません');
+  });
 
   function renderTable(dates, participants, confirmedDate, participantOrder) {
     const wrap = document.getElementById('tableWrap');
