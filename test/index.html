@@ -1105,6 +1105,11 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
   <div id="tableWrap"><p class="loading">読み込み中</p></div>
 
+  <!-- 確定後：カレンダーに追加 -->
+  <a id="addCalendarBtn" href="#" target="_blank" rel="noopener" style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;padding:12px;background:#fff;border:1.5px solid var(--green-mid);border-radius:10px;color:var(--green);font-weight:700;font-size:0.95rem;text-decoration:none;box-sizing:border-box;">
+    <span style="font-size:1.1rem;">📅</span>Googleカレンダーに追加
+  </a>
+
   <div class="legend" id="voteLegend">
     <div class="legend-item"><span style="color:#3D5A3A;font-size:1rem;">◯</span> 参加できる（1pt）</div>
     <div class="legend-item"><span style="color:var(--gold);font-size:1rem;">△</span> おそらく参加可能（0.5pt）</div>
@@ -2464,6 +2469,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         }
       } else {
         renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
+      }
+
+      // 確定後：Googleカレンダー追加ボタン（日程調整のみ）
+      const calBtn = document.getElementById('addCalendarBtn');
+      if (calBtn) {
+        const calUrl = settleOnly ? null : buildGoogleCalendarUrl(data);
+        if (calUrl) { calBtn.href = calUrl; calBtn.style.display = 'flex'; }
+        else calBtn.style.display = 'none';
       }
 
       // 精算のみモード：日程調整用UIを隠す
@@ -4025,6 +4038,43 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       if (currentUser) addMyEvent(eventId, nn, true);
     } catch (e) { showToast('更新に失敗しました'); console.error(e); }
   });
+
+  // 確定日から Googleカレンダー テンプレートURL を作る（未確定なら null）
+  function buildGoogleCalendarUrl(data) {
+    const ci = data.confirmedDate;
+    if (ci == null || !data.dates || !data.dates[ci]) return null;
+    const raw = String(data.dates[ci]);
+    const [datePart, timePart] = raw.split(' ');
+    const [y, mo, d] = datePart.split('-').map(n => parseInt(n));
+    if (!y || !mo || !d) return null;
+    const pad = n => String(n).padStart(2, '0');
+    let datesParam, ctz = '';
+    if (timePart) {
+      const [hh, mm] = timePart.split(':').map(n => parseInt(n));
+      const start = new Date(y, mo - 1, d, hh || 0, mm || 0);
+      const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // 所要2時間
+      const f = dt => `${dt.getFullYear()}${pad(dt.getMonth() + 1)}${pad(dt.getDate())}T${pad(dt.getHours())}${pad(dt.getMinutes())}00`;
+      datesParam = `${f(start)}/${f(end)}`;
+      ctz = 'Asia/Tokyo';
+    } else {
+      const start = new Date(y, mo - 1, d);
+      const next = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      const f = dt => `${dt.getFullYear()}${pad(dt.getMonth() + 1)}${pad(dt.getDate())}`;
+      datesParam = `${f(start)}/${f(next)}`; // 終日
+    }
+    const v = data.venue || {};
+    const shopText = (v.shop || '').replace(/https?:\/\/\S+/g, '').trim();
+    const loc = shopText || (v.meetPlace || '').trim();
+    const lines = [];
+    if (data.memo) lines.push(data.memo);
+    if (v.meetTime) lines.push('集合時間: ' + v.meetTime);
+    if (v.meetPlace) lines.push('集合場所: ' + v.meetPlace);
+    lines.push(`${location.origin}${location.pathname}?event=${eventId}`);
+    const params = new URLSearchParams({ action: 'TEMPLATE', text: data.name || 'イベント', dates: datesParam, details: lines.join('\n') });
+    if (loc) params.set('location', loc);
+    if (ctz) params.set('ctz', ctz);
+    return 'https://calendar.google.com/calendar/render?' + params.toString();
+  }
 
   function renderTable(dates, participants, confirmedDate, participantOrder) {
     const wrap = document.getElementById('tableWrap');
