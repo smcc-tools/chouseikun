@@ -1696,19 +1696,28 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   async function populateSeatingImport() {
     const wrap = document.getElementById('seatingImportWrap');
     const sel = document.getElementById('seatingImportSelect');
+    const btn = document.getElementById('seatingImportBtn');
     if (!wrap || !sel) return;
-    wrap.style.display = 'none';
-    sel.innerHTML = '';
     seatingImportCache = {};
+    // 未ログインのときは取り込みできないので非表示
+    if (!currentUser) { wrap.style.display = 'none'; return; }
+    // ログイン中は欄を表示し、読み込み中の状態を出す
+    wrap.style.display = 'block';
+    sel.innerHTML = '<option>読み込み中…</option>';
+    sel.disabled = true; if (btn) btn.disabled = true;
     const evs = await loadScheduleEventsForImport();
     // 取り込み画面が閉じられていたら反映しない
     if (document.getElementById('seatingSetupCard').style.display === 'none') return;
-    if (!evs.length) return;
+    if (!evs.length) {
+      sel.innerHTML = '<option value="">取り込める日程調整イベントがありません</option>';
+      sel.disabled = true; if (btn) btn.disabled = true;
+      return;
+    }
+    sel.disabled = false; if (btn) btn.disabled = false;
     sel.innerHTML = evs.map(e => {
       seatingImportCache[e.id] = e.members;
       return `<option value="${escHtml(e.id)}">${escHtml(e.name)}（${e.members.length}名）</option>`;
     }).join('');
-    wrap.style.display = 'block';
   }
   document.getElementById('seatingImportBtn')?.addEventListener('click', () => {
     const sel = document.getElementById('seatingImportSelect');
