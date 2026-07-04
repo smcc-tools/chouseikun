@@ -351,19 +351,45 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
   background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
   font-size: 0.82rem; line-height: 1; flex-shrink: 0;
 }
-@keyframes seatFlicker { 0%,100% { transform: scale(0.96); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } }
+@keyframes seatFlicker { 0%,100% { transform: translateY(0) scale(0.96); } 50% { transform: translateY(-3px) scale(1.07); } }
 .seat-chip.flicker {
-  animation: seatFlicker 0.26s infinite ease-in-out;
-  border-color: var(--gold); color: #94701C; background: #FBF4E2;
+  animation: seatFlicker 0.3s infinite ease-in-out;
+  border-color: var(--gold); color: #94701C;
+  background: linear-gradient(135deg, #FBF4E2, #F3E4B8);
+  box-shadow: 0 4px 12px rgba(176,136,58,0.3);
 }
-.seat-chip.seat-settled { animation: confirmedPop 0.32s ease; border-color: var(--green); }
-.seat-shuffle-badge {
-  display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--gold);
-  background: #FBF4E2; border: 1px solid var(--green-mid); border-radius: 999px;
-  padding: 7px 16px; margin-bottom: 12px; font-size: 0.9rem;
+@keyframes seatSettle {
+  0% { transform: scale(1.28); box-shadow: 0 0 0 9px rgba(61,90,58,0.22); }
+  55% { transform: scale(0.93); }
+  100% { transform: scale(1); box-shadow: 0 2px 8px rgba(61,90,58,0.12); }
 }
-.seat-shuffle-badge .dice { display: inline-block; animation: diceSpin 0.5s linear infinite; }
-@keyframes diceSpin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+.seat-chip.seat-settled { animation: seatSettle 0.5s cubic-bezier(.2,1.5,.4,1); border-color: var(--green); background: #eef4e4; }
+/* シャッフル中バナー（グラデのきらめき＋波打つドット） */
+.seat-shuffle-banner {
+  position: relative; overflow: hidden; text-align: center;
+  font-family: var(--font-display); font-weight: 800; color: var(--green);
+  letter-spacing: 0.08em; font-size: 1rem;
+  background: linear-gradient(100deg, #eef4e4 0%, #FBF4E2 25%, #F3E4B8 50%, #FBF4E2 75%, #eef4e4 100%);
+  background-size: 220% 100%; animation: shimmerSweep 1.15s linear infinite;
+  border: 1px solid var(--green-mid); border-radius: 12px; padding: 11px 16px; margin-bottom: 14px;
+}
+@keyframes shimmerSweep { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.seat-shuffle-banner .sdot { display: inline-block; animation: sdotBounce 0.9s infinite; }
+.seat-shuffle-banner .sdot:nth-child(2) { animation-delay: 0.15s; }
+.seat-shuffle-banner .sdot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes sdotBounce { 0%,60%,100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-5px); opacity: 1; } }
+/* 完了時の紙吹雪 */
+.confetti-piece {
+  position: fixed; top: -24px; width: 9px; height: 15px; z-index: 9998;
+  border-radius: 2px; pointer-events: none; will-change: transform, opacity;
+  animation: confettiFall linear forwards;
+}
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotateZ(0deg); opacity: 1; }
+  100% { transform: translateY(112vh) rotateZ(720deg); opacity: 0.9; }
+}
+@keyframes seatResultReveal { from { transform: scale(0.985); opacity: 0.6; } to { transform: scale(1); opacity: 1; } }
+.seat-result-reveal { animation: seatResultReveal 0.4s ease; }
 .seat-round { position: relative; width: 100%; max-width: 300px; aspect-ratio: 1; margin: 4px auto; }
 .seat-round .srt-table {
   position: absolute; inset: 26%; border-radius: 50%;
@@ -3632,7 +3658,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   function seatMapAnimHTML(data, assignment, settledSet) {
     const tables = data.seatTables || [];
     const lockSet = new Set(data.seatLocks || []);
-    let html = '<div class="seat-shuffle-badge"><span class="dice">🎲</span>シャッフル中…</div>';
+    let html = '<div class="seat-shuffle-banner">座席をシャッフル中<span class="sdot">・</span><span class="sdot">・</span><span class="sdot">・</span></div>';
     tables.forEach(t => {
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
@@ -3700,11 +3726,33 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       else {
         seatingAnimating = false;
         if (btn) btn.disabled = false;
+        el.classList.add('seat-result-reveal');
+        setTimeout(() => el.classList.remove('seat-result-reveal'), 500);
+        launchConfetti();
         updateSeating({ seatAssignment: finalAssign });
         showToast('席が決まりました🎉');
       }
     }
     tick();
+  }
+
+  function launchConfetti() {
+    const colors = ['#3D5A3A', '#B0883A', '#C0705A', '#8FB37A', '#E9C46A', '#5C7A4E'];
+    const n = 80;
+    for (let k = 0; k < n; k++) {
+      const p = document.createElement('div');
+      p.className = 'confetti-piece';
+      const dur = 1.6 + Math.random() * 1.4;
+      p.style.left = (Math.random() * 96) + 'vw';
+      p.style.background = colors[k % colors.length];
+      p.style.animationDuration = dur + 's';
+      p.style.animationDelay = (Math.random() * 0.35) + 's';
+      p.style.opacity = '0.95';
+      if (Math.random() < 0.5) p.style.borderRadius = '50%';
+      p.style.transform = `rotate(${Math.random() * 360}deg)`;
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), (dur + 0.5) * 1000);
+    }
   }
 
   function doSeatingShuffle() {
