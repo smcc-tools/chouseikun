@@ -3671,7 +3671,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const half = Math.ceil(cap / 2);
         html += `<div class="seat-longtable"><div class="seat-longtable-inner">
           <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, t.id, i)).join('')}</div>
-          <div class="seat-table-bar">TABLE</div>
+          <div class="seat-table-bar">${escHtml(t.name)}</div>
           <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, t.id, half + i)).join('')}</div>
         </div></div>`;
       }
@@ -3898,7 +3898,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const half = Math.ceil(cap / 2);
         html += `<div class="seat-longtable"><div class="seat-longtable-inner">
           <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, i)).join('')}</div>
-          <div class="seat-table-bar">TABLE</div>
+          <div class="seat-table-bar">${escHtml(t.name)}</div>
           <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, half + i)).join('')}</div>
         </div></div>`;
       }
