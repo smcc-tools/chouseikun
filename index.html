@@ -943,6 +943,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     <input type="text" id="walicaName" placeholder="例：沖縄旅行の精算">
   </div>
 
+  <div class="field" id="walicaImportWrap" style="display:none;">
+    <label>日程調整から取り込む</label>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">あなたが作成した日程調整イベントの参加者を、メンバーとして取り込めます。</p>
+    <div style="display:flex;gap:8px;">
+      <select id="walicaImportSelect" style="flex:1;margin-bottom:0;"></select>
+      <button type="button" class="btn btn-secondary" id="walicaImportBtn" style="white-space:nowrap;">取り込む</button>
+    </div>
+  </div>
+
   <div class="field">
     <label>メンバー</label>
     <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">割り勘の対象者を追加してください（2名以上）。</p>
@@ -1660,6 +1669,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const nameEl = document.getElementById('walicaName'); if (nameEl) nameEl.value = '';
     walicaDraftMembers = [];
     renderWalicaDraft();
+    populateWalicaImport();
     window.scrollTo(0, 0);
   }
   function goToSeatingSetup() {
@@ -1735,6 +1745,49 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     renderSeatingDraft();
     // タイトルに取り込んだ日程調整イベント名を入力
     const nameEl = document.getElementById('seatingName');
+    if (nameEl && entry?.name) nameEl.value = entry.name;
+    showToast(added ? `${added}名を取り込みました` : '追加できる新しいメンバーはいませんでした');
+  });
+
+  // 割り勘：日程調整のマイイベントから参加者を取り込む
+  let walicaImportCache = {}; // eventId -> {name, members}
+  async function populateWalicaImport() {
+    const wrap = document.getElementById('walicaImportWrap');
+    const sel = document.getElementById('walicaImportSelect');
+    const btn = document.getElementById('walicaImportBtn');
+    if (!wrap || !sel) return;
+    walicaImportCache = {};
+    if (!currentUser) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    sel.innerHTML = '<option>読み込み中…</option>';
+    sel.disabled = true; if (btn) btn.disabled = true;
+    const evs = await loadScheduleEventsForImport();
+    if (document.getElementById('walicaSetupCard').style.display === 'none') return;
+    if (!evs.length) {
+      sel.innerHTML = '<option value="">取り込める日程調整イベントがありません</option>';
+      sel.disabled = true; if (btn) btn.disabled = true;
+      return;
+    }
+    sel.disabled = false; if (btn) btn.disabled = false;
+    sel.innerHTML = evs.map(e => {
+      walicaImportCache[e.id] = { name: e.name, members: e.members };
+      return `<option value="${escHtml(e.id)}">${escHtml(e.name)}（${e.members.length}名）</option>`;
+    }).join('');
+  }
+  document.getElementById('walicaImportBtn')?.addEventListener('click', () => {
+    const sel = document.getElementById('walicaImportSelect');
+    const entry = walicaImportCache[sel?.value];
+    const members = entry?.members || [];
+    if (!members.length) { showToast('取り込むメンバーがいません'); return; }
+    let added = 0;
+    members.forEach(m => {
+      const name = (m || '').trim();
+      if (!name || validateParticipantName(name)) return;
+      if (walicaDraftMembers.some(x => normalizeName(x) === normalizeName(name))) return;
+      walicaDraftMembers.push(name); added++;
+    });
+    renderWalicaDraft();
+    const nameEl = document.getElementById('walicaName');
     if (nameEl && entry?.name) nameEl.value = entry.name;
     showToast(added ? `${added}名を取り込みました` : '追加できる新しいメンバーはいませんでした');
   });
