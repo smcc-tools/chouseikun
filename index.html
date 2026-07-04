@@ -1678,8 +1678,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     if (!currentUser) return [];
     let snap;
     try { snap = await getDocs(userEventsRef(currentUser.uid)); } catch (e) { return []; }
-    const list = snap.docs.map(d => ({ id: d.id, name: d.data().name }));
+    const list = snap.docs.map(d => ({ id: d.id, name: d.data().name, finished: !!d.data().finished }));
     const results = await Promise.all(list.map(async ev => {
+      if (ev.finished) return null; // 「終了」にしたイベントは除外
       try {
         const s = await getDoc(doc(db, 'events', ev.id));
         if (!s.exists()) return null;
@@ -1715,13 +1716,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     }
     sel.disabled = false; if (btn) btn.disabled = false;
     sel.innerHTML = evs.map(e => {
-      seatingImportCache[e.id] = e.members;
+      seatingImportCache[e.id] = { name: e.name, members: e.members };
       return `<option value="${escHtml(e.id)}">${escHtml(e.name)}（${e.members.length}名）</option>`;
     }).join('');
   }
   document.getElementById('seatingImportBtn')?.addEventListener('click', () => {
     const sel = document.getElementById('seatingImportSelect');
-    const members = seatingImportCache[sel?.value] || [];
+    const entry = seatingImportCache[sel?.value];
+    const members = entry?.members || [];
     if (!members.length) { showToast('取り込むメンバーがいません'); return; }
     let added = 0;
     members.forEach(m => {
@@ -1731,6 +1733,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       seatingDraftMembers.push(name); added++;
     });
     renderSeatingDraft();
+    // タイトルに取り込んだ日程調整イベント名を入力
+    const nameEl = document.getElementById('seatingName');
+    if (nameEl && entry?.name) nameEl.value = entry.name;
     showToast(added ? `${added}名を取り込みました` : '追加できる新しいメンバーはいませんでした');
   });
 
