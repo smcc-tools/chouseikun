@@ -389,15 +389,17 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 .seat-shuffle-banner .sdot:nth-child(2) { animation-delay: 0.15s; }
 .seat-shuffle-banner .sdot:nth-child(3) { animation-delay: 0.3s; }
 @keyframes sdotBounce { 0%,60%,100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-5px); opacity: 1; } }
-/* 完了時の紙吹雪 */
+/* 完了時の紙吹雪：斜め下から上へ発射して弧を描いて落ちる */
 .confetti-piece {
-  position: fixed; top: -24px; width: 9px; height: 15px; z-index: 9998;
+  position: fixed; bottom: 6vh; width: 9px; height: 15px; z-index: 9998;
   border-radius: 2px; pointer-events: none; will-change: transform, opacity;
-  animation: confettiFall linear forwards;
+  animation: confettiPop var(--dur, 2s) cubic-bezier(.12,.62,.38,1) forwards;
 }
-@keyframes confettiFall {
-  0% { transform: translateY(0) rotateZ(0deg); opacity: 1; }
-  100% { transform: translateY(112vh) rotateZ(720deg); opacity: 0.9; }
+@keyframes confettiPop {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  12%  { opacity: 1; }
+  45%  { transform: translate(calc(var(--dx) * 0.6), var(--peak)) rotate(calc(var(--rot) * 0.5)); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); opacity: 0; }
 }
 @keyframes seatResultReveal { from { transform: scale(0.985); opacity: 0.6; } to { transform: scale(1); opacity: 1; } }
 .seat-result-reveal { animation: seatResultReveal 0.4s ease; }
@@ -3277,7 +3279,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         const nm = lockedPersonAt[pos];
         if (nm != null && idx >= 0 && idx < cap) { seatArr[idx] = nm; lockedIdxHere.add(idx); }
       });
-      const unlocked = best[i].filter(n => !lockedNames.has(n)).sort(() => Math.random() - 0.5);
+      // 卓内でも色が均等に散るように席順を決める
+      const unlocked = spreadByColor(best[i].filter(n => !lockedNames.has(n)), n => seatColorOf(data, n));
       let u = 0;
       for (let k = 0; k < cap && u < unlocked.length; k++) {
         if (lockedIdxHere.has(k)) continue;
@@ -3309,19 +3312,29 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   let seatSel = null;
   let seatingAnimating = false;
 
-  // 座席タグ：5色でグループ分け
+  // 座席タグ：Olive Lounge に馴染む5色
   const SEAT_TAG_COLORS = [
-    { key: 'c0', color: '#E4572E', name: '赤' },
-    { key: 'c1', color: '#4A90D9', name: '青' },
-    { key: 'c2', color: '#4CA36B', name: '緑' },
-    { key: 'c3', color: '#E9B44C', name: '黄' },
-    { key: 'c4', color: '#9B6BB3', name: '紫' },
+    { key: 'c0', color: '#6E8B4F', name: 'オリーブ' },
+    { key: 'c1', color: '#B78A3C', name: 'ブラス' },
+    { key: 'c2', color: '#BC6B50', name: 'テラコッタ' },
+    { key: 'c3', color: '#6E8B96', name: 'セージブルー' },
+    { key: 'c4', color: '#8A5E70', name: 'プラム' },
   ];
   const seatColorOf = (data, name) => {
     const v = (data.seatTags || {})[name];
     return (typeof v === 'string' && SEAT_TAG_COLORS.some(c => c.key === v)) ? v : null;
   };
   const seatColorHex = key => (SEAT_TAG_COLORS.find(c => c.key === key) || {}).color || null;
+  // 色を席順に均等分散（色ごとにグループ化しラウンドロビンで交互配置）
+  function spreadByColor(people, colorFn) {
+    const groups = {};
+    people.forEach(p => { const c = colorFn(p) || '_none'; (groups[c] = groups[c] || []).push(p); });
+    Object.values(groups).forEach(g => g.sort(() => Math.random() - 0.5));
+    const order = Object.values(groups).sort((a, b) => b.length - a.length || Math.random() - 0.5);
+    const result = []; let added = true;
+    while (added) { added = false; for (const g of order) if (g.length) { result.push(g.shift()); added = true; } }
+    return result;
+  }
 
   // 割当を「卓id → 定員長の配列（空席は null）」に正規化
   function normalizeSeatAssignment(data) {
@@ -3720,21 +3733,30 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   }
 
   function launchConfetti() {
-    const colors = ['#3D5A3A', '#B0883A', '#C0705A', '#8FB37A', '#E9C46A', '#5C7A4E'];
-    const n = 80;
+    const colors = ['#6E8B4F', '#B78A3C', '#BC6B50', '#6E8B96', '#8A5E70', '#3D5A3A', '#E9C46A'];
+    const n = 100;
     for (let k = 0; k < n; k++) {
       const p = document.createElement('div');
       p.className = 'confetti-piece';
-      const dur = 1.6 + Math.random() * 1.4;
-      p.style.left = (Math.random() * 96) + 'vw';
+      const fromLeft = k % 2 === 0;
+      const startX = fromLeft ? (Math.random() * 16) : (84 + Math.random() * 12);
+      const dir = fromLeft ? 1 : -1;                      // 左からは右上へ、右からは左上へ
+      const dx = dir * (22 + Math.random() * 48);         // 斜め方向の横移動(vw)
+      const peak = -(48 + Math.random() * 34);            // 上へ打ち上げ(vh)
+      const fall = 6 + Math.random() * 16;                // 弧を描いて落下(vh)
+      const rot = Math.random() * 900 - 450;
+      const dur = 1.7 + Math.random() * 1.1;
+      p.style.left = startX + 'vw';
       p.style.background = colors[k % colors.length];
-      p.style.animationDuration = dur + 's';
-      p.style.animationDelay = (Math.random() * 0.35) + 's';
-      p.style.opacity = '0.95';
+      p.style.setProperty('--dx', dx + 'vw');
+      p.style.setProperty('--peak', peak + 'vh');
+      p.style.setProperty('--fall', fall + 'vh');
+      p.style.setProperty('--rot', rot + 'deg');
+      p.style.setProperty('--dur', dur + 's');
+      p.style.animationDelay = (Math.random() * 0.25) + 's';
       if (Math.random() < 0.5) p.style.borderRadius = '50%';
-      p.style.transform = `rotate(${Math.random() * 360}deg)`;
       document.body.appendChild(p);
-      setTimeout(() => p.remove(), (dur + 0.5) * 1000);
+      setTimeout(() => p.remove(), (dur + 0.4) * 1000);
     }
   }
 
