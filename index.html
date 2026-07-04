@@ -345,6 +345,12 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
   border-color: var(--gold); background: #FBF4E2; color: #94701C;
   box-shadow: 0 0 0 2.5px rgba(176,136,58,0.3);
 }
+.seat-chip .sc-name { overflow: hidden; text-overflow: ellipsis; }
+.seat-chip.locked { border-color: var(--green); background: #eef4e4; }
+.seat-lock-btn {
+  background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
+  font-size: 0.82rem; line-height: 1; flex-shrink: 0;
+}
 .seat-round { position: relative; width: 100%; max-width: 300px; aspect-ratio: 1; margin: 4px auto; }
 .seat-round .srt-table {
   position: absolute; inset: 26%; border-radius: 50%;
@@ -2083,7 +2089,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, seating: true,
         seatTags: {}, seatTables, seatTogether: [], seatApart: [], seatFixed: {},
-        seatBalanceOn: false, seatAssignment: null
+        seatBalanceOn: false, seatAssignment: null, seatLocks: []
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -3114,6 +3120,21 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const totalCap = tables.reduce((s, t) => s + t.capacity, 0);
     if (totalCap < members.length) return { error: `定員の合計（${totalCap}）がメンバー数（${members.length}）より少ないです。定員を増やしてください。` };
 
+    // 席ロック：ロックされた席の人はその席のまま、残りだけをシャッフル対象にする
+    const curAssign = normalizeSeatAssignment(data);
+    const lockPositions = (data.seatLocks || []);
+    const lockedPersonAt = {};       // "tid:idx" -> name
+    const lockedNames = new Set();
+    const lockedByTable = {};         // tid -> [name...]
+    lockPositions.forEach(pos => {
+      const sep = pos.lastIndexOf(':'); const tid = pos.slice(0, sep); const idx = parseInt(pos.slice(sep + 1));
+      const nm = curAssign[tid] ? curAssign[tid][idx] : null;
+      if (nm && members.includes(nm)) {
+        lockedPersonAt[pos] = nm; lockedNames.add(nm);
+        (lockedByTable[tid] = lockedByTable[tid] || []).push(nm);
+      }
+    });
+
     // 同卓（ペア）をユニオンファインドでクラスタ化
     const parent = {}; members.forEach(m => parent[m] = m);
     const find = x => parent[x] === x ? x : (parent[x] = find(parent[x]));
@@ -3126,13 +3147,31 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     const fixed = data.seatFixed || {};
     const tableById = {}; tables.forEach((t, i) => tableById[t.id] = i);
-    // 卓固定の矛盾チェック
+    const tableOfLocked = {}; // name -> tid
+    Object.entries(lockedByTable).forEach(([tid, names]) => names.forEach(n => tableOfLocked[n] = tid));
+
+    // クラスタごとの強制卓（卓固定 or ロック位置の卓）を算出し、矛盾を検出
+    const forcedByCluster = new Map();
     for (const cl of clusters) {
-      const fx = [...new Set(cl.map(n => fixed[n]).filter(v => v && tableById[v] != null))];
-      if (fx.length > 1) return { error: `条件が矛盾しています：同卓グループ（${cl.join('・')}）が別々の卓に固定されています。` };
-      if (cl.length > 1 && fx.length === 1 && cl.length > tables[tableById[fx[0]]].capacity)
-        return { error: `固定先の卓の定員が、同卓グループ（${cl.join('・')}）より少ないです。` };
+      const set = new Set();
+      cl.forEach(n => { if (fixed[n] && tableById[fixed[n]] != null) set.add(fixed[n]); });
+      cl.forEach(n => { if (tableOfLocked[n]) set.add(tableOfLocked[n]); });
+      if (set.size > 1) return { error: `条件が矛盾しています：同卓グループ（${cl.join('・')}）が別々の卓に固定されています。` };
+      forcedByCluster.set(cl, set.size ? [...set][0] : null);
     }
+    // 強制卓の定員チェック（その卓に固定される未ロック人数＋ロック済み ≤ 定員）
+    const forcedNeed = {};
+    for (const cl of clusters) {
+      const tid = forcedByCluster.get(cl);
+      if (!tid) continue;
+      forcedNeed[tid] = (forcedNeed[tid] || 0) + cl.filter(n => !lockedNames.has(n)).length;
+    }
+    for (const [tid, need] of Object.entries(forcedNeed)) {
+      const cap = tables[tableById[tid]].capacity;
+      const lockedCnt = (lockedByTable[tid] || []).length;
+      if (need + lockedCnt > cap) return { error: `${tables[tableById[tid]].name} の定員が、固定・ロックされた人数より少ないです。` };
+    }
+
     const apartPairs = (data.seatApart || []).filter(([a, b]) => members.includes(a) && members.includes(b));
     for (const [a, b] of apartPairs) {
       if (find(a) === find(b)) return { error: `条件が矛盾しています：${a} と ${b} は「同卓」と「別卓」の両方に該当します。` };
@@ -3145,14 +3184,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
     function attempt() {
       const order = clusters.slice().sort(() => Math.random() - 0.5).sort((a, b) => b.length - a.length);
-      const fill = tables.map(() => []);
+      // ロック済みメンバーを各卓に先付け（定員・別卓判定に反映）
+      const fill = tables.map(t => (lockedByTable[t.id] || []).slice());
       for (const cl of order) {
-        const fx = cl.map(n => fixed[n]).find(v => v && tableById[v] != null);
+        const toPlace = cl.filter(n => !lockedNames.has(n));
+        if (!toPlace.length) continue; // 全員ロック済み
+        const forced = forcedByCluster.get(cl);
         let cand = tables.map((_, i) => i);
-        if (fx) cand = [tableById[fx]];
-        cand = cand.filter(i => fill[i].length + cl.length <= tables[i].capacity);
+        if (forced) cand = [tableById[forced]];
+        cand = cand.filter(i => fill[i].length + toPlace.length <= tables[i].capacity);
         cand = cand.filter(i => {
-          for (const n of cl) for (const other of fill[i])
+          for (const n of toPlace) for (const other of fill[i])
             if (apartPairs.some(([a, b]) => (a === n && b === other) || (b === n && a === other))) return false;
           return true;
         });
@@ -3162,7 +3204,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
         let r = Math.random() * weights.reduce((a, b) => a + b, 0);
         let pick = cand[cand.length - 1];
         for (let ci = 0; ci < cand.length; ci++) { r -= weights[ci]; if (r <= 0) { pick = cand[ci]; break; } }
-        fill[pick].push(...cl);
+        fill[pick].push(...toPlace);
       }
       return fill;
     }
@@ -3191,12 +3233,26 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const sc = score(fill);
       if (sc < bestScore) { bestScore = sc; best = fill; }
     }
-    if (!best) return { error: '条件を満たす配置が見つかりませんでした。定員や条件（同卓・別卓・卓固定）を見直してください。' };
-    // 席位置まで決める：配列のインデックス＝席番号（空席は null）。席順もランダム。
+    if (!best) return { error: '条件を満たす配置が見つかりませんでした。定員・ロック・条件（同卓・別卓・卓固定）を見直してください。' };
+    // 席位置まで決める：ロック席は固定、残りの人だけを空き席へランダム配置
     const assignment = {};
     tables.forEach((t, i) => {
-      const people = best[i].slice().sort(() => Math.random() - 0.5);
-      assignment[t.id] = Array.from({ length: t.capacity }, (_, k) => people[k] ?? null);
+      const cap = t.capacity;
+      const seatArr = Array.from({ length: cap }, () => null);
+      const lockedIdxHere = new Set();
+      lockPositions.forEach(pos => {
+        const sep = pos.lastIndexOf(':'); if (pos.slice(0, sep) !== t.id) return;
+        const idx = parseInt(pos.slice(sep + 1));
+        const nm = lockedPersonAt[pos];
+        if (nm != null && idx >= 0 && idx < cap) { seatArr[idx] = nm; lockedIdxHere.add(idx); }
+      });
+      const unlocked = best[i].filter(n => !lockedNames.has(n)).sort(() => Math.random() - 0.5);
+      let u = 0;
+      for (let k = 0; k < cap && u < unlocked.length; k++) {
+        if (lockedIdxHere.has(k)) continue;
+        seatArr[k] = unlocked[u++];
+      }
+      assignment[t.id] = seatArr;
     });
     return { assignment };
   }
@@ -3245,20 +3301,24 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       return;
     }
     const assignment = normalizeSeatAssignment(data);
+    const lockSet = new Set(data.seatLocks || []);
     const placed = new Set();
     Object.values(assignment).forEach(arr => arr.forEach(n => { if (n) placed.add(n); }));
     const unassigned = members.filter(n => !placed.has(n));
 
     const chip = (name, tid, idx) => {
+      const pos = `${tid}:${idx}`;
+      const locked = !!name && lockSet.has(pos);
       const sel = seatSel && seatSel.t === tid && seatSel.i === idx;
       const tagTip = name && (tags[name] || []).length ? `${(tags[name] || []).join('・')}` : '';
-      const title = `席${idx + 1}${tagTip ? '｜' + tagTip : ''}`;
-      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${isHost ? ' clickable' : ''}`;
+      const title = `席${idx + 1}${tagTip ? '｜' + tagTip : ''}${locked ? '｜固定中' : ''}`;
+      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${locked ? ' locked' : ''}${isHost ? ' clickable' : ''}`;
       const dataAttr = isHost ? ` data-t="${escHtml(tid)}" data-i="${idx}"` : '';
-      return `<div class="${cls}"${dataAttr} title="${escHtml(title)}">${name ? escHtml(name) : '空'}</div>`;
+      const lockBtn = (isHost && name) ? `<button type="button" class="seat-lock-btn" data-lock="${escHtml(pos)}" title="${locked ? '固定を解除' : 'この席に固定'}">${locked ? '🔒' : '🔓'}</button>` : '';
+      return `<div class="${cls}"${dataAttr} title="${escHtml(title)}"><span class="sc-name">${name ? escHtml(name) : '空'}</span>${lockBtn}</div>`;
     };
 
-    let html = isHost ? '<div class="seat-swap-hint">💡 席をタップ → 移動先の席をタップで入れ替え・移動できます</div>' : '';
+    let html = isHost ? '<div class="seat-swap-hint">💡 席をタップ→移動先をタップで入れ替え／🔓を押すとその席に固定（シャッフル対象外）</div>' : '';
     tables.forEach(t => {
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
@@ -3300,6 +3360,16 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     el.querySelectorAll('.seat-chip[data-t], .seat-chip[data-u], .seat-chip[data-uzone]').forEach(c => {
       c.addEventListener('click', () => onSeatChipClick(c));
     });
+    el.querySelectorAll('.seat-lock-btn').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleSeatLock(b.dataset.lock);
+    }));
+  }
+
+  function toggleSeatLock(pos) {
+    const locks = new Set(latestEventData.seatLocks || []);
+    if (locks.has(pos)) locks.delete(pos); else locks.add(pos);
+    updateSeating({ seatLocks: [...locks] });
   }
 
   function onSeatChipClick(c) {
@@ -3310,6 +3380,11 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     const uname = c.dataset.u || null;
     const isZone = c.dataset.uzone !== undefined;
     const personAt = (t, i) => (assignment[t] || [])[i] || null;
+
+    // 固定席は手動移動の対象外（🔒を解除してから）
+    if (tid && idx != null && (data.seatLocks || []).includes(`${tid}:${idx}`)) {
+      showToast('固定された席です。🔒を解除してから移動してください'); return;
+    }
 
     if (!seatSel) {
       // 1タップ目：人がいる席 or 未割当の人を選択
