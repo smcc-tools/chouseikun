@@ -2257,11 +2257,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const now = Date.now();
       const participants = {};
       members.forEach((m, i) => { participants[m] = { _note: '', _joinedAt: now + i }; });
-      // 既定：2卓に均等な定員で開始
-      const half = Math.ceil(members.length / 2);
+      // 既定：卓は1つ（全員ぶんの定員）。卓の追加・定員はボードで調整
       const seatTables = [
-        { id: randomId(6), name: '卓1', capacity: half },
-        { id: randomId(6), name: '卓2', capacity: members.length - half },
+        { id: randomId(6), name: '卓1', capacity: members.length },
       ];
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
