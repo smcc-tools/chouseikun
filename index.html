@@ -341,9 +341,6 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
 .seat-longtable-inner { width: fit-content; margin: 0 auto; }
 .seat-longtable-inner .seat-row { flex-wrap: nowrap; justify-content: flex-start; }
 .seat-longtable-inner .seat-table-bar { display: block; }
-@media (max-width: 480px) {
-  .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 96px; }
-}
 .seat-table-bar {
   height: 38px; background: var(--green-light); border: 1.5px solid var(--green-mid);
   border-radius: 10px; display: flex; align-items: center; justify-content: center;
@@ -353,7 +350,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
   display: inline-flex; align-items: center; justify-content: center;
   padding: 7px 11px; border-radius: 9px; border: 1.5px solid var(--border);
   background: #fff; font-size: 0.82rem; font-weight: 600; color: var(--text);
-  max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 138px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .seat-chip.empty { color: #c9c4b4; border-style: dashed; background: #fafaf6; font-weight: 500; }
 .seat-chip.clickable { cursor: pointer; }
@@ -363,10 +360,26 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
   box-shadow: 0 0 0 2.5px rgba(176,136,58,0.3);
 }
 .seat-chip .sc-name { overflow: hidden; text-overflow: ellipsis; }
-.seat-chip.locked { border-color: var(--green); background: #eef4e4; }
+.seat-chip.locked { border-color: var(--gold); background: #FBF4E2; }
+/* ロックボタンは「名前（＝移動）」とはっきり分かる独立した丸ボタンに */
 .seat-lock-btn {
-  background: none; border: none; cursor: pointer; padding: 0 0 0 4px;
-  font-size: 0.82rem; line-height: 1; flex-shrink: 0;
+  margin-left: 8px; padding: 0; flex-shrink: 0; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; line-height: 1;
+  position: relative;
+}
+.seat-lock-btn::before {  /* 名前部分との区切り線 */
+  content: ''; position: absolute; left: -5px; top: 3px; bottom: 3px;
+  width: 1px; background: var(--line-soft);
+}
+.seat-lock-btn:hover { border-color: var(--green); background: var(--green-light); }
+.seat-lock-btn:active { transform: scale(0.9); }
+.seat-chip.locked .seat-lock-btn { background: var(--gold); border-color: var(--gold); }
+@media (max-width: 480px) {
+  .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 122px; }
+  .seat-lock-btn { width: 24px; height: 24px; }
 }
 @keyframes seatFlicker { 0%,100% { transform: translateY(0) scale(0.96); } 50% { transform: translateY(-3px) scale(1.07); } }
 .seat-chip.flicker {
@@ -3639,7 +3652,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       return `<div class="${cls}"${dataAttr} title="${escHtml(title)}"><span class="sc-name">${dot}${name ? escHtml(name) : '空'}</span>${lockBtn}</div>`;
     };
 
-    let html = isHost ? '<div class="seat-swap-hint">💡 席をタップ→移動先をタップで入れ替え／🔓を押すとその席に固定（シャッフル対象外）</div>' : '';
+    let html = isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の丸い<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '';
     tables.forEach(t => {
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
