@@ -1809,8 +1809,11 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     hideOtherSetupCards('gourmetCard');
     document.getElementById('gourmetCard').style.display = 'block';
     const f = document.getElementById('gFrame');
-    // タップのたびに現在地検索を実行させる（nearby=1 で食べログ側が現在地検索、_t で再読込を強制）
-    if (f) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+    // 初回のみ現在地検索でロード（nearby=1）。以降は再読込せず、前回の検索結果を保持したまま表示する。
+    // （ユーザーが食べログ側で新たに検索を実行するまで結果は消えない）
+    if (f && !f.getAttribute('src')) {
+      f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+    }
     window.scrollTo(0, 0);
   }
 
