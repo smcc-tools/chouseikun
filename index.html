@@ -731,7 +731,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 #addDateWrap label { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
 
 /* ── メニュー（機能ランチャー） ── */
-.menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .menu-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; text-align: center;
   padding: 26px 16px; border: 1.5px solid var(--green-mid); border-radius: 16px; background: var(--surface-2);
@@ -749,10 +749,38 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 }
 .back-to-menu:hover { color: var(--green); }
 
+/* お店検索(Tabel)を開いたら、調整くんのヘッダーを隠しTabelを全画面表示（下部の余白もなくす） */
+body.gourmet-open { padding-bottom: 0; overflow: hidden; }
+body.gourmet-open .header,
+body.gourmet-open .header-top { display: none; }
+body.gourmet-open .page { max-width: none; margin: 0; padding: 0; }
+body.gourmet-open #gourmetCard {
+  position: fixed; inset: 0; z-index: 200; margin: 0;
+  border: none; border-radius: 0; box-shadow: none; background: #FDFBF6;
+  animation: none; overflow: hidden;
+}
+/* 「← メニューに戻る」バー：上部に固定高さで配置 */
+body.gourmet-open #gourmetCard > div:first-child {
+  position: absolute; top: 0; left: 0; right: 0; height: 44px;
+  display: flex; align-items: center; padding: 0 14px !important; margin: 0; z-index: 2;
+  background: #FDFBF6;
+}
+/* iframe：バーの下から画面下端まで。置換要素はtop/bottomでは伸びないので高さを明示 */
+body.gourmet-open #gFrame {
+  position: absolute; top: 44px; left: 0; right: 0;
+  width: 100%; height: calc(100% - 44px) !important; min-height: 0 !important; display: block;
+}
+
 /* ── スマホ最適化 ── */
 @media (max-width: 520px) {
   .page { padding: 16px 10px 0; }
   .card { padding: 18px; border-radius: 16px; }
+  /* メニュー3列を狭い画面に収める */
+  .menu-grid { gap: 8px; }
+  .menu-tile { padding: 14px 6px; gap: 7px; border-radius: 13px; }
+  .menu-tile .mt-icon { width: 42px; height: 42px; border-radius: 12px; }
+  .menu-tile .mt-title { font-size: 0.86rem; }
+  .menu-tile .mt-desc { display: none; }
   .card-title { font-size: 1.08rem; margin-bottom: 18px; }
   h1.header-logo { font-size: 1.1rem; }
   #viewTitle { font-size: 1.18rem; }
@@ -1758,6 +1786,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   // ── トップのメニュー遷移 ──
   const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','gourmetCard'];
   function goToMenu() {
+    document.body.classList.remove('gourmet-open'); // お店検索の全画面表示を解除
     const menu = document.getElementById('menuCard');
     if (menu) menu.style.display = 'block';
     SETUP_CARDS.forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
@@ -1807,10 +1836,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   const TABEL_ORIGIN = 'https://chouseikun-tabel.web.app';
   function goToGourmet() {
     hideOtherSetupCards('gourmetCard');
+    document.body.classList.add('gourmet-open'); // 調整くんヘッダーを隠しTabelを全画面表示
     document.getElementById('gourmetCard').style.display = 'block';
     const f = document.getElementById('gFrame');
-    // タップのたびに現在地検索を実行させる（nearby=1 で食べログ側が現在地検索、_t で再読込を強制）
-    if (f) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+    // 初回のみ現在地検索でロード（nearby=1）。以降は再読込せず、前回の検索結果を保持したまま表示する。
+    // （ユーザーが食べログ側で新たに検索を実行するまで結果は消えない）
+    if (f && !f.getAttribute('src')) {
+      f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+    }
     window.scrollTo(0, 0);
   }
 
@@ -1821,7 +1854,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const f = document.getElementById('gFrame');
       if (!f || !f.contentWindow || !currentUser) return;
       const idToken = await currentUser.getIdToken();
-      f.contentWindow.postMessage({ type: 'chouseikun-auth', idToken }, TABEL_ORIGIN);
+      f.contentWindow.postMessage({
+        type: 'chouseikun-auth', idToken,
+        photoURL: currentUser.photoURL || '',
+        displayName: currentUser.displayName || '',
+        email: currentUser.email || ''
+      }, TABEL_ORIGIN);
     } catch (_) {}
   }
   // Tabel iframe が読み込み完了を知らせてきたらトークンを送る（ハンドシェイク）
