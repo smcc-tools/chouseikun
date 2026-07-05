@@ -757,10 +757,19 @@ body.gourmet-open .page { max-width: none; margin: 0; padding: 0; }
 body.gourmet-open #gourmetCard {
   position: fixed; inset: 0; z-index: 200; margin: 0;
   border: none; border-radius: 0; box-shadow: none; background: #FDFBF6;
-  display: flex; flex-direction: column; animation: none;
+  animation: none; overflow: hidden;
 }
-body.gourmet-open #gourmetCard > div:first-child { flex: none; } /* ← メニューに戻る バー */
-body.gourmet-open #gFrame { flex: 1 1 auto; height: auto !important; min-height: 0 !important; }
+/* 「← メニューに戻る」バー：上部に固定高さで配置 */
+body.gourmet-open #gourmetCard > div:first-child {
+  position: absolute; top: 0; left: 0; right: 0; height: 44px;
+  display: flex; align-items: center; padding: 0 14px !important; margin: 0; z-index: 2;
+  background: #FDFBF6;
+}
+/* iframe：バーの下から画面下端まで絶対配置で高さを確保（flexだと潰れるため） */
+body.gourmet-open #gFrame {
+  position: absolute; top: 44px; left: 0; right: 0; bottom: 0;
+  width: 100%; height: auto !important; min-height: 0 !important; display: block;
+}
 
 /* ── スマホ最適化 ── */
 @media (max-width: 520px) {
