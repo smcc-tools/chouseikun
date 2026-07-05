@@ -749,6 +749,19 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 }
 .back-to-menu:hover { color: var(--green); }
 
+/* お店検索(Tabel)を開いたら、調整くんのヘッダーを隠しTabelを全画面表示（下部の余白もなくす） */
+body.gourmet-open { padding-bottom: 0; overflow: hidden; }
+body.gourmet-open .header,
+body.gourmet-open .header-top { display: none; }
+body.gourmet-open .page { max-width: none; margin: 0; padding: 0; }
+body.gourmet-open #gourmetCard {
+  position: fixed; inset: 0; z-index: 200; margin: 0;
+  border: none; border-radius: 0; box-shadow: none; background: #FDFBF6;
+  display: flex; flex-direction: column; animation: none;
+}
+body.gourmet-open #gourmetCard > div:first-child { flex: none; } /* ← メニューに戻る バー */
+body.gourmet-open #gFrame { flex: 1 1 auto; height: auto !important; min-height: 0 !important; }
+
 /* ── スマホ最適化 ── */
 @media (max-width: 520px) {
   .page { padding: 16px 10px 0; }
@@ -1758,6 +1771,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   // ── トップのメニュー遷移 ──
   const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','gourmetCard'];
   function goToMenu() {
+    document.body.classList.remove('gourmet-open'); // お店検索の全画面表示を解除
     const menu = document.getElementById('menuCard');
     if (menu) menu.style.display = 'block';
     SETUP_CARDS.forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
@@ -1807,6 +1821,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   const TABEL_ORIGIN = 'https://chouseikun-tabel.web.app';
   function goToGourmet() {
     hideOtherSetupCards('gourmetCard');
+    document.body.classList.add('gourmet-open'); // 調整くんヘッダーを隠しTabelを全画面表示
     document.getElementById('gourmetCard').style.display = 'block';
     const f = document.getElementById('gFrame');
     // 初回のみ現在地検索でロード（nearby=1）。以降は再読込せず、前回の検索結果を保持したまま表示する。
