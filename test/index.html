@@ -1807,7 +1807,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     hideOtherSetupCards('gourmetCard');
     document.getElementById('gourmetCard').style.display = 'block';
     const f = document.getElementById('gFrame');
-    if (f && !f.src) f.src = GOURMET_URL;  // 初回表示時だけ読み込む
+    // タップのたびに現在地検索を実行させる（nearby=1 で食べログ側が現在地検索、_t で再読込を強制）
+    if (f) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
     window.scrollTo(0, 0);
   }
 
