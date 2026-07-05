@@ -1055,48 +1055,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 </div>
 
 <!-- お店検索カード（食べログ検索API連携） -->
-<div class="card" id="gourmetCard" style="display:none;">
-  <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
-  <h2 class="card-title">お店検索</h2>
-  <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.7;font-weight:400;">駅名・エリアで検索、または現在地周辺から飲食店を探せます（食べログの情報）。店名タップで食べログのページが開きます。</p>
-
-  <div class="field" style="position:relative;">
-    <label>駅名・エリア</label>
-    <input type="text" id="gInput" placeholder="例：渋谷駅、新宿" autocomplete="off">
-    <div id="gSuggest" class="g-suggest" style="display:none;"></div>
+<div class="card" id="gourmetCard" style="display:none;padding:0;overflow:hidden;">
+  <div style="padding:14px 16px 8px;">
+    <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
   </div>
-
-  <div class="g-row">
-    <select id="gGenre" class="g-select" aria-label="ジャンル">
-      <option value="">ジャンル：すべて</option>
-      <option value="カフェ">カフェ</option>
-      <option value="居酒屋">居酒屋</option>
-      <option value="イタリアン">イタリアン</option>
-      <option value="寿司">寿司</option>
-      <option value="焼肉">焼肉</option>
-      <option value="ラーメン">ラーメン</option>
-      <option value="和食">和食</option>
-      <option value="フレンチ">フレンチ</option>
-      <option value="中華">中華</option>
-      <option value="バー">バー</option>
-    </select>
-    <select id="gRadius" class="g-select" aria-label="半径">
-      <option value="300">300m</option>
-      <option value="500">500m</option>
-      <option value="800" selected>800m</option>
-      <option value="1000">1km</option>
-      <option value="3000">3km</option>
-      <option value="5000">5km</option>
-      <option value="10000">10km</option>
-    </select>
-  </div>
-  <div class="g-row">
-    <button type="button" class="btn btn-secondary" id="gNearbyBtn" style="flex:1;">現在地から探す</button>
-    <button type="button" class="btn btn-primary" id="gSearchBtn" style="flex:1;">検索</button>
-  </div>
-
-  <div id="gMeta" class="g-meta" style="display:none;"></div>
-  <div id="gResults"></div>
+  <iframe id="gFrame" title="お店検索（食べログ）" allow="geolocation; clipboard-write"
+          style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:#FDFBF6;"></iframe>
 </div>
 
 <!-- 回答カード -->
@@ -1837,132 +1801,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     window.scrollTo(0, 0);
   }
 
-  // ── お店検索（食べログ検索API連携）─────────────────────
-  const GOURMET_API = 'https://tabelog-search-production.up.railway.app';
-  let gPickedLat = '', gPickedLng = '', gPickedLabel = '';
-  let gEs = null, gResults = [], gRenderT = null, gDone = false, gLabel = '';
-
+  // ── お店検索（食べログ検索アプリを iframe で埋め込み）─────────
+  const GOURMET_URL = 'https://tabelog-search-production.up.railway.app/';
   function goToGourmet() {
     hideOtherSetupCards('gourmetCard');
     document.getElementById('gourmetCard').style.display = 'block';
+    const f = document.getElementById('gFrame');
+    if (f && !f.src) f.src = GOURMET_URL;  // 初回表示時だけ読み込む
     window.scrollTo(0, 0);
-  }
-  function gEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
-  function gSafeUrl(u) { return /^https?:\/\//.test(u || '') ? u : '#'; }
-  function setGMeta(html) { const m = document.getElementById('gMeta'); m.innerHTML = html; m.style.display = html ? 'block' : 'none'; }
-
-  (function initGourmet() {
-    const input = document.getElementById('gInput');
-    const sug = document.getElementById('gSuggest');
-    if (!input) return;
-    let t = null;
-    input.addEventListener('input', () => {
-      gPickedLat = gPickedLng = gPickedLabel = '';  // 手入力したら座標指定を解除
-      clearTimeout(t);
-      const q = input.value.trim();
-      if (!q) { sug.style.display = 'none'; return; }
-      t = setTimeout(() => fetchGSuggest(q), 180);
-    });
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sug.style.display = 'none'; runGourmetSearch(); } });
-    document.addEventListener('click', e => { if (!e.target.closest('#gourmetCard .field')) sug.style.display = 'none'; });
-    document.getElementById('gSearchBtn').addEventListener('click', () => runGourmetSearch());
-    document.getElementById('gNearbyBtn').addEventListener('click', gourmetNearby);
-  })();
-
-  async function fetchGSuggest(q) {
-    const sug = document.getElementById('gSuggest');
-    try {
-      const res = await fetch(`${GOURMET_API}/api/suggest?q=${encodeURIComponent(q)}`);
-      const list = await res.json();
-      const TYPE = { station:'駅', municipality:'市区町村', city:'市区町村', quarter:'地区', suburb:'地区', neighbourhood:'地区', area:'エリア' };
-      if (!Array.isArray(list) || !list.length) { sug.style.display = 'none'; return; }
-      sug.innerHTML = list.slice(0, 8).map((s, i) =>
-        `<div class="g-sug-item" data-i="${i}"><span class="g-sug-name">${gEsc(s.display)}</span><span class="g-sug-type">${gEsc(TYPE[s.type] || '')}</span></div>`).join('');
-      sug.style.display = 'block';
-      sug.querySelectorAll('.g-sug-item').forEach(el => el.addEventListener('click', () => {
-        const s = list[+el.dataset.i];
-        document.getElementById('gInput').value = String(s.display).split('（')[0];
-        gPickedLat = s.lat; gPickedLng = s.lon; gPickedLabel = s.display;
-        sug.style.display = 'none';
-        runGourmetSearch();
-      }));
-    } catch (e) { sug.style.display = 'none'; }
-  }
-
-  function gourmetNearby() {
-    if (!('geolocation' in navigator)) { showToast('位置情報を利用できません'); return; }
-    setGMeta('現在地を取得中…');
-    navigator.geolocation.getCurrentPosition(
-      pos => { document.getElementById('gInput').value = ''; gPickedLat = pos.coords.latitude; gPickedLng = pos.coords.longitude; gPickedLabel = '現在地周辺'; runGourmetSearch(); },
-      () => { setGMeta(''); showToast('位置情報を取得できませんでした'); },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-    );
-  }
-
-  function runGourmetSearch() {
-    const station = document.getElementById('gInput').value.trim();
-    const genre = document.getElementById('gGenre').value;
-    const distance = document.getElementById('gRadius').value;
-    if (!station && !gPickedLat) { showToast('駅名・エリアを入力するか、現在地から探してください'); return; }
-    if (gEs) { gEs.close(); gEs = null; }
-    gResults = []; gDone = false; gLabel = '';
-    document.getElementById('gResults').innerHTML = '<div class="g-empty">検索中…</div>';
-    const p = new URLSearchParams();
-    if (station) p.set('station', station);
-    if (genre) p.set('genre', genre);
-    p.set('distance', distance);
-    if (gPickedLat) { p.set('clat', gPickedLat); p.set('clng', gPickedLng); p.set('place_label', gPickedLabel || station); }
-    gEs = new EventSource(`${GOURMET_API}/api/search?${p.toString()}`);
-    gEs.addEventListener('meta', e => { gLabel = JSON.parse(e.data).label || ''; });
-    gEs.addEventListener('batch', e => { gResults.push(...JSON.parse(e.data).items); scheduleGRender(); });
-    gEs.addEventListener('disambig', e => { gEs.close(); gEs = null; renderGDisambig(JSON.parse(e.data).candidates || []); });
-    gEs.addEventListener('error_msg', e => { gEs.close(); gEs = null; document.getElementById('gResults').innerHTML = `<div class="g-empty">${gEsc(JSON.parse(e.data).message)}</div>`; });
-    gEs.addEventListener('done', () => { gDone = true; if (gRenderT) { clearTimeout(gRenderT); gRenderT = null; } renderGResults(); if (gEs) { gEs.close(); gEs = null; } });
-    gEs.onerror = () => {
-      if (gDone) return;
-      if (gEs) { gEs.close(); gEs = null; }
-      if (!gResults.length) document.getElementById('gResults').innerHTML = '<div class="g-empty">検索に失敗しました。時間をおいて再度お試しください。</div>';
-      else { gDone = true; renderGResults(); }
-    };
-  }
-  function scheduleGRender() { if (gRenderT) return; gRenderT = setTimeout(() => { gRenderT = null; renderGResults(); }, 300); }
-
-  function renderGDisambig(cands) {
-    setGMeta('');
-    const el = document.getElementById('gResults');
-    el.innerHTML = '<div class="g-empty">同じ名前の場所が複数あります。選択してください。</div><div class="g-list">' +
-      cands.map((c, i) => `<div class="g-item" style="cursor:pointer" data-di="${i}"><div class="g-item-body"><div class="g-item-name">${gEsc(c.display)}</div><div class="g-item-sub">${gEsc(c.type || '')}</div></div></div>`).join('') + '</div>';
-    el.querySelectorAll('[data-di]').forEach(node => node.addEventListener('click', () => {
-      const c = cands[+node.dataset.di];
-      document.getElementById('gInput').value = String(c.display).split('（')[0];
-      gPickedLat = c.lat; gPickedLng = c.lon; gPickedLabel = c.display; runGourmetSearch();
-    }));
-  }
-
-  function renderGResults() {
-    setGMeta(gResults.length ? `「<b>${gEsc(gLabel)}</b>」の検索結果 <b>${gResults.length}</b>件` : '');
-    const el = document.getElementById('gResults');
-    gResults.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
-    if (!gResults.length) { el.innerHTML = gDone ? '<div class="g-empty">お店が見つかりませんでした。条件を変えてお試しください。</div>' : '<div class="g-empty">検索中…</div>'; return; }
-    el.innerHTML = '<div class="g-list">' + gResults.map(gItemHTML).join('') + '</div>';
-  }
-  function gItemHTML(r) {
-    const parts = String(r.area || '').split(' ');
-    const area = gEsc(parts[0] || ''), dist = parts.length > 1 ? gEsc(parts[1]) : '';
-    const g = gEsc(String(r.genre || '').split('、')[0] || '');
-    const bd = (r.price_dinner && r.price_dinner !== '-') ? `<span class="g-bd">${gEsc(r.price_dinner)}</span>` : '';
-    const bl = (r.price_lunch && r.price_lunch !== '-') ? `<span class="g-bl">${gEsc(r.price_lunch)}</span>` : '';
-    const budget = (bd || bl) ? `<div class="g-item-budget">${bd}${bl}</div>` : '';
-    const thumb = r.thumb ? `<img class="g-thumb" src="${gEsc(gSafeUrl(r.thumb))}" alt="" loading="lazy">` : `<div class="g-thumb"></div>`;
-    return `<a class="g-item" href="${gEsc(gSafeUrl(r.url))}" target="_blank" rel="noopener">
-      <div class="g-item-body">
-        <div class="g-item-name">${gEsc(r.name)}</div>
-        <div class="g-item-sub">${area}${dist ? ' ' + dist : ''}${g ? ' ・ ' + g : ''}</div>
-        <div class="g-item-rate"><span class="g-item-star">★</span><span class="g-item-score">${gEsc(r.rating)}</span><span class="g-item-rvw">口コミ ${gEsc(r.review_count)}件</span></div>
-        ${budget}
-      </div>
-      ${thumb}
-    </a>`;
   }
 
   // 日程調整のマイイベントから参加者を取り込む
