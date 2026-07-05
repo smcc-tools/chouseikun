@@ -763,6 +763,38 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   .vote-btn { font-size: 0.95rem; padding: 4px 6px; }
   .toast { bottom: 16px; font-size: 0.85rem; padding: 11px 16px; }
 }
+  /* ── お店検索（食べログ連携） ── */
+  .g-suggest { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow);
+    z-index: 40; overflow: hidden; max-height: 300px; overflow-y: auto; }
+  .g-sug-item { padding: 11px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line-soft); }
+  .g-sug-item:last-child { border-bottom: none; }
+  .g-sug-item:hover { background: var(--green-light); }
+  .g-sug-name { font-size: 0.9rem; color: var(--text); }
+  .g-sug-type { font-size: 0.72rem; color: var(--text-muted); margin-left: 8px; flex: none; }
+  .g-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .g-select { flex: 1; min-width: 0; padding: 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--field-bg); color: var(--text); font-size: 0.88rem; font-family: var(--font-ui); }
+  .g-meta { font-size: 0.8rem; color: var(--text-muted); margin: 6px 0 12px; }
+  .g-meta b { color: var(--green); font-weight: 700; }
+  .g-list { display: flex; flex-direction: column; }
+  .g-item { display: flex; gap: 12px; padding: 14px 2px; border-bottom: 1px solid var(--line-soft); text-decoration: none; }
+  .g-item:last-child { border-bottom: none; }
+  .g-item-body { flex: 1; min-width: 0; }
+  .g-item-name { font: 600 1rem var(--font-display); color: var(--text); line-height: 1.35; }
+  .g-item-sub { font-size: 0.76rem; color: var(--text-muted); margin-top: 3px; }
+  .g-item-rate { display: flex; align-items: center; gap: 7px; margin-top: 6px; flex-wrap: wrap; }
+  .g-item-star { color: var(--gold); font-size: 0.82rem; }
+  .g-item-score { font: 700 1.05rem var(--font-ui); color: var(--green-dark); }
+  .g-item-rvw { font-size: 0.74rem; color: var(--text-muted); }
+  .g-item-budget { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .g-item-budget span { font-size: 0.76rem; color: var(--text); display: inline-flex; align-items: center; gap: 4px; }
+  .g-bd::before { content: "夜"; font-size: 0.6rem; color: #fff; background: #5b6b8c; border-radius: 3px; padding: 1px 4px; }
+  .g-bl::before { content: "昼"; font-size: 0.6rem; color: #fff; background: var(--gold); border-radius: 3px; padding: 1px 4px; }
+  .g-thumb { width: 84px; height: 84px; flex: none; border-radius: var(--radius-sm); object-fit: cover;
+    background: var(--green-mid); }
+  .g-empty { text-align: center; color: var(--text-muted); padding: 28px 12px; font-size: 0.86rem; line-height: 1.7; }
   </style>
 </head>
 <body>
@@ -835,6 +867,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       </div>
       <div class="mt-title">座席決め</div>
       <div class="mt-desc">条件付きランダムで卓分け・席決め</div>
+    </div>
+    <div class="menu-tile" id="menuGourmetBtn" role="button" tabindex="0">
+      <div class="mt-icon">
+        <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="30" cy="30" r="19" stroke="#EFE5CD" stroke-width="6"/>
+          <path d="M44 44 L64 64" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+          <path d="M24 20 V40 M30 20 V40 M27 40 V52" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="mt-title">お店検索</div>
+      <div class="mt-desc">駅・エリアから飲食店を探す（食べログ）</div>
     </div>
   </div>
 </div>
@@ -1009,6 +1052,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   </div>
 
   <button class="btn btn-primary btn-full" id="createSeatingBtn" style="padding:14px;">座席決めを作成</button>
+</div>
+
+<!-- お店検索カード（食べログ検索API連携） -->
+<div class="card" id="gourmetCard" style="display:none;padding:0;overflow:hidden;">
+  <div style="padding:14px 16px 8px;">
+    <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+  </div>
+  <iframe id="gFrame" title="お店検索（食べログ）" allow="geolocation; clipboard-write"
+          style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:#FDFBF6;"></iframe>
 </div>
 
 <!-- 回答カード -->
@@ -1365,25 +1417,26 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
   // ── 環境判定：本番=ルート / テスト=/test/ サブフォルダ ──
   const APP_ENV = location.pathname.includes('/test/') ? 'test' : 'prod';
+  // 共通プロジェクト chouseikun-tabel（Tabelと統合。同一プロジェクトなのでGoogleログインが共有される）
   const FB_CONFIGS = {
     prod: {
-      apiKey: "AIzaSyDkczQ9y3u3XaPgWtwBkXm0wwt3bsOGsZ4",
-      authDomain: "nomikai-42968.firebaseapp.com",
-      projectId: "nomikai-42968",
-      storageBucket: "nomikai-42968.firebasestorage.app",
-      messagingSenderId: "372499119823",
-      appId: "1:372499119823:web:bcf75f587b6ef9ef8cc1ba",
-      vapidKey: "BFWloY-CKBjBZw8m4MU1ZXvXwxNbTTMQnB663s1t_iVBXLJGb6Cb9uedfRdL4n-AzigYV05C4FBjc-0FABBYqwo",
+      apiKey: "AIzaSyB10T96ACZP9OZOZDOdoX0-jzNFhRmyQCs",
+      authDomain: "chouseikun-tabel.firebaseapp.com",
+      projectId: "chouseikun-tabel",
+      storageBucket: "chouseikun-tabel.firebasestorage.app",
+      messagingSenderId: "192636321656",
+      appId: "1:192636321656:web:2c0c86a5bfa2fd39f1928d",
+      vapidKey: "BOYCut7-7pktNK8e8K-zDNQXAOZUGjej1cQvNWHRNtSRrLcfsoSmlct7BMSHZhZspo-mGgjbhTg2EVTbCH-Lo6Y",
     },
-    // テスト用Firebaseプロジェクト（chouseikun-test）。projectId が 'REPLACE_ME' の間は本番にフォールバック。
+    // test も同一の共通プロジェクトを使用（Tabel iframeとの自動ログイン検証のため）
     test: {
-      apiKey: "AIzaSyAHvFwqarw7orrJycZT8bAkzEDcw1uyE3E",
-      authDomain: "chouseikun-test.firebaseapp.com",
-      projectId: "chouseikun-test",
-      storageBucket: "chouseikun-test.firebasestorage.app",
-      messagingSenderId: "13097244305",
-      appId: "1:13097244305:web:53e4568b25ede60bb25130",
-      vapidKey: "BHiM3U5vt3XNF2qcGaS74vp4KRbsrNAiHLzMg4DcElbMyH-jBpnjWjuLOXTaXgf6O-_66z8hUjUs6siRcuTMrjU",
+      apiKey: "AIzaSyB10T96ACZP9OZOZDOdoX0-jzNFhRmyQCs",
+      authDomain: "chouseikun-tabel.firebaseapp.com",
+      projectId: "chouseikun-tabel",
+      storageBucket: "chouseikun-tabel.firebasestorage.app",
+      messagingSenderId: "192636321656",
+      appId: "1:192636321656:web:2c0c86a5bfa2fd39f1928d",
+      vapidKey: "BOYCut7-7pktNK8e8K-zDNQXAOZUGjej1cQvNWHRNtSRrLcfsoSmlct7BMSHZhZspo-mGgjbhTg2EVTbCH-Lo6Y",
     },
   };
   const _cfg = (APP_ENV === 'test' && FB_CONFIGS.test.projectId !== 'REPLACE_ME') ? FB_CONFIGS.test : FB_CONFIGS.prod;
@@ -1703,7 +1756,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   }
 
   // ── トップのメニュー遷移 ──
-  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard'];
+  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','gourmetCard'];
   function goToMenu() {
     const menu = document.getElementById('menuCard');
     if (menu) menu.style.display = 'block';
@@ -1748,6 +1801,35 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
     populateSeatingImport();
     window.scrollTo(0, 0);
   }
+
+  // ── お店検索（食べログ検索アプリを iframe で埋め込み）─────────
+  const GOURMET_URL = 'https://chouseikun-tabel.web.app/';
+  const TABEL_ORIGIN = 'https://chouseikun-tabel.web.app';
+  function goToGourmet() {
+    hideOtherSetupCards('gourmetCard');
+    document.getElementById('gourmetCard').style.display = 'block';
+    const f = document.getElementById('gFrame');
+    // タップのたびに現在地検索を実行させる（nearby=1 で食べログ側が現在地検索、_t で再読込を強制）
+    if (f) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+    window.scrollTo(0, 0);
+  }
+
+  // ── Tabel(お店検索)への自動ログイン連携（同一Firebaseプロジェクト chouseikun-tabel） ──
+  // 調整くんでGoogleログイン済みなら、Tabel iframe に IDトークンを渡して同一アカウントで自動ログインさせる。
+  async function pushAuthToTabel() {
+    try {
+      const f = document.getElementById('gFrame');
+      if (!f || !f.contentWindow || !currentUser) return;
+      const idToken = await currentUser.getIdToken();
+      f.contentWindow.postMessage({ type: 'chouseikun-auth', idToken }, TABEL_ORIGIN);
+    } catch (_) {}
+  }
+  // Tabel iframe が読み込み完了を知らせてきたらトークンを送る（ハンドシェイク）
+  window.addEventListener('message', e => {
+    if (e.origin !== TABEL_ORIGIN) return;
+    const d = e.data || {};
+    if (d.type === 'tabel-ready') pushAuthToTabel();
+  });
 
   // 日程調整のマイイベントから参加者を取り込む
   let seatingImportCache = {}; // eventId -> [memberNames]
@@ -1863,6 +1945,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   document.getElementById('menuSettleBtn')?.addEventListener('click', goToSettleSetup);
   document.getElementById('menuWalicaBtn')?.addEventListener('click', goToWalicaSetup);
   document.getElementById('menuSeatingBtn')?.addEventListener('click', goToSeatingSetup);
+  document.getElementById('menuGourmetBtn')?.addEventListener('click', goToGourmet);
   document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', goToMenu));
 
   // ── マイイベント管理（Firestore アカウントベース） ──────
@@ -2068,6 +2151,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       document.getElementById('authName').textContent   = user.displayName || user.email || '';
       document.getElementById('authAvatar').src = user.photoURL || '';
       document.getElementById('authAvatar').style.display = user.photoURL ? 'block' : 'none';
+      // Tabel iframe が既に開いていれば、この時点でログイン情報を引き継ぐ
+      pushAuthToTabel();
     } else {
       // 未ログイン
       signInBtn.style.display  = 'flex';
