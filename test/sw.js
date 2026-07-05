@@ -6,22 +6,23 @@ const CACHE_NAME = 'chouseikun-v6' + (IS_TEST ? '-test' : '');
 importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging-compat.js');
 
+// 共通プロジェクト chouseikun-tabel（Tabelと統合）
 const FB_PROD = {
-  apiKey: "AIzaSyDkczQ9y3u3XaPgWtwBkXm0wwt3bsOGsZ4",
-  authDomain: "nomikai-42968.firebaseapp.com",
-  projectId: "nomikai-42968",
-  storageBucket: "nomikai-42968.firebasestorage.app",
-  messagingSenderId: "372499119823",
-  appId: "1:372499119823:web:bcf75f587b6ef9ef8cc1ba"
+  apiKey: "AIzaSyB10T96ACZP9OZOZDOdoX0-jzNFhRmyQCs",
+  authDomain: "chouseikun-tabel.firebaseapp.com",
+  projectId: "chouseikun-tabel",
+  storageBucket: "chouseikun-tabel.firebasestorage.app",
+  messagingSenderId: "192636321656",
+  appId: "1:192636321656:web:2c0c86a5bfa2fd39f1928d"
 };
-// テスト用Firebase（chouseikun-test）。projectIdが 'REPLACE_ME' の間は本番にフォールバック。
+// test も同一の共通プロジェクトを使用
 const FB_TEST = {
-  apiKey: "AIzaSyAHvFwqarw7orrJycZT8bAkzEDcw1uyE3E",
-  authDomain: "chouseikun-test.firebaseapp.com",
-  projectId: "chouseikun-test",
-  storageBucket: "chouseikun-test.firebasestorage.app",
-  messagingSenderId: "13097244305",
-  appId: "1:13097244305:web:53e4568b25ede60bb25130"
+  apiKey: "AIzaSyB10T96ACZP9OZOZDOdoX0-jzNFhRmyQCs",
+  authDomain: "chouseikun-tabel.firebaseapp.com",
+  projectId: "chouseikun-tabel",
+  storageBucket: "chouseikun-tabel.firebasestorage.app",
+  messagingSenderId: "192636321656",
+  appId: "1:192636321656:web:2c0c86a5bfa2fd39f1928d"
 };
 firebase.initializeApp((IS_TEST && FB_TEST.projectId !== 'REPLACE_ME') ? FB_TEST : FB_PROD);
 
