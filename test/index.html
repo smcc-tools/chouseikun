@@ -731,7 +731,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 #addDateWrap label { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
 
 /* ── メニュー（機能ランチャー） ── */
-.menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .menu-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; text-align: center;
   padding: 26px 16px; border: 1.5px solid var(--green-mid); border-radius: 16px; background: var(--surface-2);
@@ -775,6 +775,12 @@ body.gourmet-open #gFrame {
 @media (max-width: 520px) {
   .page { padding: 16px 10px 0; }
   .card { padding: 18px; border-radius: 16px; }
+  /* メニュー3列を狭い画面に収める */
+  .menu-grid { gap: 8px; }
+  .menu-tile { padding: 14px 6px; gap: 7px; border-radius: 13px; }
+  .menu-tile .mt-icon { width: 42px; height: 42px; border-radius: 12px; }
+  .menu-tile .mt-title { font-size: 0.86rem; }
+  .menu-tile .mt-desc { display: none; }
   .card-title { font-size: 1.08rem; margin-bottom: 18px; }
   h1.header-logo { font-size: 1.1rem; }
   #viewTitle { font-size: 1.18rem; }
