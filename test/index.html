@@ -1832,8 +1832,11 @@ body.gourmet-open #gFrame {
   }
 
   // ── お店検索（食べログ検索アプリを iframe で埋め込み）─────────
-  const GOURMET_URL = 'https://chouseikun-tabel.web.app/';
-  const TABEL_ORIGIN = 'https://chouseikun-tabel.web.app';
+  // 検証(/test/)は Tabel の検証リビジョン、本番は Cloud Run + Hosting(web.app) を使う
+  const TABEL_ORIGIN = (APP_ENV === 'test')
+    ? 'https://test---tabel-skmlfruxcq-an.a.run.app'
+    : 'https://chouseikun-tabel.web.app';
+  const GOURMET_URL = TABEL_ORIGIN + '/';
   function goToGourmet() {
     hideOtherSetupCards('gourmetCard');
     document.body.classList.add('gourmet-open'); // 調整くんヘッダーを隠しTabelを全画面表示
