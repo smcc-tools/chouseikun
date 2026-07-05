@@ -1821,7 +1821,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
       const f = document.getElementById('gFrame');
       if (!f || !f.contentWindow || !currentUser) return;
       const idToken = await currentUser.getIdToken();
-      f.contentWindow.postMessage({ type: 'chouseikun-auth', idToken }, TABEL_ORIGIN);
+      f.contentWindow.postMessage({
+        type: 'chouseikun-auth', idToken,
+        photoURL: currentUser.photoURL || '',
+        displayName: currentUser.displayName || '',
+        email: currentUser.email || ''
+      }, TABEL_ORIGIN);
     } catch (_) {}
   }
   // Tabel iframe が読み込み完了を知らせてきたらトークンを送る（ハンドシェイク）
