@@ -765,10 +765,10 @@ body.gourmet-open #gourmetCard > div:first-child {
   display: flex; align-items: center; padding: 0 14px !important; margin: 0; z-index: 2;
   background: #FDFBF6;
 }
-/* iframe：バーの下から画面下端まで絶対配置で高さを確保（flexだと潰れるため） */
+/* iframe：バーの下から画面下端まで。置換要素はtop/bottomでは伸びないので高さを明示 */
 body.gourmet-open #gFrame {
-  position: absolute; top: 44px; left: 0; right: 0; bottom: 0;
-  width: 100%; height: auto !important; min-height: 0 !important; display: block;
+  position: absolute; top: 44px; left: 0; right: 0;
+  width: 100%; height: calc(100% - 44px) !important; min-height: 0 !important; display: block;
 }
 
 /* ── スマホ最適化 ── */
