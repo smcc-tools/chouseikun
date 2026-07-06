@@ -1485,6 +1485,7 @@ body.gourmet-open #gFrame {
   const db = getFirestore(app);
   const auth = getAuth(app);
   let currentUser = null;
+  let hubParentEventId = null;  // イベントハブから起動した場合の親(schedule)イベントID。単体起動時は null。
   let messaging = null;
   isMessagingSupported().then(ok => { if (ok) { messaging = getMessaging(app); initForegroundMessages(); } }).catch(() => {});
 
@@ -2367,7 +2368,8 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, settleOnly: true
+        participantOrder: members, settleOnly: true,
+        ...(hubParentEventId ? { parentEventId: hubParentEventId } : {}),
       });
       addMyEvent(evId, name, true);
       // 作成したイベントを開く（精算画面へ）
@@ -2409,7 +2411,8 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, walica: true, expenses: []
+        participantOrder: members, walica: true, expenses: [],
+        ...(hubParentEventId ? { parentEventId: hubParentEventId } : {}),
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2458,7 +2461,8 @@ body.gourmet-open #gFrame {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, seating: true,
-        seatTags: {}, seatParties
+        seatTags: {}, seatParties,
+        ...(hubParentEventId ? { parentEventId: hubParentEventId } : {}),
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
