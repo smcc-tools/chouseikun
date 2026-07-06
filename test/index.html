@@ -1206,18 +1206,6 @@ body.gourmet-open #gFrame {
     </div>
   </div>
 
-  <!-- ホスト専用：精算ボタン -->
-  <div class="host-only" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-    <button class="btn btn-primary" id="goSettleBtn" style="width:100%;padding:14px;font-size:1rem;">
-      会が終了したので精算に進む
-    </button>
-  </div>
-  <!-- 参加者向け：精算公開時に表示 -->
-  <div id="viewSettleWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-    <button class="btn btn-secondary" id="goViewSettleBtn" style="width:100%;padding:12px;font-size:0.95rem;">
-      精算を確認する
-    </button>
-  </div>
 </div>
 
 <!-- 精算カード -->
@@ -2597,7 +2585,7 @@ body.gourmet-open #gFrame {
         // 精算のみ：ホスト用ツール（メンバー編集等）は精算画面に集約するため viewCard には描画しない
         if (!isHost) {
           document.getElementById('tableWrap').innerHTML = data.settlePublished
-            ? '<p class="empty-msg">下の「精算を確認する」から精算を表示できます。</p>'
+            ? '<p class="empty-msg">精算を表示しています…</p>'
             : '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
         }
       } else {
@@ -2612,8 +2600,6 @@ body.gourmet-open #gFrame {
       // 精算のみモード：日程調整用UIを隠す
       const legendEl = document.getElementById('voteLegend');
       if (legendEl) legendEl.style.display = settleOnly ? 'none' : '';
-      const goSettleBtn = document.getElementById('goSettleBtn');
-      if (goSettleBtn) goSettleBtn.textContent = settleOnly ? '精算画面を開く' : '会が終了したので精算に進む';
       const addMemoWrapEl = document.getElementById('addMemoWrap');
       if (addMemoWrapEl && settleOnly) addMemoWrapEl.style.display = 'none';
       // 精算のみ：集合・お店（日程調整向けUI）は非表示。
@@ -2633,9 +2619,6 @@ body.gourmet-open #gFrame {
 
       // 精算公開状態を反映（参加者向け）
       if (!isHost) {
-        const viewWrap = document.getElementById('viewSettleWrap');
-        if (viewWrap) viewWrap.style.display = data.settlePublished ? 'block' : 'none';
-
         // 公開された瞬間（false→true）に自動で精算ページを開く
         if (data.settlePublished && !prevSettlePublished) {
           openSettlePage(data, true);
@@ -4962,18 +4945,6 @@ body.gourmet-open #gFrame {
     }
     renderSettle(settleNames, computedTotal, sPartyCount, sPartyAmounts, sPartyNames, sPartyPersonAmounts, settle.paid || {}, readOnly);
   }
-
-  // ホスト：精算ページへ
-  document.getElementById('goSettleBtn')?.addEventListener('click', async () => {
-    const snap = await getDoc(doc(db, 'events', eventId));
-    openSettlePage(snap.data(), false);
-  });
-
-  // 参加者：精算閲覧ページへ
-  document.getElementById('goViewSettleBtn')?.addEventListener('click', async () => {
-    const snap = await getDoc(doc(db, 'events', eventId));
-    openSettlePage(snap.data(), true);
-  });
 
   document.getElementById('backToEventBtn')?.addEventListener('click', () => {
     document.getElementById('settleCard').style.display = 'none';
