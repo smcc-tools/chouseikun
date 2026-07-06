@@ -933,6 +933,16 @@ body.gourmet-open #gFrame {
       <div class="mt-title">お店検索</div>
       <div class="mt-desc">駅・エリアから飲食店を探す（食べログ）</div>
     </div>
+    <div class="menu-tile" id="menuAnnounceBtn" role="button" tabindex="0">
+      <div class="mt-icon">
+        <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M37 11 C26 11 20 19 20 31 L20 44 L14 52 L60 52 L54 44 L54 31 C54 19 48 11 37 11 Z" stroke="#EFE5CD" stroke-width="6" stroke-linejoin="round"/>
+          <path d="M30 58 a7 7 0 0 0 14 0" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="mt-title">お知らせ</div>
+      <div class="mt-desc">集合時間・場所・お店を参加者に知らせる</div>
+    </div>
   </div>
 </div>
 
@@ -1048,6 +1058,18 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
+</div>
+
+<!-- お知らせ 作成カード（日程調整なしで集合・お店を告知） -->
+<div class="card" id="announceSetupCard" style="display:none;">
+  <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+  <h2 class="card-title">お知らせを作成</h2>
+  <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.7;font-weight:400;">日程調整なしで、集合時間・場所・お店だけを参加者にお知らせできます。作成後、内容を入力してリンクを共有してください。</p>
+  <div class="field">
+    <label>タイトル</label>
+    <input type="text" id="announceName" placeholder="例：新年会のご案内">
+  </div>
+  <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
 </div>
 
 <!-- 立替・割り勘 作成カード -->
@@ -1815,7 +1837,7 @@ body.gourmet-open #gFrame {
   }
 
   // ── トップのメニュー遷移 ──
-  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','gourmetCard'];
+  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','announceSetupCard','gourmetCard'];
   function goToMenu() {
     document.body.classList.remove('gourmet-open'); // お店検索の全画面表示を解除
     const menu = document.getElementById('menuCard');
@@ -1857,6 +1879,12 @@ body.gourmet-open #gFrame {
     const nameEl = document.getElementById('seatingName'); if (nameEl) nameEl.value = '';
     seatingDraftMembers = [];
     renderSeatingDraft();
+    window.scrollTo(0, 0);
+  }
+  function goToAnnounceSetup() {
+    hideOtherSetupCards('announceSetupCard');
+    document.getElementById('announceSetupCard').style.display = 'block';
+    const nameEl = document.getElementById('announceName'); if (nameEl) nameEl.value = '';
     window.scrollTo(0, 0);
   }
 
@@ -1908,6 +1936,7 @@ body.gourmet-open #gFrame {
   document.getElementById('menuWalicaBtn')?.addEventListener('click', goToWalicaSetup);
   document.getElementById('menuSeatingBtn')?.addEventListener('click', goToSeatingSetup);
   document.getElementById('menuGourmetBtn')?.addEventListener('click', goToGourmet);
+  document.getElementById('menuAnnounceBtn')?.addEventListener('click', goToAnnounceSetup);
   document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', goToMenu));
 
   // ── マイイベント管理（Firestore アカウントベース） ──────
@@ -2285,6 +2314,28 @@ body.gourmet-open #gFrame {
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       btn.textContent = '精算表を作成'; btn.disabled = false;
+      showToast('作成に失敗しました'); console.error(e);
+    }
+  });
+
+  // お知らせを作成（日程調整なし・集合/お店のみ）
+  document.getElementById('createAnnounceBtn')?.addEventListener('click', async () => {
+    const name = (document.getElementById('announceName')?.value || '').trim();
+    if (!name) { showToast('タイトルを入力してください'); return; }
+    if (!currentUser) { showToast('作成にはログインが必要です'); await signIn(); return; }
+    const btn = document.getElementById('createAnnounceBtn');
+    btn.textContent = '作成中...'; btn.disabled = true;
+    try {
+      const evId = randomId(16);
+      await setDoc(doc(db, 'events', evId), {
+        name, dates: [], memo: '', participants: {},
+        ownerUids: [currentUser.uid], confirmedDate: null,
+        participantOrder: [], activeView: 'announce',
+      });
+      addMyEvent(evId, name, true);
+      location.href = `${location.origin}${location.pathname}?event=${evId}`;
+    } catch (e) {
+      btn.textContent = 'お知らせを作成'; btn.disabled = false;
       showToast('作成に失敗しました'); console.error(e);
     }
   });
