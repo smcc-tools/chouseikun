@@ -761,6 +761,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .hostnav-btn.active { background:var(--green);color:#fff;box-shadow:0 3px 10px rgba(45,66,40,0.28); }
 .hostnav-btn.active .hn-lbl { font-weight:700; }
 body.has-hostnav { padding-bottom:88px; }
+/* お店検索を下部ナビ経由で開いた時、iframe が固定ナビに隠れないよう高さを詰める */
+body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360px !important; }
 @media (max-width:360px){ .hostnav-btn .hn-lbl { font-size:0.57rem; } .hostnav-btn .hn-ico { font-size:1.02rem; } }
 
 /* ── イベントハブ（紐付く記録） ── */
@@ -1310,9 +1312,9 @@ body.gourmet-open #gFrame {
   <!-- ホスト用：保存＋参加者表示用URL -->
   <div id="publishSettleWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
     <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
-      保存する
+      保存して参加者に表示
     </button>
-    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">保存しました</div>
+    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に表示中</div>
     <div id="settleShareWrap" style="margin-top:14px;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
       <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者表示用URL（共有すると精算を確認してもらえます）</div>
       <div style="display:flex;gap:8px;">
@@ -2143,9 +2145,10 @@ body.gourmet-open #gFrame {
     // トップページのみマイイベントを再描画
     if (!new URLSearchParams(location.search).get('event')) {
       renderMyEvents();
-    } else if (latestEventData && !isHost) {
-      // イベントページでログイン後にホスト権限を再評価
-      evaluateHost(latestEventData);
+    } else if (latestEventData) {
+      // イベントページでログイン後にホスト権限を再評価し、表示（ホストナビ/公開バー等）を作り直す
+      await evaluateHost(latestEventData);
+      if (rerenderCurrentEvent) rerenderCurrentEvent();
     }
   });
 
@@ -2449,9 +2452,9 @@ body.gourmet-open #gFrame {
   let isHost = false;
   let currentDates = [];
   let currentParticipantOrder = [];
-  let prevSettlePublished = false; // 精算公開状態の変化検知用
   let hostSettleAutoOpened = false; // ホストの初回精算自動表示済みフラグ
   let latestEventData = null;      // 認証状態変化時の再評価用
+  let rerenderCurrentEvent = null; // 現在のイベント表示を再描画する関数（ログイン後の再評価用）
   let myEventSavedAsHost = null;   // マイイベント保存済みのロール（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
 
@@ -2545,23 +2548,30 @@ body.gourmet-open #gFrame {
       currentParticipantOrder = data.participantOrder || [];
 
       evaluateHost(data);
+      applyEventView();
+    });
 
+    // latestEventData と isHost/hostView から表示を確定。onSnapshot とログイン後再評価の両方から呼ぶ。
+    function applyEventView() {
+      const data = latestEventData;
+      if (!data) return;
       const participantView = deriveView(data);
       // ホストは作業画面(hostView)優先。未選択なら公開中の画面。参加者は常に公開中の画面。
       const view = (isHost && hostView) ? hostView : participantView;
-
       // 精算：未公開なら参加者には見せない（従来の保護を維持）
       if (view === 'settle' && !isHost && !data.settlePublished) {
         showEventPage('schedule');
+        const legendEl = document.getElementById('voteLegend');
+        if (legendEl) legendEl.style.display = 'none';
         document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
         return;
       }
-
       showEventPage(view);
       renderEventView(view, data);
       syncHostNav(view);
       updatePublishBar(view, data);
-    });
+    }
+    rerenderCurrentEvent = applyEventView;
 
     function syncHostNav(view) {
       document.querySelectorAll('#hostNav .hostnav-btn').forEach(b =>
@@ -2581,7 +2591,8 @@ body.gourmet-open #gFrame {
       b.addEventListener('click', () => setHostView(b.dataset.view)));
 
     // 「参加者に表示」＝ activeView を公開。scheduleCreate/gourmet は公開しない。
-    const PUBLISHABLE = ['schedule','announce','seating','walica','settle'];
+    // 精算は settle カード内の「保存して参加者に表示」ボタンが公開を担う（activeView＋settlePublished）ため除外。
+    const PUBLISHABLE = ['schedule','announce','seating','walica'];
     async function publishView(view) {
       if (!isHost || !PUBLISHABLE.includes(view)) return;
       try {
@@ -4922,7 +4933,7 @@ body.gourmet-open #gFrame {
         hostTools.style.display = 'none';
       }
     } else {
-      if (backBtn) backBtn.style.display = '';
+      if (backBtn) backBtn.style.display = 'none'; // 統合ナビでは下部ナビで移動するため非表示
       if (hostTools) hostTools.style.display = 'none';
     }
 
@@ -5050,7 +5061,8 @@ body.gourmet-open #gFrame {
     await updateDoc(doc(db, 'events', eventId), {
       settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
                 weights: settleWeights },
-      settlePublished: true
+      settlePublished: true,
+      activeView: 'settle'  // 参加者の表示画面も精算に切り替える（統合公開）
     });
     // 口座をアカウントに保存（次回から自動入力）
     const saveBank = document.getElementById('saveBankToProfile');
