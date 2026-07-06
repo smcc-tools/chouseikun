@@ -733,6 +733,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
 /* ── メニュー（機能ランチャー） ── */
 .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.menu-cta { display:flex; align-items:center; gap:14px; background:var(--green); color:#fff; border-radius:16px; padding:15px 18px; cursor:pointer; margin-bottom:20px; box-shadow:0 6px 16px rgba(45,66,40,0.2); transition:transform .12s, box-shadow .12s; }
+.menu-cta:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(45,66,40,0.28); }
+.menu-cta:active { transform:translateY(0); }
+.menu-cta-icon { width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.menu-cta-title { font-family:var(--font-display); font-weight:700; font-size:1.1rem; }
+.menu-cta-desc { font-size:0.75rem; opacity:0.92; margin-top:3px; line-height:1.45; }
+.menu-tools-title { font-size:0.95rem !important; margin-bottom:4px !important; }
+.menu-tools-sub { font-size:0.76rem; color:var(--text-muted); margin-bottom:14px; }
 .menu-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; text-align: center;
   padding: 26px 16px; border: 1.5px solid var(--green-mid); border-radius: 16px; background: var(--surface-2);
@@ -744,14 +752,16 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tile .mt-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; font-weight: 400; }
 .menu-tile.soon { opacity: 0.55; cursor: default; border-style: dashed; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
-.hostnav-btn { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;padding:7px 0 6px;min-height:56px;color:var(--text-muted);cursor:pointer;border-top:2.5px solid transparent;transition:color .15s,background .15s; }
-.hostnav-btn .hn-ico { font-size:1.2rem;line-height:1; }
-.hostnav-btn .hn-lbl { font-size:0.63rem;font-weight:600;letter-spacing:-0.02em;white-space:nowrap; }
-.hostnav-btn:hover { background:var(--green-light); }
-.hostnav-btn.active { color:var(--green);border-top-color:var(--green);background:var(--green-light); }
+/* OliveLounge 風：浮遊するクリーム色の丸みナビ、アクティブはオリーブのピル */
+#hostNav .hostnav-inner { max-width:760px; margin:0 auto; display:grid; grid-template-columns:repeat(7,1fr); gap:3px; padding:6px; }
+.hostnav-btn { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;padding:8px 0;min-height:52px;color:#6E7B5F;cursor:pointer;border-radius:15px;transition:background .16s,color .16s; }
+.hostnav-btn .hn-ico { font-size:1.16rem;line-height:1; }
+.hostnav-btn .hn-lbl { font-size:0.62rem;font-weight:600;letter-spacing:-0.02em;white-space:nowrap; }
+.hostnav-btn:hover { background:rgba(110,123,95,0.12); }
+.hostnav-btn.active { background:var(--green);color:#fff;box-shadow:0 3px 10px rgba(45,66,40,0.28); }
 .hostnav-btn.active .hn-lbl { font-weight:700; }
-body.has-hostnav { padding-bottom:64px; }
-@media (max-width:360px){ .hostnav-btn .hn-lbl { font-size:0.58rem; } .hostnav-btn .hn-ico { font-size:1.05rem; } }
+body.has-hostnav { padding-bottom:88px; }
+@media (max-width:360px){ .hostnav-btn .hn-lbl { font-size:0.57rem; } .hostnav-btn .hn-ico { font-size:1.02rem; } }
 
 /* ── イベントハブ（紐付く記録） ── */
 .back-to-menu {
@@ -862,20 +872,25 @@ body.gourmet-open #gFrame {
 
 <!-- メニュー（機能ランチャー） -->
 <div class="card" id="menuCard" style="display:none;">
-  <h2 class="card-title">メニュー</h2>
-  <div class="menu-grid">
-    <div class="menu-tile" id="menuScheduleBtn" role="button" tabindex="0">
-      <div class="mt-icon">
-        <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="9" y="15" width="56" height="50" rx="11" stroke="#EFE5CD" stroke-width="6"/>
-          <line x1="9" y1="29" x2="65" y2="29" stroke="#EFE5CD" stroke-width="6"/>
-          <line x1="25" y1="9" x2="25" y2="21" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
-          <line x1="49" y1="9" x2="49" y2="21" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="mt-title">日程調整</div>
-      <div class="mt-desc">候補日で◯△✕投票、開催日を決める</div>
+  <!-- 会を作る（マイイベント経由の統合フロー）を大きく分離 -->
+  <div class="menu-cta" id="menuScheduleBtn" role="button" tabindex="0">
+    <div class="menu-cta-icon">
+      <svg width="26" height="26" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="9" y="15" width="56" height="50" rx="11" stroke="#fff" stroke-width="6"/>
+        <line x1="9" y1="29" x2="65" y2="29" stroke="#fff" stroke-width="6"/>
+        <line x1="25" y1="9" x2="25" y2="21" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        <line x1="49" y1="9" x2="49" y2="21" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+      </svg>
     </div>
+    <div>
+      <div class="menu-cta-title">＋ 新しい会を作成</div>
+      <div class="menu-cta-desc">日程調整からスタート。作成後は下部ナビで精算・お店・座席などへ</div>
+    </div>
+  </div>
+
+  <h2 class="card-title menu-tools-title">単体で使うツール</h2>
+  <p class="menu-tools-sub">イベントを作らずに、その場ですぐ使えます</p>
+  <div class="menu-grid" style="grid-template-columns:repeat(2,1fr);">
     <div class="menu-tile" id="menuSettleBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <span style="color:#EFE5CD;font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
@@ -1432,14 +1447,14 @@ body.gourmet-open #gFrame {
   </div>
 </div>
 
-<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:64px;z-index:49;pointer-events:none;">
+<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:84px;z-index:49;pointer-events:none;">
   <div style="max-width:760px;margin:0 auto;padding:8px 14px;text-align:center;">
     <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(45,66,40,0.25);">この画面を参加者に表示</button>
   </div>
 </div>
 
-<nav id="hostNav" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:1px solid var(--border);box-shadow:0 -2px 12px rgba(45,66,40,0.08);">
-  <div style="max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(7,1fr);">
+<nav id="hostNav" style="display:none;position:fixed;left:10px;right:10px;bottom:10px;z-index:50;background:#FBF7EC;border:1px solid var(--green-mid);border-radius:24px;box-shadow:0 8px 26px rgba(45,66,40,0.18);">
+  <div class="hostnav-inner">
     <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-ico">✏️</span><span class="hn-lbl">作成</span></button>
     <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-ico">📅</span><span class="hn-lbl">日程</span></button>
     <button type="button" class="hostnav-btn" data-view="gourmet"><span class="hn-ico">🍽️</span><span class="hn-lbl">お店</span></button>
