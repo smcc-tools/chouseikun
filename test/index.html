@@ -2074,6 +2074,45 @@ body.gourmet-open #gFrame {
     await setDoc(ref, { name, host: isHostEvent, createdAt: Date.now() }, { merge: true });
   }
 
+  let settleMigrationRan = false;
+  // 旧・日程調整イベントに組み込まれていた精算(settle)を、紐付き精算レコード(settleOnly)へ一度だけ移行する。冪等。
+  async function migrateEmbeddedSettles() {
+    if (!currentUser || settleMigrationRan) return;
+    settleMigrationRan = true;
+    let snap;
+    try { snap = await getDocs(userEventsRef(currentUser.uid)); }
+    catch (e) { settleMigrationRan = false; console.error('migrate: list failed', e); return; }
+    for (const b of snap.docs) {
+      let ev;
+      try {
+        const evSnap = await getDoc(doc(db, 'events', b.id));
+        if (!evSnap.exists()) continue;
+        ev = evSnap.data();
+      } catch { continue; }
+      const isSchedule = !ev.walica && !ev.seating && !ev.settleOnly;
+      const hasSettle  = ev.settle && typeof ev.settle === 'object' && Object.keys(ev.settle).length > 0;
+      const isOwner    = Array.isArray(ev.ownerUids) && ev.ownerUids.includes(currentUser.uid);
+      if (!isSchedule || !hasSettle || ev.settleMigrated || !isOwner) continue;
+      try {
+        const newId = randomId(16);
+        const name  = ev.name ? `${ev.name}の精算` : '精算';
+        await setDoc(doc(db, 'events', newId), {
+          name, dates: [], memo: '',
+          participants: ev.participants || {},
+          participantOrder: Array.isArray(ev.participantOrder) ? ev.participantOrder : Object.keys(ev.participants || {}),
+          ownerUids: [currentUser.uid],
+          confirmedDate: null,
+          settleOnly: true,
+          parentEventId: b.id,
+          settle: ev.settle,
+          ...(ev.settlePublished ? { settlePublished: true } : {}),
+        });
+        await addMyEvent(newId, name, true);
+        await setDoc(doc(db, 'events', b.id), { settleMigrated: true }, { merge: true });
+      } catch (e) { console.error('migrate: record failed', b.id, e); }
+    }
+  }
+
   async function removeMyEvent(eventId) {
     if (!currentUser) return;
     await deleteDoc(doc(db, 'users', currentUser.uid, 'events', eventId));
@@ -2266,6 +2305,7 @@ body.gourmet-open #gFrame {
       document.getElementById('authAvatar').style.display = user.photoURL ? 'block' : 'none';
       // Tabel iframe が既に開いていれば、この時点でログイン情報を引き継ぐ
       pushAuthToTabel();
+      await migrateEmbeddedSettles();
     } else {
       // 未ログイン
       signInBtn.style.display  = 'flex';
