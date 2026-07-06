@@ -1963,13 +1963,16 @@ body.gourmet-open #gFrame {
     await Promise.all(events.map(async e => {
       e.confirmedTs = null;
       e.type = 'schedule'; // 取得失敗時は日程調整扱い
+      e.orphanChild = false;
       try {
         const ev = await getDoc(doc(db, 'events', e.eventId));
         if (ev.exists()) {
           const data = ev.data();
+          // 旧イベントハブ方式の子レコード（parentEventId 付き）は現行では未使用。重複表示になるため一覧から除外。
+          e.orphanChild = !!data.parentEventId;
+          // ステータス＝現在参加者に見せている画面（activeView）。旧データはフラグから読み替え。
           e.type = data.activeView
-            ? (data.activeView === 'scheduleCreate' ? 'schedule' : data.activeView)
-            : (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
+            || (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
           const ci = data.confirmedDate;
           if (ci != null && data.dates && data.dates[ci]) {
             e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
@@ -1996,11 +1999,11 @@ body.gourmet-open #gFrame {
       return sortFn(a, b);
     };
 
-    // 現在使用中の機能（activeView 由来の e.type）をステータスチップで表示
-    const STATUS_LABEL = { schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘', settle:'精算' };
+    // 現在参加者に見せている画面（activeView）をステータスチップで表示
+    const STATUS_LABEL = { scheduleCreate:'準備中', schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘', settle:'精算' };
     const itemHtml = (e) => {
       const statusChip = `<span class="my-event-status">${STATUS_LABEL[e.type] || '日程調整'}</span>`;
-      const dateStr = (e.type === 'schedule')
+      const dateStr = (e.type === 'schedule' || e.type === 'scheduleCreate')
         ? (e.confirmedTs != null
             ? `確定 ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
             : '日程調整中')
@@ -2026,9 +2029,9 @@ body.gourmet-open #gFrame {
 
     // 機能種別の区別は廃止し、ホスト／参加／終了 の3区分のみ。
     const roleGroups = {
-      host:     events.filter(e => !e.finished && e.host).sort(sortWithFinished),
-      part:     events.filter(e => !e.finished && !e.host).sort(sortWithFinished),
-      finished: events.filter(e => e.finished).sort(sortWithFinished),
+      host:     events.filter(e => !e.orphanChild && !e.finished && e.host).sort(sortWithFinished),
+      part:     events.filter(e => !e.orphanChild && !e.finished && !e.host).sort(sortWithFinished),
+      finished: events.filter(e => !e.orphanChild && e.finished).sort(sortWithFinished),
     };
     if (!roleGroups[myEventsRole]) myEventsRole = 'host';
 
