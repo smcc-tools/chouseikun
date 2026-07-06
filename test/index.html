@@ -2743,15 +2743,15 @@ body.gourmet-open #gFrame {
 
       // 精算公開状態を反映（参加者向け）
       if (!isHost) {
-        // 公開された瞬間（false→true）に自動で精算ページを開く
-        if (data.settlePublished && !prevSettlePublished) {
+        // 公開された瞬間（false→true）に自動で精算ページを開く（精算レコードのみ。日程調整は精算を持たない）
+        if (settleOnly && data.settlePublished && !prevSettlePublished) {
           openSettlePage(data, true);
         }
         prevSettlePublished = !!data.settlePublished;
       }
 
-      // ホスト：精算のみ or 公開済みなら初回表示を精算画面にする（1回だけ／戻るボタンで回答画面へ）
-      if (isHost && (data.settlePublished || settleOnly) && !hostSettleAutoOpened) {
+      // ホスト：精算レコードなら初回表示を精算画面にする（1回だけ／戻るボタンで回答画面へ）。日程調整は精算を持たないので開かない。
+      if (isHost && settleOnly && !hostSettleAutoOpened) {
         hostSettleAutoOpened = true;
         openSettlePage(data, false);
       }
