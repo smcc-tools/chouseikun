@@ -29,7 +29,9 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.ownerUids is list
         && request.resource.data.ownerUids.size() == 1
-        && request.auth.uid in request.resource.data.ownerUids;
+        && request.auth.uid in request.resource.data.ownerUids
+        && (!('parentEventId' in request.resource.data)
+            || request.resource.data.parentEventId is string);
 
       // クライアントからの削除は不可
       allow delete: if false;
