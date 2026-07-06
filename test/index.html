@@ -1092,6 +1092,12 @@ body.gourmet-open #gFrame {
   <div style="padding:14px 16px 8px;">
     <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
   </div>
+  <div id="gourmetVenueBar" style="display:none;padding:0 16px 8px;">
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="gourmetShopInput" placeholder="お店の名前や食べログURLを貼り付け" style="flex:1;margin-bottom:0;">
+      <button class="btn btn-primary" id="gourmetSaveVenueBtn" style="white-space:nowrap;">会場に設定</button>
+    </div>
+  </div>
   <iframe id="gFrame" title="お店検索（食べログ）" allow="geolocation; clipboard-write"
           style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:#FDFBF6;"></iframe>
 </div>
@@ -2578,6 +2584,13 @@ body.gourmet-open #gFrame {
         const el = document.getElementById(id);
         if (el) el.style.display = (id === keep) ? 'block' : 'none';
       });
+      // お店検索：iframe を初回ロードし、ホストには会場保存バーを表示
+      const gvb = document.getElementById('gourmetVenueBar');
+      if (gvb) gvb.style.display = (keep === 'gourmetCard' && isHost) ? 'block' : 'none';
+      if (keep === 'gourmetCard') {
+        const f = document.getElementById('gFrame');
+        if (f && !f.getAttribute('src')) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+      }
     }
 
     onSnapshot(eventRef, (snap) => {
@@ -2651,6 +2664,15 @@ body.gourmet-open #gFrame {
     document.getElementById('publishViewBtn')?.addEventListener('click', () => {
       const btn = document.getElementById('publishViewBtn');
       if (btn && btn.dataset.view) publishView(btn.dataset.view);
+    });
+
+    // お店検索ページ：選んだ店（名前/URL）を会場(venue.shop)に保存。Function が venue.preview を補完。
+    document.getElementById('gourmetSaveVenueBtn')?.addEventListener('click', async () => {
+      if (!isHost) return;
+      const val = (document.getElementById('gourmetShopInput')?.value || '').trim();
+      if (!val) { showToast('お店の名前かURLを入力してください'); return; }
+      try { await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val }); showToast('🏠 会場を保存しました'); }
+      catch (e) { console.error('gourmet venue save error:', e); showToast('保存に失敗しました'); }
     });
 
     // view ごとに描画を振り分ける
