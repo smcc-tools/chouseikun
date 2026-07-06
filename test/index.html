@@ -2075,7 +2075,9 @@ body.gourmet-open #gFrame {
         const ev = await getDoc(doc(db, 'events', e.eventId));
         if (ev.exists()) {
           const data = ev.data();
-          e.type = data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule'));
+          e.type = data.activeView
+            ? (data.activeView === 'scheduleCreate' ? 'schedule' : data.activeView)
+            : (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
           const ci = data.confirmedDate;
           if (ci != null && data.dates && data.dates[ci]) {
             e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
@@ -2342,7 +2344,7 @@ body.gourmet-open #gFrame {
       dates.forEach((_, di) => { votes[di] = ''; });
       participants[pName] = votes;
     });
-    await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants, ownerUids: [currentUser.uid], confirmedDate: null, participantOrder: presetNames });
+    await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants, ownerUids: [currentUser.uid], confirmedDate: null, participantOrder: presetNames, activeView: 'scheduleCreate' });
     addMyEvent(eventId, name, true);
     // 作成後は自動でイベントページ（候補日の回答/日程入力画面）へ遷移。
     // 共有用URLはその画面のホスト欄に表示される。
@@ -2381,7 +2383,7 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, settleOnly: true,
+        participantOrder: members, settleOnly: true, activeView: 'settle',
       });
       addMyEvent(evId, name, true);
       // 作成したイベントを開く（精算画面へ）
@@ -2423,7 +2425,7 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, walica: true, expenses: [],
+        participantOrder: members, walica: true, expenses: [], activeView: 'walica',
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2471,7 +2473,7 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, seating: true,
+        participantOrder: members, seating: true, activeView: 'seating',
         seatTags: {}, seatParties,
       });
       addMyEvent(evId, name, true);
