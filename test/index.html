@@ -741,6 +741,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-cta-desc { font-size:0.75rem; opacity:0.92; margin-top:3px; line-height:1.45; }
 .menu-tools-title { font-size:0.95rem !important; margin-bottom:4px !important; }
 .menu-tools-sub { font-size:0.76rem; color:var(--text-muted); margin-bottom:14px; }
+/* 単体ツールの並び順：お店検索→お知らせ→座席決め→割り勘→精算 */
+#menuGourmetBtn { order:1; } #menuAnnounceBtn { order:2; } #menuSeatingBtn { order:3; } #menuWalicaBtn { order:4; } #menuSettleBtn { order:5; }
 .menu-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; text-align: center;
   padding: 26px 16px; border: 1.5px solid var(--green-mid); border-radius: 16px; background: var(--surface-2);
@@ -892,7 +894,7 @@ body.gourmet-open #gFrame {
 
   <h2 class="card-title menu-tools-title">単体で使うツール</h2>
   <p class="menu-tools-sub">イベントを作らずに、その場ですぐ使えます</p>
-  <div class="menu-grid" style="grid-template-columns:repeat(2,1fr);">
+  <div class="menu-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="menu-tile" id="menuSettleBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <span style="color:#EFE5CD;font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
