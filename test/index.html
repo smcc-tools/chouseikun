@@ -1428,6 +1428,12 @@ body.gourmet-open #gFrame {
   </div>
 </div>
 
+<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:56px;z-index:49;pointer-events:none;">
+  <div style="max-width:760px;margin:0 auto;padding:8px 14px;text-align:center;">
+    <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(45,66,40,0.25);">この画面を参加者に表示</button>
+  </div>
+</div>
+
 <nav id="hostNav" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:1px solid var(--border);">
   <div style="max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(7,1fr);">
     <button type="button" class="hostnav-btn" data-view="scheduleCreate">作成</button>
@@ -2599,6 +2605,7 @@ body.gourmet-open #gFrame {
       showEventPage(view);
       renderEventView(view, data);
       syncHostNav(view);
+      updatePublishBar(view, data);
     });
 
     function syncHostNav(view) {
@@ -2612,10 +2619,37 @@ body.gourmet-open #gFrame {
       showEventPage(view);
       if (latestEventData) renderEventView(view, latestEventData);
       syncHostNav(view);
+      updatePublishBar(view, latestEventData);
       window.scrollTo(0, 0);
     }
     document.querySelectorAll('#hostNav .hostnav-btn').forEach(b =>
       b.addEventListener('click', () => setHostView(b.dataset.view)));
+
+    // 「参加者に表示」＝ activeView を公開。scheduleCreate/gourmet は公開しない。
+    const PUBLISHABLE = ['schedule','announce','seating','walica','settle'];
+    async function publishView(view) {
+      if (!isHost || !PUBLISHABLE.includes(view)) return;
+      try {
+        await updateDoc(doc(db, 'events', eventId), { activeView: view });
+        showToast('参加者に表示しました');
+      } catch (e) { console.error('publishView error:', e); showToast('切り替えに失敗しました'); }
+    }
+    // ホストの現在ページに応じて公開ボタンを出し分け（公開中なら押下不可表示）
+    function updatePublishBar(view, data) {
+      const bar = document.getElementById('publishBar');
+      const btn = document.getElementById('publishViewBtn');
+      if (!bar || !btn) return;
+      if (!isHost || !PUBLISHABLE.includes(view)) { bar.style.display = 'none'; return; }
+      bar.style.display = 'block';
+      const isLive = deriveView(data || {}) === view;
+      btn.textContent = isLive ? '参加者に表示中' : 'この画面を参加者に表示';
+      btn.disabled = isLive;
+      btn.dataset.view = view;
+    }
+    document.getElementById('publishViewBtn')?.addEventListener('click', () => {
+      const btn = document.getElementById('publishViewBtn');
+      if (btn && btn.dataset.view) publishView(btn.dataset.view);
+    });
 
     // view ごとに描画を振り分ける
     function renderEventView(view, data) {
