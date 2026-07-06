@@ -685,6 +685,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .my-event-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; font-weight: 600; }
+.my-event-status { display:inline-block; font-size:0.68rem; font-weight:700; color:var(--green); background:var(--green-light); border:1px solid var(--green-mid); border-radius:4px; padding:1px 7px; }
 .my-event-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .my-event-open { white-space: nowrap; font-size: 0.82rem; padding: 7px 16px; }
 .my-event-remove { background: none; border: none; color: #C9C7BB; cursor: pointer; font-size: 1rem; padding: 4px; line-height: 1; transition: color 0.15s; }
@@ -732,6 +733,16 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
 /* ── メニュー（機能ランチャー） ── */
 .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.menu-cta { display:flex; align-items:center; gap:14px; background:var(--green); color:#fff; border-radius:16px; padding:15px 18px; cursor:pointer; margin-bottom:20px; box-shadow:0 6px 16px rgba(45,66,40,0.2); transition:transform .12s, box-shadow .12s; }
+.menu-cta:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(45,66,40,0.28); }
+.menu-cta:active { transform:translateY(0); }
+.menu-cta-icon { width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.menu-cta-title { font-family:var(--font-display); font-weight:700; font-size:1.1rem; }
+.menu-cta-desc { font-size:0.75rem; opacity:0.92; margin-top:3px; line-height:1.45; }
+.menu-tools-title { font-size:0.95rem !important; margin-bottom:4px !important; }
+.menu-tools-sub { font-size:0.76rem; color:var(--text-muted); margin-bottom:14px; }
+/* 単体ツールの並び順：お店検索→お知らせ→座席決め→割り勘→精算 */
+#menuGourmetBtn { order:1; } #menuAnnounceBtn { order:2; } #menuSeatingBtn { order:3; } #menuWalicaBtn { order:4; } #menuSettleBtn { order:5; }
 .menu-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; text-align: center;
   padding: 26px 16px; border: 1.5px solid var(--green-mid); border-radius: 16px; background: var(--surface-2);
@@ -743,6 +754,20 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tile .mt-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; font-weight: 400; }
 .menu-tile.soon { opacity: 0.55; cursor: default; border-style: dashed; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
+/* OliveLounge 風：浮遊するクリーム色の丸みナビ、アクティブはオリーブのピル */
+#hostNav .hostnav-inner { max-width:760px; margin:0 auto; display:grid; grid-template-columns:repeat(7,1fr); gap:3px; padding:6px; }
+.hostnav-btn { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;padding:8px 0;min-height:52px;color:#6E7B5F;cursor:pointer;border-radius:15px;transition:background .16s,color .16s; }
+.hostnav-btn .hn-ico { font-size:1.16rem;line-height:1; }
+.hostnav-btn .hn-lbl { font-size:0.62rem;font-weight:600;letter-spacing:-0.02em;white-space:nowrap; }
+.hostnav-btn:hover { background:rgba(110,123,95,0.12); }
+.hostnav-btn.active { background:var(--green);color:#fff;box-shadow:0 3px 10px rgba(45,66,40,0.28); }
+.hostnav-btn.active .hn-lbl { font-weight:700; }
+body.has-hostnav { padding-bottom:88px; }
+/* お店検索を下部ナビ経由で開いた時、iframe が固定ナビに隠れないよう高さを詰める */
+body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360px !important; }
+@media (max-width:360px){ .hostnav-btn .hn-lbl { font-size:0.57rem; } .hostnav-btn .hn-ico { font-size:1.02rem; } }
+
+/* ── イベントハブ（紐付く記録） ── */
 .back-to-menu {
   background: none; border: none; color: var(--text-muted); font-size: 0.82rem; cursor: pointer;
   padding: 4px 0; margin-bottom: 6px; font-weight: 600;
@@ -851,20 +876,25 @@ body.gourmet-open #gFrame {
 
 <!-- メニュー（機能ランチャー） -->
 <div class="card" id="menuCard" style="display:none;">
-  <h2 class="card-title">メニュー</h2>
-  <div class="menu-grid">
-    <div class="menu-tile" id="menuScheduleBtn" role="button" tabindex="0">
-      <div class="mt-icon">
-        <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="9" y="15" width="56" height="50" rx="11" stroke="#EFE5CD" stroke-width="6"/>
-          <line x1="9" y1="29" x2="65" y2="29" stroke="#EFE5CD" stroke-width="6"/>
-          <line x1="25" y1="9" x2="25" y2="21" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
-          <line x1="49" y1="9" x2="49" y2="21" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="mt-title">日程調整</div>
-      <div class="mt-desc">候補日で◯△✕投票、開催日を決める</div>
+  <!-- 会を作る（マイイベント経由の統合フロー）を大きく分離 -->
+  <div class="menu-cta" id="menuScheduleBtn" role="button" tabindex="0">
+    <div class="menu-cta-icon">
+      <svg width="26" height="26" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="9" y="15" width="56" height="50" rx="11" stroke="#fff" stroke-width="6"/>
+        <line x1="9" y1="29" x2="65" y2="29" stroke="#fff" stroke-width="6"/>
+        <line x1="25" y1="9" x2="25" y2="21" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        <line x1="49" y1="9" x2="49" y2="21" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+      </svg>
     </div>
+    <div>
+      <div class="menu-cta-title">＋ 新しい会を作成</div>
+      <div class="menu-cta-desc">日程調整からスタート。作成後は下部ナビで精算・お店・座席などへ</div>
+    </div>
+  </div>
+
+  <h2 class="card-title menu-tools-title">単体で使うツール</h2>
+  <p class="menu-tools-sub">イベントを作らずに、その場ですぐ使えます</p>
+  <div class="menu-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="menu-tile" id="menuSettleBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <span style="color:#EFE5CD;font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
@@ -906,6 +936,16 @@ body.gourmet-open #gFrame {
       </div>
       <div class="mt-title">お店検索</div>
       <div class="mt-desc">駅・エリアから飲食店を探す（食べログ）</div>
+    </div>
+    <div class="menu-tile" id="menuAnnounceBtn" role="button" tabindex="0">
+      <div class="mt-icon">
+        <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M37 11 C26 11 20 19 20 31 L20 44 L14 52 L60 52 L54 44 L54 31 C54 19 48 11 37 11 Z" stroke="#EFE5CD" stroke-width="6" stroke-linejoin="round"/>
+          <path d="M30 58 a7 7 0 0 0 14 0" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="mt-title">お知らせ</div>
+      <div class="mt-desc">集合時間・場所・お店を参加者に知らせる</div>
     </div>
   </div>
 </div>
@@ -1024,6 +1064,18 @@ body.gourmet-open #gFrame {
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
 </div>
 
+<!-- お知らせ 作成カード（日程調整なしで集合・お店を告知） -->
+<div class="card" id="announceSetupCard" style="display:none;">
+  <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+  <h2 class="card-title">お知らせを作成</h2>
+  <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.7;font-weight:400;">日程調整なしで、集合時間・場所・お店だけを参加者にお知らせできます。作成後、内容を入力してリンクを共有してください。</p>
+  <div class="field">
+    <label>タイトル</label>
+    <input type="text" id="announceName" placeholder="例：新年会のご案内">
+  </div>
+  <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
+</div>
+
 <!-- 立替・割り勘 作成カード -->
 <div class="card" id="walicaSetupCard" style="display:none;">
   <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
@@ -1035,14 +1087,6 @@ body.gourmet-open #gFrame {
     <input type="text" id="walicaName" placeholder="例：沖縄旅行の精算">
   </div>
 
-  <div class="field" id="walicaImportWrap" style="display:none;">
-    <label>日程調整から取り込む</label>
-    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">あなたが作成した日程調整イベントの参加者を、メンバーとして取り込めます。</p>
-    <div style="display:flex;gap:8px;">
-      <select id="walicaImportSelect" style="flex:1;margin-bottom:0;"></select>
-      <button type="button" class="btn btn-secondary" id="walicaImportBtn" style="white-space:nowrap;">取り込む</button>
-    </div>
-  </div>
 
   <div class="field">
     <label>メンバー</label>
@@ -1064,14 +1108,6 @@ body.gourmet-open #gFrame {
     <input type="text" id="seatingName" placeholder="例：忘年会の座席">
   </div>
 
-  <div class="field" id="seatingImportWrap" style="display:none;">
-    <label>日程調整から取り込む</label>
-    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">あなたが作成した日程調整イベントの参加者を、メンバーとして取り込めます。</p>
-    <div style="display:flex;gap:8px;">
-      <select id="seatingImportSelect" style="flex:1;margin-bottom:0;"></select>
-      <button type="button" class="btn btn-secondary" id="seatingImportBtn" style="white-space:nowrap;">取り込む</button>
-    </div>
-  </div>
 
   <div class="field">
     <label>メンバー</label>
@@ -1086,6 +1122,12 @@ body.gourmet-open #gFrame {
 <div class="card" id="gourmetCard" style="display:none;padding:0;overflow:hidden;">
   <div style="padding:14px 16px 8px;">
     <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+  </div>
+  <div id="gourmetVenueBar" style="display:none;padding:0 16px 8px;">
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="gourmetShopInput" placeholder="お店の名前や食べログURLを貼り付け" style="flex:1;margin-bottom:0;">
+      <button class="btn btn-primary" id="gourmetSaveVenueBtn" style="white-space:nowrap;">会場に設定</button>
+    </div>
   </div>
   <iframe id="gFrame" title="お店検索（食べログ）" allow="geolocation; clipboard-write"
           style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:#FDFBF6;"></iframe>
@@ -1113,42 +1155,6 @@ body.gourmet-open #gFrame {
     <button id="addMemoBtn" style="background:none;border:1px dashed var(--green-mid);border-radius:6px;padding:8px 16px;font-size:0.82rem;color:var(--text-muted);cursor:pointer;width:100%;">＋ メモを追加</button>
   </div>
 
-  <!-- お店・行き方（参加者には内容があるときだけ表示） -->
-  <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
-    <div id="venueMeetTimeRow" style="display:none;font-size:0.95rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">集合時間：</span><span id="venueMeetTimeText" style="font-weight:700;color:var(--green);"></span></div>
-    <div id="venueMeetPlaceRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">集合場所：</span><span id="venueMeetPlaceText"></span></div>
-    <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
-    <!-- 食べログ等のリッチプレビューカード -->
-    <a id="venuePreview" href="#" target="_blank" rel="noopener" style="display:none;text-decoration:none;margin-bottom:10px;">
-      <div style="display:flex;gap:12px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px;align-items:center;">
-        <img id="venuePreviewImg" alt="" style="width:76px;height:76px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#eee;">
-        <div style="min-width:0;flex:1;">
-          <div id="venuePreviewTitle" style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-          <div id="venuePreviewMeta" style="font-size:0.82rem;color:var(--gold);font-weight:700;margin-top:2px;"></div>
-          <div id="venuePreviewSub" style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-        </div>
-      </div>
-    </a>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;">現在地からのルート（Googleマップ）</a>
-      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">お店の地図</a>
-      <a id="venueShopUrlBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">食べログで見る</a>
-    </div>
-    <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
-  </div>
-
-  <!-- ホスト専用：お店・行き方の入力 -->
-  <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">集合・お店を設定（入力すると参加者に表示されます）</div>
-    <div style="display:flex;gap:8px;margin-bottom:8px;">
-      <input type="text" id="venueMeetTimeInput" placeholder="集合時間（例：19:00）" style="flex:1;margin-bottom:0;">
-      <input type="text" id="venueMeetPlaceInput" placeholder="集合場所（例：○○駅 改札前）" style="flex:2;margin-bottom:0;">
-    </div>
-    <input type="text" id="venueShopInput" placeholder="店名／住所／食べログURL（店名＋URLも可）" style="margin-bottom:8px;">
-    <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
-    <button class="btn btn-primary" id="saveVenueBtn" style="width:100%;">保存して参加者に表示</button>
-  </div>
 
   <!-- ホスト専用：参加者用URL表示 -->
   <div id="participantUrlWrap" class="host-only" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
@@ -1206,18 +1212,7 @@ body.gourmet-open #gFrame {
     </div>
   </div>
 
-  <!-- ホスト専用：精算ボタン -->
-  <div class="host-only" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-    <button class="btn btn-primary" id="goSettleBtn" style="width:100%;padding:14px;font-size:1rem;">
-      会が終了したので精算に進む
-    </button>
-  </div>
-  <!-- 参加者向け：精算公開時に表示 -->
-  <div id="viewSettleWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-    <button class="btn btn-secondary" id="goViewSettleBtn" style="width:100%;padding:12px;font-size:0.95rem;">
-      精算を確認する
-    </button>
-  </div>
+
 </div>
 
 <!-- 精算カード -->
@@ -1319,9 +1314,9 @@ body.gourmet-open #gFrame {
   <!-- ホスト用：保存＋参加者表示用URL -->
   <div id="publishSettleWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
     <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
-      保存する
+      保存して参加者に表示
     </button>
-    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">保存しました</div>
+    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に表示中</div>
     <div id="settleShareWrap" style="margin-top:14px;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
       <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者表示用URL（共有すると精算を確認してもらえます）</div>
       <div style="display:flex;gap:8px;">
@@ -1433,6 +1428,77 @@ body.gourmet-open #gFrame {
     </div>
   </div>
 </div>
+
+<!-- お知らせ（集合時間・お店） -->
+<div class="card" id="announceCard" style="display:none;">
+  <div class="card-title">集合時間・お店のお知らせ</div>
+  <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
+
+  <!-- ホスト用：参加者用URL -->
+  <div id="announceShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:14px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="announceShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+      <button class="btn btn-secondary" id="copyAnnounceUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+  </div>
+
+  <!-- お店・行き方（参加者には内容があるときだけ表示） -->
+  <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
+    <div id="venueMeetTimeRow" style="display:none;font-size:0.95rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">集合時間：</span><span id="venueMeetTimeText" style="font-weight:700;color:var(--green);"></span></div>
+    <div id="venueMeetPlaceRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">集合場所：</span><span id="venueMeetPlaceText"></span></div>
+    <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
+    <!-- 食べログ等のリッチプレビューカード -->
+    <a id="venuePreview" href="#" target="_blank" rel="noopener" style="display:none;text-decoration:none;margin-bottom:10px;">
+      <div style="display:flex;gap:12px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px;align-items:center;">
+        <img id="venuePreviewImg" alt="" style="width:76px;height:76px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#eee;">
+        <div style="min-width:0;flex:1;">
+          <div id="venuePreviewTitle" style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+          <div id="venuePreviewMeta" style="font-size:0.82rem;color:var(--gold);font-weight:700;margin-top:2px;"></div>
+          <div id="venuePreviewSub" style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+        </div>
+      </div>
+    </a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;">現在地からのルート（Googleマップ）</a>
+      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">お店の地図</a>
+      <a id="venueShopUrlBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">食べログで見る</a>
+    </div>
+    <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
+  </div>
+  <div id="announceEmpty" class="empty-msg" style="display:none;">集合時間・お店はまだ設定されていません。</div>
+
+  <!-- ホスト専用：お店・行き方の入力 -->
+  <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">集合・お店を設定（保存後に「参加者に表示」で公開）</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input type="text" id="venueMeetTimeInput" placeholder="集合時間（例：19:00）" style="flex:1;margin-bottom:0;">
+      <input type="text" id="venueMeetPlaceInput" placeholder="集合場所（例：○○駅 改札前）" style="flex:2;margin-bottom:0;">
+    </div>
+    <input type="text" id="venueShopInput" placeholder="店名／住所／食べログURL（店名＋URLも可）" style="margin-bottom:8px;">
+    <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
+    <button class="btn btn-primary" id="saveVenueBtn" style="width:100%;">保存</button>
+  </div>
+</div>
+
+<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:84px;z-index:49;pointer-events:none;">
+  <div style="max-width:760px;margin:0 auto;padding:8px 14px;text-align:center;">
+    <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(45,66,40,0.25);">この画面を参加者に表示</button>
+  </div>
+</div>
+
+<nav id="hostNav" style="display:none;position:fixed;left:10px;right:10px;bottom:10px;z-index:50;background:#FBF7EC;border:1px solid var(--green-mid);border-radius:24px;box-shadow:0 8px 26px rgba(45,66,40,0.18);">
+  <div class="hostnav-inner">
+    <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-ico">✏️</span><span class="hn-lbl">作成</span></button>
+    <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-ico">📅</span><span class="hn-lbl">日程</span></button>
+    <button type="button" class="hostnav-btn" data-view="gourmet"><span class="hn-ico">🍽️</span><span class="hn-lbl">お店</span></button>
+    <button type="button" class="hostnav-btn" data-view="announce"><span class="hn-ico">📣</span><span class="hn-lbl">お知らせ</span></button>
+    <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-ico">💺</span><span class="hn-lbl">座席</span></button>
+    <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-ico">💴</span><span class="hn-lbl">割り勘</span></button>
+    <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-ico">🧾</span><span class="hn-lbl">精算</span></button>
+  </div>
+</nav>
 
 </main>
 <div class="toast" id="toast"></div>
@@ -1784,7 +1850,7 @@ body.gourmet-open #gFrame {
   }
 
   // ── トップのメニュー遷移 ──
-  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','gourmetCard'];
+  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','announceSetupCard','gourmetCard'];
   function goToMenu() {
     document.body.classList.remove('gourmet-open'); // お店検索の全画面表示を解除
     const menu = document.getElementById('menuCard');
@@ -1818,7 +1884,6 @@ body.gourmet-open #gFrame {
     const nameEl = document.getElementById('walicaName'); if (nameEl) nameEl.value = '';
     walicaDraftMembers = [];
     renderWalicaDraft();
-    populateWalicaImport();
     window.scrollTo(0, 0);
   }
   function goToSeatingSetup() {
@@ -1827,13 +1892,21 @@ body.gourmet-open #gFrame {
     const nameEl = document.getElementById('seatingName'); if (nameEl) nameEl.value = '';
     seatingDraftMembers = [];
     renderSeatingDraft();
-    populateSeatingImport();
+    window.scrollTo(0, 0);
+  }
+  function goToAnnounceSetup() {
+    hideOtherSetupCards('announceSetupCard');
+    document.getElementById('announceSetupCard').style.display = 'block';
+    const nameEl = document.getElementById('announceName'); if (nameEl) nameEl.value = '';
     window.scrollTo(0, 0);
   }
 
   // ── お店検索（食べログ検索アプリを iframe で埋め込み）─────────
-  const GOURMET_URL = 'https://chouseikun-tabel.web.app/';
-  const TABEL_ORIGIN = 'https://chouseikun-tabel.web.app';
+  // 検証(/test/)は Tabel の検証リビジョン、本番は Cloud Run + Hosting(web.app) を使う
+  const TABEL_ORIGIN = (APP_ENV === 'test')
+    ? 'https://test---tabel-skmlfruxcq-an.a.run.app'
+    : 'https://chouseikun-tabel.web.app';
+  const GOURMET_URL = TABEL_ORIGIN + '/';
   function goToGourmet() {
     hideOtherSetupCards('gourmetCard');
     document.body.classList.add('gourmet-open'); // 調整くんヘッダーを隠しTabelを全画面表示
@@ -1846,6 +1919,7 @@ body.gourmet-open #gFrame {
     }
     window.scrollTo(0, 0);
   }
+
 
   // ── Tabel(お店検索)への自動ログイン連携（同一Firebaseプロジェクト chouseikun-tabel） ──
   // 調整くんでGoogleログイン済みなら、Tabel iframe に IDトークンを渡して同一アカウントで自動ログインさせる。
@@ -1869,121 +1943,13 @@ body.gourmet-open #gFrame {
     if (d.type === 'tabel-ready') pushAuthToTabel();
   });
 
-  // 日程調整のマイイベントから参加者を取り込む
-  let seatingImportCache = {}; // eventId -> [memberNames]
-  async function loadScheduleEventsForImport() {
-    if (!currentUser) return [];
-    let snap;
-    try { snap = await getDocs(userEventsRef(currentUser.uid)); } catch (e) { return []; }
-    const list = snap.docs.map(d => ({ id: d.id, name: d.data().name, finished: !!d.data().finished }));
-    const results = await Promise.all(list.map(async ev => {
-      if (ev.finished) return null; // 「終了」にしたイベントは除外
-      try {
-        const s = await getDoc(doc(db, 'events', ev.id));
-        if (!s.exists()) return null;
-        const d = s.data();
-        if (d.walica || d.seating || d.settleOnly) return null; // 日程調整イベントのみ
-        const members = (Array.isArray(d.participantOrder) && d.participantOrder.length)
-          ? d.participantOrder : Object.keys(d.participants || {});
-        if (!members.length) return null;
-        return { id: ev.id, name: d.name || ev.name || 'イベント', members, createdAt: d.createdAt || 0 };
-      } catch (_) { return null; }
-    }));
-    return results.filter(Boolean);
-  }
-  async function populateSeatingImport() {
-    const wrap = document.getElementById('seatingImportWrap');
-    const sel = document.getElementById('seatingImportSelect');
-    const btn = document.getElementById('seatingImportBtn');
-    if (!wrap || !sel) return;
-    seatingImportCache = {};
-    // 未ログインのときは取り込みできないので非表示
-    if (!currentUser) { wrap.style.display = 'none'; return; }
-    // ログイン中は欄を表示し、読み込み中の状態を出す
-    wrap.style.display = 'block';
-    sel.innerHTML = '<option>読み込み中…</option>';
-    sel.disabled = true; if (btn) btn.disabled = true;
-    const evs = await loadScheduleEventsForImport();
-    // 取り込み画面が閉じられていたら反映しない
-    if (document.getElementById('seatingSetupCard').style.display === 'none') return;
-    if (!evs.length) {
-      sel.innerHTML = '<option value="">取り込める日程調整イベントがありません</option>';
-      sel.disabled = true; if (btn) btn.disabled = true;
-      return;
-    }
-    sel.disabled = false; if (btn) btn.disabled = false;
-    sel.innerHTML = evs.map(e => {
-      seatingImportCache[e.id] = { name: e.name, members: e.members };
-      return `<option value="${escHtml(e.id)}">${escHtml(e.name)}（${e.members.length}名）</option>`;
-    }).join('');
-  }
-  document.getElementById('seatingImportBtn')?.addEventListener('click', () => {
-    const sel = document.getElementById('seatingImportSelect');
-    const entry = seatingImportCache[sel?.value];
-    const members = entry?.members || [];
-    if (!members.length) { showToast('取り込むメンバーがいません'); return; }
-    let added = 0;
-    members.forEach(m => {
-      const name = (m || '').trim();
-      if (!name || validateParticipantName(name)) return;
-      if (seatingDraftMembers.some(x => normalizeName(x) === normalizeName(name))) return;
-      seatingDraftMembers.push(name); added++;
-    });
-    renderSeatingDraft();
-    // タイトルに取り込んだ日程調整イベント名を入力
-    const nameEl = document.getElementById('seatingName');
-    if (nameEl && entry?.name) nameEl.value = entry.name;
-    showToast(added ? `${added}名を取り込みました` : '追加できる新しいメンバーはいませんでした');
-  });
-
-  // 割り勘：日程調整のマイイベントから参加者を取り込む
-  let walicaImportCache = {}; // eventId -> {name, members}
-  async function populateWalicaImport() {
-    const wrap = document.getElementById('walicaImportWrap');
-    const sel = document.getElementById('walicaImportSelect');
-    const btn = document.getElementById('walicaImportBtn');
-    if (!wrap || !sel) return;
-    walicaImportCache = {};
-    if (!currentUser) { wrap.style.display = 'none'; return; }
-    wrap.style.display = 'block';
-    sel.innerHTML = '<option>読み込み中…</option>';
-    sel.disabled = true; if (btn) btn.disabled = true;
-    const evs = await loadScheduleEventsForImport();
-    if (document.getElementById('walicaSetupCard').style.display === 'none') return;
-    if (!evs.length) {
-      sel.innerHTML = '<option value="">取り込める日程調整イベントがありません</option>';
-      sel.disabled = true; if (btn) btn.disabled = true;
-      return;
-    }
-    sel.disabled = false; if (btn) btn.disabled = false;
-    sel.innerHTML = evs.map(e => {
-      walicaImportCache[e.id] = { name: e.name, members: e.members };
-      return `<option value="${escHtml(e.id)}">${escHtml(e.name)}（${e.members.length}名）</option>`;
-    }).join('');
-  }
-  document.getElementById('walicaImportBtn')?.addEventListener('click', () => {
-    const sel = document.getElementById('walicaImportSelect');
-    const entry = walicaImportCache[sel?.value];
-    const members = entry?.members || [];
-    if (!members.length) { showToast('取り込むメンバーがいません'); return; }
-    let added = 0;
-    members.forEach(m => {
-      const name = (m || '').trim();
-      if (!name || validateParticipantName(name)) return;
-      if (walicaDraftMembers.some(x => normalizeName(x) === normalizeName(name))) return;
-      walicaDraftMembers.push(name); added++;
-    });
-    renderWalicaDraft();
-    const nameEl = document.getElementById('walicaName');
-    if (nameEl && entry?.name) nameEl.value = entry.name;
-    showToast(added ? `${added}名を取り込みました` : '追加できる新しいメンバーはいませんでした');
-  });
 
   document.getElementById('menuScheduleBtn')?.addEventListener('click', goToSchedule);
   document.getElementById('menuSettleBtn')?.addEventListener('click', goToSettleSetup);
   document.getElementById('menuWalicaBtn')?.addEventListener('click', goToWalicaSetup);
   document.getElementById('menuSeatingBtn')?.addEventListener('click', goToSeatingSetup);
   document.getElementById('menuGourmetBtn')?.addEventListener('click', goToGourmet);
+  document.getElementById('menuAnnounceBtn')?.addEventListener('click', goToAnnounceSetup);
   document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', goToMenu));
 
   // ── マイイベント管理（Firestore アカウントベース） ──────
@@ -1999,6 +1965,7 @@ body.gourmet-open #gFrame {
     await setDoc(ref, { name, host: isHostEvent, createdAt: Date.now() }, { merge: true });
   }
 
+
   async function removeMyEvent(eventId) {
     if (!currentUser) return;
     await deleteDoc(doc(db, 'users', currentUser.uid, 'events', eventId));
@@ -2009,7 +1976,6 @@ body.gourmet-open #gFrame {
     await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId), { finished }, { merge: true });
   }
 
-  let myEventsType = 'schedule'; // 'schedule' | 'settle' | 'walica'
   let myEventsRole = 'host';     // 'host' | 'part' | 'finished'
 
   async function renderMyEvents() {
@@ -2054,11 +2020,16 @@ body.gourmet-open #gFrame {
     await Promise.all(events.map(async e => {
       e.confirmedTs = null;
       e.type = 'schedule'; // 取得失敗時は日程調整扱い
+      e.orphanChild = false;
       try {
         const ev = await getDoc(doc(db, 'events', e.eventId));
         if (ev.exists()) {
           const data = ev.data();
-          e.type = data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule'));
+          // 旧イベントハブ方式の子レコード（parentEventId 付き）は現行では未使用。重複表示になるため一覧から除外。
+          e.orphanChild = !!data.parentEventId;
+          // ステータス＝現在参加者に見せている画面（activeView）。旧データはフラグから読み替え。
+          e.type = data.activeView
+            || (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
           const ci = data.confirmedDate;
           if (ci != null && data.dates && data.dates[ci]) {
             e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
@@ -2079,26 +2050,21 @@ body.gourmet-open #gFrame {
 
     const base = `${location.origin}${location.pathname}`;
 
-    // メニュー種別ごとに分類（各種別内は 未終了→終了 の順）
+    // 未終了→終了 の順で並べる
     const sortWithFinished = (a, b) => {
       if (!!a.finished !== !!b.finished) return a.finished ? 1 : -1;
       return sortFn(a, b);
     };
-    const groups = {
-      schedule: events.filter(e => e.type === 'schedule').sort(sortWithFinished),
-      settle:   events.filter(e => e.type === 'settle').sort(sortWithFinished),
-      walica:   events.filter(e => e.type === 'walica').sort(sortWithFinished),
-      seating:  events.filter(e => e.type === 'seating').sort(sortWithFinished),
-    };
 
+    // 現在参加者に見せている画面（activeView）をステータスチップで表示
+    const STATUS_LABEL = { scheduleCreate:'準備中', schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘', settle:'精算' };
     const itemHtml = (e) => {
-      let metaStr;
-      if (e.type === 'settle') metaStr = '精算';
-      else if (e.type === 'walica') metaStr = '立替・割り勘';
-      else if (e.type === 'seating') metaStr = '座席決め';
-      else metaStr = e.confirmedTs != null
-        ? `確定 ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
-        : '日程調整中';
+      const statusChip = `<span class="my-event-status">${STATUS_LABEL[e.type] || '日程調整'}</span>`;
+      const dateStr = (e.type === 'schedule' || e.type === 'scheduleCreate')
+        ? (e.confirmedTs != null
+            ? `確定 ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
+            : '日程調整中')
+        : '';
       const roleBadge = e.host
         ? `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:#fff;background:var(--green);border-radius:4px;padding:1px 6px;margin-right:6px;">ホスト</span>`
         : `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:var(--text-muted);background:#eee;border-radius:4px;padding:1px 6px;margin-right:6px;">参加</span>`;
@@ -2108,7 +2074,7 @@ body.gourmet-open #gFrame {
       return `<div class="my-event-item${e.finished ? ' finished' : ''}">
         <div class="my-event-info">
           <div class="my-event-name">${roleBadge}${escHtml(e.name||'')}</div>
-          <div class="my-event-meta">${metaStr}</div>
+          <div class="my-event-meta">${statusChip}${dateStr ? `<span style="margin-left:8px;">${dateStr}</span>` : ''}</div>
         </div>
         <div class="my-event-actions">
           <a class="btn btn-secondary my-event-open" href="${base}?event=${encodeURIComponent(e.eventId)}${e.hostKey ? `&host=${encodeURIComponent(e.hostKey)}` : ''}">開く</a>
@@ -2118,20 +2084,16 @@ body.gourmet-open #gFrame {
       </div>`;
     };
 
-    // 上段：機能種別。下段：ホスト／参加／終了。
-    if (!groups[myEventsType]) myEventsType = 'schedule';
-    const typeArr = groups[myEventsType];
+    // 機能種別の区別は廃止し、ホスト／参加／終了 の3区分のみ。
     const roleGroups = {
-      host:     typeArr.filter(e => !e.finished && e.host),
-      part:     typeArr.filter(e => !e.finished && !e.host),
-      finished: typeArr.filter(e => e.finished),
+      host:     events.filter(e => !e.orphanChild && !e.finished && e.host).sort(sortWithFinished),
+      part:     events.filter(e => !e.orphanChild && !e.finished && !e.host).sort(sortWithFinished),
+      finished: events.filter(e => !e.orphanChild && e.finished).sort(sortWithFinished),
     };
     if (!roleGroups[myEventsRole]) myEventsRole = 'host';
 
-    const typeTab = (key, label) =>
-      `<button class="my-event-tab${myEventsType===key?' active':''}" data-type="${key}">${label}</button>`;
     const roleTab = (key, label) =>
-      `<button class="my-event-tab${myEventsRole===key?' active':''}" data-role="${key}">${label}</button>`;
+      `<button class="my-event-tab${myEventsRole===key?' active':''}" data-role="${key}">${label}（${roleGroups[key].length}）</button>`;
 
     const activeArr = roleGroups[myEventsRole];
     const listHtml = activeArr.length
@@ -2140,16 +2102,10 @@ body.gourmet-open #gFrame {
 
     list.innerHTML = `
       <div class="my-event-tabs">
-        ${typeTab('schedule','日程調整')}${typeTab('settle','精算')}${typeTab('walica','割り勘')}${typeTab('seating','座席')}
-      </div>
-      <div class="my-event-tabs my-event-subtabs">
         ${roleTab('host','ホスト')}${roleTab('part','参加')}${roleTab('finished','終了')}
       </div>
       <div class="my-event-tabbody">${listHtml}</div>`;
 
-    list.querySelectorAll('[data-type]').forEach(btn => {
-      btn.addEventListener('click', () => { myEventsType = btn.dataset.type; renderMyEvents(); });
-    });
     list.querySelectorAll('[data-role]').forEach(btn => {
       btn.addEventListener('click', () => { myEventsRole = btn.dataset.role; renderMyEvents(); });
     });
@@ -2200,9 +2156,10 @@ body.gourmet-open #gFrame {
     // トップページのみマイイベントを再描画
     if (!new URLSearchParams(location.search).get('event')) {
       renderMyEvents();
-    } else if (latestEventData && !isHost) {
-      // イベントページでログイン後にホスト権限を再評価
-      evaluateHost(latestEventData);
+    } else if (latestEventData) {
+      // イベントページでログイン後にホスト権限を再評価し、表示（ホストナビ/公開バー等）を作り直す
+      await evaluateHost(latestEventData);
+      if (rerenderCurrentEvent) rerenderCurrentEvent();
     }
   });
 
@@ -2325,7 +2282,7 @@ body.gourmet-open #gFrame {
       dates.forEach((_, di) => { votes[di] = ''; });
       participants[pName] = votes;
     });
-    await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants, ownerUids: [currentUser.uid], confirmedDate: null, participantOrder: presetNames });
+    await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants, ownerUids: [currentUser.uid], confirmedDate: null, participantOrder: presetNames, activeView: 'scheduleCreate' });
     addMyEvent(eventId, name, true);
     // 作成後は自動でイベントページ（候補日の回答/日程入力画面）へ遷移。
     // 共有用URLはその画面のホスト欄に表示される。
@@ -2364,13 +2321,35 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, settleOnly: true
+        participantOrder: members, settleOnly: true, activeView: 'settle',
       });
       addMyEvent(evId, name, true);
       // 作成したイベントを開く（精算画面へ）
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       btn.textContent = '精算表を作成'; btn.disabled = false;
+      showToast('作成に失敗しました'); console.error(e);
+    }
+  });
+
+  // お知らせを作成（日程調整なし・集合/お店のみ）
+  document.getElementById('createAnnounceBtn')?.addEventListener('click', async () => {
+    const name = (document.getElementById('announceName')?.value || '').trim();
+    if (!name) { showToast('タイトルを入力してください'); return; }
+    if (!currentUser) { showToast('作成にはログインが必要です'); await signIn(); return; }
+    const btn = document.getElementById('createAnnounceBtn');
+    btn.textContent = '作成中...'; btn.disabled = true;
+    try {
+      const evId = randomId(16);
+      await setDoc(doc(db, 'events', evId), {
+        name, dates: [], memo: '', participants: {},
+        ownerUids: [currentUser.uid], confirmedDate: null,
+        participantOrder: [], activeView: 'announce',
+      });
+      addMyEvent(evId, name, true);
+      location.href = `${location.origin}${location.pathname}?event=${evId}`;
+    } catch (e) {
+      btn.textContent = 'お知らせを作成'; btn.disabled = false;
       showToast('作成に失敗しました'); console.error(e);
     }
   });
@@ -2406,7 +2385,7 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, walica: true, expenses: []
+        participantOrder: members, walica: true, expenses: [], activeView: 'walica',
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2454,8 +2433,8 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, seating: true,
-        seatTags: {}, seatParties
+        participantOrder: members, seating: true, activeView: 'seating',
+        seatTags: {}, seatParties,
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2484,9 +2463,9 @@ body.gourmet-open #gFrame {
   let isHost = false;
   let currentDates = [];
   let currentParticipantOrder = [];
-  let prevSettlePublished = false; // 精算公開状態の変化検知用
   let hostSettleAutoOpened = false; // ホストの初回精算自動表示済みフラグ
   let latestEventData = null;      // 認証状態変化時の再評価用
+  let rerenderCurrentEvent = null; // 現在のイベント表示を再描画する関数（ログイン後の再評価用）
   let myEventSavedAsHost = null;   // マイイベント保存済みのロール（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
 
@@ -2509,6 +2488,8 @@ body.gourmet-open #gFrame {
       isHost = true;
       document.getElementById('hostBadge').style.display = 'inline-block';
       document.querySelectorAll('.host-only').forEach(el => el.style.display = 'inline-block');
+      document.getElementById('hostNav').style.display = 'block';
+      document.body.classList.add('has-hostnav');
       const base = `${location.origin}${location.pathname}`;
       document.getElementById('participantUrlView').value = `${base}?event=${eventId}`;
       renderCoHostList(ownerUids, base, eventId);
@@ -2535,8 +2516,40 @@ body.gourmet-open #gFrame {
     document.getElementById('viewCard').style.display = 'block';
     const eventRef = doc(db, 'events', eventId);
 
+    // 参加者に見せる画面。activeView 優先、無ければ旧フラグから読み替え。
+    function deriveView(data) {
+      if (data.activeView) return data.activeView;
+      if (data.walica) return 'walica';
+      if (data.seating) return 'seating';
+      if (data.settleOnly) return 'settle';
+      return 'schedule';
+    }
+    // view → 表示するカードID（gourmet はホスト専用作業画面）
+    const PAGE_OF = {
+      scheduleCreate: 'viewCard', schedule: 'viewCard',
+      announce: 'announceCard', seating: 'seatingCard',
+      walica: 'walicaCard', settle: 'settleCard', gourmet: 'gourmetCard',
+    };
+    const EVENT_PAGE_IDS = ['viewCard','settleCard','walicaCard','seatingCard','gourmetCard','announceCard'];
+    let hostView = null; // ホストのローカル作業画面（null=公開中の画面を見る）
+    function showEventPage(view) {
+      const keep = PAGE_OF[view] || 'viewCard';
+      EVENT_PAGE_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === keep) ? 'block' : 'none';
+      });
+      // お店検索：iframe を初回ロードし、ホストには会場保存バーを表示
+      const gvb = document.getElementById('gourmetVenueBar');
+      if (gvb) gvb.style.display = (keep === 'gourmetCard' && isHost) ? 'block' : 'none';
+      if (keep === 'gourmetCard') {
+        const f = document.getElementById('gFrame');
+        if (f && !f.getAttribute('src')) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+      }
+    }
+
     onSnapshot(eventRef, (snap) => {
       if (!snap.exists()) {
+        document.getElementById('viewCard').style.display = 'block';
         document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">イベントが見つかりません</p>';
         return;
       }
@@ -2546,103 +2559,151 @@ body.gourmet-open #gFrame {
       currentParticipantOrder = data.participantOrder || [];
 
       evaluateHost(data);
+      applyEventView();
+    });
 
-      // 立替・割り勘：専用ボードを表示して以降の日程/精算UIはスキップ
-      if (data.walica) {
-        document.getElementById('viewCard').style.display = 'none';
-        document.getElementById('settleCard').style.display = 'none';
-        document.getElementById('walicaCard').style.display = 'block';
-        renderWalicaBoard(data);
+    // latestEventData と isHost/hostView から表示を確定。onSnapshot とログイン後再評価の両方から呼ぶ。
+    function applyEventView() {
+      const data = latestEventData;
+      if (!data) return;
+      const participantView = deriveView(data);
+      // ホストは作業画面(hostView)優先。未選択なら公開中の画面。参加者は常に公開中の画面。
+      const view = (isHost && hostView) ? hostView : participantView;
+      // 精算：未公開なら参加者には見せない（従来の保護を維持）
+      if (view === 'settle' && !isHost && !data.settlePublished) {
+        showEventPage('schedule');
+        const legendEl = document.getElementById('voteLegend');
+        if (legendEl) legendEl.style.display = 'none';
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
         return;
       }
+      showEventPage(view);
+      renderEventView(view, data);
+      syncHostNav(view);
+      updatePublishBar(view, data);
+    }
+    rerenderCurrentEvent = applyEventView;
 
-      // 座席決め：専用ボードを表示
-      if (data.seating) {
-        document.getElementById('viewCard').style.display = 'none';
-        document.getElementById('settleCard').style.display = 'none';
-        document.getElementById('seatingCard').style.display = 'block';
-        renderSeatingBoard(data);
-        return;
+    function syncHostNav(view) {
+      document.querySelectorAll('#hostNav .hostnav-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.view === view));
+    }
+    // ホストの下部ナビ：作業画面(hostView)を切り替える（activeView=公開は変えない）
+    function setHostView(view) {
+      hostView = view;
+      hostSettleAutoOpened = false; // 精算に入り直したら開き直す
+      showEventPage(view);
+      if (latestEventData) renderEventView(view, latestEventData);
+      syncHostNav(view);
+      updatePublishBar(view, latestEventData);
+      window.scrollTo(0, 0);
+    }
+    document.querySelectorAll('#hostNav .hostnav-btn').forEach(b =>
+      b.addEventListener('click', () => setHostView(b.dataset.view)));
+
+    // 「参加者に表示」＝ activeView を公開。scheduleCreate/gourmet は公開しない。
+    // 精算は settle カード内の「保存して参加者に表示」ボタンが公開を担う（activeView＋settlePublished）ため除外。
+    const PUBLISHABLE = ['schedule','announce','seating','walica'];
+    // その画面に参加者へ見せる中身があるか（誤って空の画面を公開しないための判定）
+    function viewHasContent(view, data) {
+      const v = data.venue || {};
+      switch (view) {
+        case 'schedule':  return Array.isArray(data.dates) && data.dates.length > 0;
+        case 'announce':  return !!((v.shop||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim() || (v.note||'').trim() || data.confirmedDate != null);
+        case 'walica':    return Array.isArray(data.expenses) && data.expenses.length > 0;
+        case 'seating':   return Array.isArray(data.seatParties) && data.seatParties.some(p => Array.isArray(p.tables) && p.tables.length > 0);
+        default:          return true;
       }
+    }
+    const VIEW_LABEL = { schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘' };
+    async function publishView(view) {
+      if (!isHost || !PUBLISHABLE.includes(view)) return;
+      // 中身が無い画面をうっかり公開しないよう確認
+      if (!viewHasContent(view, latestEventData || {})) {
+        if (!confirm(`「${VIEW_LABEL[view] || 'この画面'}」はまだ内容が入力されていません。このまま参加者に表示しますか？`)) return;
+      }
+      try {
+        await updateDoc(doc(db, 'events', eventId), { activeView: view });
+        showToast('参加者に表示しました');
+      } catch (e) { console.error('publishView error:', e); showToast('切り替えに失敗しました'); }
+    }
+    // ホストの現在ページに応じて公開ボタンを出し分け（公開中なら押下不可表示）
+    function updatePublishBar(view, data) {
+      const bar = document.getElementById('publishBar');
+      const btn = document.getElementById('publishViewBtn');
+      if (!bar || !btn) return;
+      if (!isHost || !PUBLISHABLE.includes(view)) { bar.style.display = 'none'; return; }
+      bar.style.display = 'block';
+      const isLive = deriveView(data || {}) === view;
+      btn.textContent = isLive ? '参加者に表示中' : 'この画面を参加者に表示';
+      btn.disabled = isLive;
+      btn.dataset.view = view;
+    }
+    document.getElementById('publishViewBtn')?.addEventListener('click', () => {
+      const btn = document.getElementById('publishViewBtn');
+      if (btn && btn.dataset.view) publishView(btn.dataset.view);
+    });
 
-      // タイトル表示
-      document.getElementById('viewTitle').textContent = data.name;
+    // お店検索ページ：選んだ店（名前/URL）を会場(venue.shop)に保存。Function が venue.preview を補完。
+    document.getElementById('gourmetSaveVenueBtn')?.addEventListener('click', async () => {
+      if (!isHost) return;
+      const val = (document.getElementById('gourmetShopInput')?.value || '').trim();
+      if (!val) { showToast('お店の名前かURLを入力してください'); return; }
+      try { await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val }); showToast('🏠 会場を保存しました'); }
+      catch (e) { console.error('gourmet venue save error:', e); showToast('保存に失敗しました'); }
+    });
 
-      // メモ表示
+    // view ごとに描画を振り分ける
+    function renderEventView(view, data) {
+      const titleEl = document.getElementById('viewTitle');
+      if (titleEl && titleEl.tagName !== 'INPUT') titleEl.textContent = data.name || '';
+      switch (view) {
+        case 'schedule':
+        case 'scheduleCreate': renderScheduleView(data, view); break;
+        case 'walica':   renderWalicaBoard(data); break;
+        case 'seating':  renderSeatingBoard(data); break;
+        case 'settle':   renderSettleView(data); break;
+        case 'announce': renderAnnounceView(data); break;
+        case 'gourmet':  break; // Tabel iframe（ホスト作業のみ）
+        default:         renderScheduleView(data, 'schedule');
+      }
+    }
+
+    // 日程調整（投票）ページ：メモ／お店／カレンダーボタン／投票表を毎スナップショット更新。
+    function renderScheduleView(data, view) {
       const memoEl = document.getElementById('eventMemoView');
       const memoWrap = document.getElementById('memoWrap');
       const addMemoWrap = document.getElementById('addMemoWrap');
       if (data.memo) {
-        memoEl.textContent = data.memo;
-        memoWrap.style.display = 'block';
+        if (memoEl) memoEl.textContent = data.memo;
+        if (memoWrap) memoWrap.style.display = 'block';
         if (addMemoWrap) addMemoWrap.style.display = 'none';
       } else {
-        memoWrap.style.display = 'none';
+        if (memoWrap) memoWrap.style.display = 'none';
         if (isHost && addMemoWrap) addMemoWrap.style.display = 'block';
       }
-
-      // お店・行き方
-      renderVenue(data.venue || {});
-
-      const settleOnly = !!data.settleOnly;
-
-      if (settleOnly) {
-        // 精算のみ：ホスト用ツール（メンバー編集等）は精算画面に集約するため viewCard には描画しない
-        if (!isHost) {
-          document.getElementById('tableWrap').innerHTML = data.settlePublished
-            ? '<p class="empty-msg">下の「精算を確認する」から精算を表示できます。</p>'
-            : '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
-        }
+      const legendEl = document.getElementById('voteLegend');
+      const prepMode = (view === 'scheduleCreate' && !isHost); // 参加者：準備中
+      if (legendEl) legendEl.style.display = prepMode ? 'none' : '';
+      if (prepMode) {
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">日程調整の準備中です。しばらくお待ちください。</p>';
       } else {
         renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
       }
-
-      // 確定後：Googleカレンダー追加ボタン（日程調整のみ・ホスト/参加者両方）。
-      // 実際のURLは押下時に最新情報から生成する。
       const calBtn = document.getElementById('addCalendarBtn');
-      if (calBtn) calBtn.style.display = (!settleOnly && data.confirmedDate != null) ? 'flex' : 'none';
+      if (calBtn) calBtn.style.display = (data.confirmedDate != null) ? 'flex' : 'none';
+    }
 
-      // 精算のみモード：日程調整用UIを隠す
+    // 精算ページ：既存 openSettlePage を初回のみ開き（ホスト入力の巻き戻し防止）、支払済みをライブ同期。
+    function renderSettleView(data) {
       const legendEl = document.getElementById('voteLegend');
-      if (legendEl) legendEl.style.display = settleOnly ? 'none' : '';
-      const goSettleBtn = document.getElementById('goSettleBtn');
-      if (goSettleBtn) goSettleBtn.textContent = settleOnly ? '精算画面を開く' : '会が終了したので精算に進む';
-      const addMemoWrapEl = document.getElementById('addMemoWrap');
-      if (addMemoWrapEl && settleOnly) addMemoWrapEl.style.display = 'none';
-      // 精算のみ：集合・お店（日程調整向けUI）は非表示。
-      // 通知設定・共同ホスト管理・参加者用URLはホストに表示する。
-      if (settleOnly) {
-        ['venueWrap','venueEdit'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.style.display = 'none';
-        });
-        if (isHost) {
-          ['participantUrlWrap','notifyWrap','coHostWrap'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = 'block';
-          });
-        }
-      }
-
-      // 精算公開状態を反映（参加者向け）
-      if (!isHost) {
-        const viewWrap = document.getElementById('viewSettleWrap');
-        if (viewWrap) viewWrap.style.display = data.settlePublished ? 'block' : 'none';
-
-        // 公開された瞬間（false→true）に自動で精算ページを開く
-        if (data.settlePublished && !prevSettlePublished) {
-          openSettlePage(data, true);
-        }
-        prevSettlePublished = !!data.settlePublished;
-      }
-
-      // ホスト：精算のみ or 公開済みなら初回表示を精算画面にする（1回だけ／戻るボタンで回答画面へ）
-      if (isHost && (data.settlePublished || settleOnly) && !hostSettleAutoOpened) {
+      if (legendEl) legendEl.style.display = 'none';
+      const calBtn = document.getElementById('addCalendarBtn');
+      if (calBtn) calBtn.style.display = 'none';
+      if (!hostSettleAutoOpened) {
         hostSettleAutoOpened = true;
-        openSettlePage(data, false);
+        openSettlePage(data, !isHost);
       }
-
-      // 精算ページが開いていれば支払済み状態をリアルタイム同期
       if (document.getElementById('settleCard').style.display !== 'none') {
         const paid = data.settle?.paid || {};
         document.querySelectorAll('.paid-check').forEach(cb => {
@@ -2654,10 +2715,33 @@ body.gourmet-open #gFrame {
             if (row) row.classList.toggle('paid', paid[name]);
           }
         });
-        // 精算のみホスト：画面内のメンバー編集をライブ更新
-        if (settleOnly && isHost) renderSettleInlineMembers(data);
+        if (isHost) renderSettleInlineMembers(data);
       }
-    });
+    }
+
+    // お知らせページ：開催日＋集合・お店。参加者は閲覧、ホストは venueEdit で編集。
+    function renderAnnounceView(data) {
+      const dt = document.getElementById('announceDateText');
+      if (dt) dt.textContent = data.confirmedDate ? data.confirmedDate : '未確定';
+      renderVenue(data.venue || {});
+      const v = data.venue || {};
+      const hasVenue = !!((v.shop||'').trim() || (v.note||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim());
+      const empty = document.getElementById('announceEmpty');
+      if (empty) empty.style.display = hasVenue ? 'none' : 'block';
+      // ホスト入力欄に現在値を反映（フォーカス中は上書きしない）
+      const set = (id, val) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = val || ''; };
+      set('venueMeetTimeInput', v.meetTime);
+      set('venueMeetPlaceInput', v.meetPlace);
+      set('venueShopInput', v.shop);
+      set('venueNoteInput', v.note);
+      // ホストには参加者用URLを表示
+      const shareWrap = document.getElementById('announceShareWrap');
+      if (shareWrap) shareWrap.style.display = isHost ? 'block' : 'none';
+      const shareInput = document.getElementById('announceShareUrl');
+      if (shareInput) shareInput.value = `${location.origin}${location.pathname}?event=${eventId}`;
+    }
+    document.getElementById('copyAnnounceUrlBtn')?.addEventListener('click', () =>
+      copyText(document.getElementById('announceShareUrl').value, document.getElementById('copyAnnounceUrlBtn'), '参加者用URL'));
 
     // ── ホスト専用：タイトル編集（インライン） ──
     document.getElementById('editTitleBtn').addEventListener('click', () => {
@@ -4883,7 +4967,7 @@ body.gourmet-open #gFrame {
         hostTools.style.display = 'none';
       }
     } else {
-      if (backBtn) backBtn.style.display = '';
+      if (backBtn) backBtn.style.display = 'none'; // 統合ナビでは下部ナビで移動するため非表示
       if (hostTools) hostTools.style.display = 'none';
     }
 
@@ -4956,18 +5040,6 @@ body.gourmet-open #gFrame {
     renderSettle(settleNames, computedTotal, sPartyCount, sPartyAmounts, sPartyNames, sPartyPersonAmounts, settle.paid || {}, readOnly);
   }
 
-  // ホスト：精算ページへ
-  document.getElementById('goSettleBtn')?.addEventListener('click', async () => {
-    const snap = await getDoc(doc(db, 'events', eventId));
-    openSettlePage(snap.data(), false);
-  });
-
-  // 参加者：精算閲覧ページへ
-  document.getElementById('goViewSettleBtn')?.addEventListener('click', async () => {
-    const snap = await getDoc(doc(db, 'events', eventId));
-    openSettlePage(snap.data(), true);
-  });
-
   document.getElementById('backToEventBtn')?.addEventListener('click', () => {
     document.getElementById('settleCard').style.display = 'none';
     document.getElementById('viewCard').style.display = 'block';
@@ -5023,7 +5095,8 @@ body.gourmet-open #gFrame {
     await updateDoc(doc(db, 'events', eventId), {
       settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
                 weights: settleWeights },
-      settlePublished: true
+      settlePublished: true,
+      activeView: 'settle'  // 参加者の表示画面も精算に切り替える（統合公開）
     });
     // 口座をアカウントに保存（次回から自動入力）
     const saveBank = document.getElementById('saveBankToProfile');
