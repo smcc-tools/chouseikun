@@ -2713,8 +2713,13 @@ body.gourmet-open #gFrame {
         if (isHost && addMemoWrap) addMemoWrap.style.display = 'block';
       }
       const legendEl = document.getElementById('voteLegend');
-      if (legendEl) legendEl.style.display = '';
-      renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
+      const prepMode = (view === 'scheduleCreate' && !isHost); // 参加者：準備中
+      if (legendEl) legendEl.style.display = prepMode ? 'none' : '';
+      if (prepMode) {
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">日程調整の準備中です。しばらくお待ちください。</p>';
+      } else {
+        renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
+      }
       const calBtn = document.getElementById('addCalendarBtn');
       if (calBtn) calBtn.style.display = (data.confirmedDate != null) ? 'flex' : 'none';
     }
