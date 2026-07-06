@@ -1794,6 +1794,7 @@ body.gourmet-open #gFrame {
     window.scrollTo(0, 0);
   }
   function goToSettleSetup() {
+    hubParentEventId = null; // メニューから単体起動する場合は親イベントなし
     hideOtherSetupCards('settleSetupCard');
     document.getElementById('settleSetupCard').style.display = 'block';
     const nameEl = document.getElementById('settleName'); if (nameEl) nameEl.value = '';
@@ -1802,6 +1803,7 @@ body.gourmet-open #gFrame {
     window.scrollTo(0, 0);
   }
   function goToWalicaSetup() {
+    hubParentEventId = null; // メニューから単体起動する場合は親イベントなし
     hideOtherSetupCards('walicaSetupCard');
     document.getElementById('walicaSetupCard').style.display = 'block';
     const nameEl = document.getElementById('walicaName'); if (nameEl) nameEl.value = '';
@@ -1811,6 +1813,7 @@ body.gourmet-open #gFrame {
     window.scrollTo(0, 0);
   }
   function goToSeatingSetup() {
+    hubParentEventId = null; // メニューから単体起動する場合は親イベントなし
     hideOtherSetupCards('seatingSetupCard');
     document.getElementById('seatingSetupCard').style.display = 'block';
     const nameEl = document.getElementById('seatingName'); if (nameEl) nameEl.value = '';
@@ -1837,6 +1840,30 @@ body.gourmet-open #gFrame {
       f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
     }
     window.scrollTo(0, 0);
+  }
+
+  // イベントハブから各ツールを起動（参加者を投入し、parentEventId をセット）
+  // participants は既存の取り込み処理(loadScheduleEventsForImport等)と同じ「メンバー名の配列」を渡す。
+  function launchFromEvent(tool, eventId, participants) {
+    const names = (participants || []).slice();
+    if (tool === 'settle') {
+      goToSettleSetup();
+      settleDraftMembers = names.slice();
+      renderSettleDraft();
+      hubParentEventId = eventId;
+    } else if (tool === 'walica') {
+      goToWalicaSetup();
+      walicaDraftMembers = names.slice();
+      renderWalicaDraft();
+      hubParentEventId = eventId;
+    } else if (tool === 'seating') {
+      goToSeatingSetup();
+      seatingDraftMembers = names.slice();
+      renderSeatingDraft();
+      hubParentEventId = eventId;
+    } else if (tool === 'gourmet') {
+      goToGourmet(); // 保存なし・parentEventIdなし
+    }
   }
 
   // ── Tabel(お店検索)への自動ログイン連携（同一Firebaseプロジェクト chouseikun-tabel） ──
