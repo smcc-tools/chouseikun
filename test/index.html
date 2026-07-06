@@ -745,8 +745,6 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
 
 /* ── イベントハブ（紐付く記録） ── */
-.hub-link { display:block; padding:10px 12px; margin-top:6px; border:1px solid var(--border); border-radius:10px; color:var(--text); text-decoration:none; font-size:.9rem; }
-.hub-link:hover { background: var(--green-light); }
 .back-to-menu {
   background: none; border: none; color: var(--text-muted); font-size: 0.82rem; cursor: pointer;
   padding: 4px 0; margin-bottom: 6px; font-weight: 600;
@@ -1210,18 +1208,6 @@ body.gourmet-open #gFrame {
     </div>
   </div>
 
-  <!-- イベントハブ：この日程調整イベントから精算・割り勘・座席決め・お店検索を起動、紐付く記録を一覧表示（ホストのみ） -->
-  <div id="eventHub" style="display:none;margin-top:16px;">
-    <div class="card-title" style="font-size:1rem;">この会でできること</div>
-    <div class="menu-grid" style="grid-template-columns:repeat(4,1fr);gap:8px;">
-      <button type="button" class="menu-tile" id="hubSettle" style="padding:14px 6px;"><div class="mt-title" style="font-size:.82rem;">精算する</div></button>
-      <button type="button" class="menu-tile" id="hubWalica" style="padding:14px 6px;"><div class="mt-title" style="font-size:.82rem;">割り勘</div></button>
-      <button type="button" class="menu-tile" id="hubSeating" style="padding:14px 6px;"><div class="mt-title" style="font-size:.82rem;">座席決め</div></button>
-      <button type="button" class="menu-tile" id="hubGourmet" style="padding:14px 6px;"><div class="mt-title" style="font-size:.82rem;">お店検索</div></button>
-    </div>
-    <div class="card-title" style="font-size:1rem;margin-top:14px;">この会に紐付く記録</div>
-    <div id="hubLinked"></div>
-  </div>
 
 </div>
 
@@ -1444,7 +1430,7 @@ body.gourmet-open #gFrame {
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, query, where } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
   import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
 
@@ -1490,7 +1476,6 @@ body.gourmet-open #gFrame {
   const db = getFirestore(app);
   const auth = getAuth(app);
   let currentUser = null;
-  let hubParentEventId = null;  // イベントハブから起動した場合の親(schedule)イベントID。単体起動時は null。
   let messaging = null;
   isMessagingSupported().then(ok => { if (ok) { messaging = getMessaging(app); initForegroundMessages(); } }).catch(() => {});
 
@@ -1811,7 +1796,6 @@ body.gourmet-open #gFrame {
     window.scrollTo(0, 0);
   }
   function goToSettleSetup() {
-    hubParentEventId = null; // メニューから単体起動する場合は親イベントなし
     hideOtherSetupCards('settleSetupCard');
     document.getElementById('settleSetupCard').style.display = 'block';
     const nameEl = document.getElementById('settleName'); if (nameEl) nameEl.value = '';
@@ -1820,7 +1804,6 @@ body.gourmet-open #gFrame {
     window.scrollTo(0, 0);
   }
   function goToWalicaSetup() {
-    hubParentEventId = null; // メニューから単体起動する場合は親イベントなし
     hideOtherSetupCards('walicaSetupCard');
     document.getElementById('walicaSetupCard').style.display = 'block';
     const nameEl = document.getElementById('walicaName'); if (nameEl) nameEl.value = '';
@@ -1830,7 +1813,6 @@ body.gourmet-open #gFrame {
     window.scrollTo(0, 0);
   }
   function goToSeatingSetup() {
-    hubParentEventId = null; // メニューから単体起動する場合は親イベントなし
     hideOtherSetupCards('seatingSetupCard');
     document.getElementById('seatingSetupCard').style.display = 'block';
     const nameEl = document.getElementById('seatingName'); if (nameEl) nameEl.value = '';
@@ -1859,68 +1841,6 @@ body.gourmet-open #gFrame {
     window.scrollTo(0, 0);
   }
 
-  // イベントハブから各ツールを起動（参加者を投入し、parentEventId をセット）
-  // participants は既存の取り込み処理(loadScheduleEventsForImport等)と同じ「メンバー名の配列」を渡す。
-  function launchFromEvent(tool, eventId, participants) {
-    const names = (participants || []).slice();
-    if (tool === 'settle') {
-      goToSettleSetup();
-      settleDraftMembers = names.slice();
-      renderSettleDraft();
-      hubParentEventId = eventId;
-    } else if (tool === 'walica') {
-      goToWalicaSetup();
-      walicaDraftMembers = names.slice();
-      renderWalicaDraft();
-      hubParentEventId = eventId;
-    } else if (tool === 'seating') {
-      goToSeatingSetup();
-      seatingDraftMembers = names.slice();
-      renderSeatingDraft();
-      hubParentEventId = eventId;
-    } else if (tool === 'gourmet') {
-      goToGourmet(); // 保存なし・parentEventIdなし
-    }
-  }
-
-  // イベントハブ：日程調整イベント（ホスト表示時）に「この会でできること」ボタン群と
-  // 「この会に紐付く記録」一覧を表示する。type種別は walica/seating/settleOnly フラグから判定。
-  const HUB_LINK_LABEL = { walica: '割り勘', seating: '座席決め', settle: '精算' };
-  async function renderEventHub(event, hostEventId) {
-    const hub = document.getElementById('eventHub');
-    if (!hub) return;
-    const isSchedule = !!event && !event.walica && !event.seating && !event.settleOnly;
-    const isHostView = !!(currentUser && Array.isArray(event?.ownerUids) && event.ownerUids.includes(currentUser.uid));
-    if (!event || !isSchedule || !isHostView) {
-      hub.style.display = 'none';
-      return;
-    }
-    hub.style.display = 'block';
-
-    const parts = (Array.isArray(event.participantOrder) && event.participantOrder.length)
-      ? event.participantOrder.slice()
-      : Object.keys(event.participants || {});
-
-    document.getElementById('hubSettle').onclick  = () => launchFromEvent('settle',  hostEventId, parts);
-    document.getElementById('hubWalica').onclick  = () => launchFromEvent('walica',  hostEventId, parts);
-    document.getElementById('hubSeating').onclick = () => launchFromEvent('seating', hostEventId, parts);
-    document.getElementById('hubGourmet').onclick = () => launchFromEvent('gourmet', hostEventId, parts);
-
-    const linkedWrap = document.getElementById('hubLinked');
-    let linked = [];
-    try {
-      const snap = await getDocs(query(collection(db, 'events'), where('parentEventId', '==', hostEventId)));
-      linked = snap.docs.map(d => {
-        const data = d.data();
-        const type = data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule'));
-        return { id: d.id, name: data.name || '(無題)', type };
-      });
-    } catch (e) { console.error('hub linked fetch error:', e); }
-
-    linkedWrap.innerHTML = linked.length
-      ? linked.map(e => `<a class="hub-link" href="?event=${encodeURIComponent(e.id)}">${HUB_LINK_LABEL[e.type] || ''}：${escHtml(e.name)}</a>`).join('')
-      : '<p class="empty-msg" style="font-size:.82rem;padding:16px;">まだありません。上のボタンから作成できます。</p>';
-  }
 
   // ── Tabel(お店検索)への自動ログイン連携（同一Firebaseプロジェクト chouseikun-tabel） ──
   // 調整くんでGoogleログイン済みなら、Tabel iframe に IDトークンを渡して同一アカウントで自動ログインさせる。
@@ -2074,44 +1994,6 @@ body.gourmet-open #gFrame {
     await setDoc(ref, { name, host: isHostEvent, createdAt: Date.now() }, { merge: true });
   }
 
-  let settleMigrationRan = false;
-  // 旧・日程調整イベントに組み込まれていた精算(settle)を、紐付き精算レコード(settleOnly)へ一度だけ移行する。冪等。
-  async function migrateEmbeddedSettles() {
-    if (!currentUser || settleMigrationRan) return;
-    settleMigrationRan = true;
-    let snap;
-    try { snap = await getDocs(userEventsRef(currentUser.uid)); }
-    catch (e) { settleMigrationRan = false; console.error('migrate: list failed', e); return; }
-    for (const b of snap.docs) {
-      let ev;
-      try {
-        const evSnap = await getDoc(doc(db, 'events', b.id));
-        if (!evSnap.exists()) continue;
-        ev = evSnap.data();
-      } catch { continue; }
-      const isSchedule = !ev.walica && !ev.seating && !ev.settleOnly;
-      const hasSettle  = ev.settle && typeof ev.settle === 'object' && Object.keys(ev.settle).length > 0;
-      const isOwner    = Array.isArray(ev.ownerUids) && ev.ownerUids.includes(currentUser.uid);
-      if (!isSchedule || !hasSettle || ev.settleMigrated || !isOwner) continue;
-      try {
-        const newId = randomId(16);
-        const name  = ev.name ? `${ev.name}の精算` : '精算';
-        await setDoc(doc(db, 'events', newId), {
-          name, dates: [], memo: '',
-          participants: ev.participants || {},
-          participantOrder: Array.isArray(ev.participantOrder) ? ev.participantOrder : Object.keys(ev.participants || {}),
-          ownerUids: [currentUser.uid],
-          confirmedDate: null,
-          settleOnly: true,
-          parentEventId: b.id,
-          settle: ev.settle,
-          ...(ev.settlePublished ? { settlePublished: true } : {}),
-        });
-        await addMyEvent(newId, name, true);
-        await setDoc(doc(db, 'events', b.id), { settleMigrated: true }, { merge: true });
-      } catch (e) { console.error('migrate: record failed', b.id, e); }
-    }
-  }
 
   async function removeMyEvent(eventId) {
     if (!currentUser) return;
@@ -2305,7 +2187,6 @@ body.gourmet-open #gFrame {
       document.getElementById('authAvatar').style.display = user.photoURL ? 'block' : 'none';
       // Tabel iframe が既に開いていれば、この時点でログイン情報を引き継ぐ
       pushAuthToTabel();
-      await migrateEmbeddedSettles();
     } else {
       // 未ログイン
       signInBtn.style.display  = 'flex';
@@ -2480,7 +2361,6 @@ body.gourmet-open #gFrame {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, settleOnly: true,
-        ...(hubParentEventId ? { parentEventId: hubParentEventId } : {}),
       });
       addMyEvent(evId, name, true);
       // 作成したイベントを開く（精算画面へ）
@@ -2523,7 +2403,6 @@ body.gourmet-open #gFrame {
         name, dates: [], memo: '', participants,
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, walica: true, expenses: [],
-        ...(hubParentEventId ? { parentEventId: hubParentEventId } : {}),
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2573,7 +2452,6 @@ body.gourmet-open #gFrame {
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, seating: true,
         seatTags: {}, seatParties,
-        ...(hubParentEventId ? { parentEventId: hubParentEventId } : {}),
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2664,7 +2542,6 @@ body.gourmet-open #gFrame {
       currentParticipantOrder = data.participantOrder || [];
 
       evaluateHost(data);
-      renderEventHub(data, eventId);
 
       // 立替・割り勘：専用ボードを表示して以降の日程/精算UIはスキップ
       if (data.walica) {
