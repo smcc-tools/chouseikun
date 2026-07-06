@@ -2593,8 +2593,24 @@ body.gourmet-open #gFrame {
     // 「参加者に表示」＝ activeView を公開。scheduleCreate/gourmet は公開しない。
     // 精算は settle カード内の「保存して参加者に表示」ボタンが公開を担う（activeView＋settlePublished）ため除外。
     const PUBLISHABLE = ['schedule','announce','seating','walica'];
+    // その画面に参加者へ見せる中身があるか（誤って空の画面を公開しないための判定）
+    function viewHasContent(view, data) {
+      const v = data.venue || {};
+      switch (view) {
+        case 'schedule':  return Array.isArray(data.dates) && data.dates.length > 0;
+        case 'announce':  return !!((v.shop||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim() || (v.note||'').trim() || data.confirmedDate != null);
+        case 'walica':    return Array.isArray(data.expenses) && data.expenses.length > 0;
+        case 'seating':   return Array.isArray(data.seatParties) && data.seatParties.some(p => Array.isArray(p.tables) && p.tables.length > 0);
+        default:          return true;
+      }
+    }
+    const VIEW_LABEL = { schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘' };
     async function publishView(view) {
       if (!isHost || !PUBLISHABLE.includes(view)) return;
+      // 中身が無い画面をうっかり公開しないよう確認
+      if (!viewHasContent(view, latestEventData || {})) {
+        if (!confirm(`「${VIEW_LABEL[view] || 'この画面'}」はまだ内容が入力されていません。このまま参加者に表示しますか？`)) return;
+      }
       try {
         await updateDoc(doc(db, 'events', eventId), { activeView: view });
         showToast('参加者に表示しました');
