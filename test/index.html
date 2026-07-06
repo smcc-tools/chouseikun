@@ -744,9 +744,14 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tile .mt-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; font-weight: 400; }
 .menu-tile.soon { opacity: 0.55; cursor: default; border-style: dashed; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
-.hostnav-btn { border:none;background:none;padding:8px 2px;font-size:.72rem;color:var(--text-muted);cursor:pointer;border-top:2px solid transparent; }
-.hostnav-btn.active { color:var(--green);border-top-color:var(--green);font-weight:700; }
-body.has-hostnav { padding-bottom:56px; }
+.hostnav-btn { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;padding:7px 0 6px;min-height:56px;color:var(--text-muted);cursor:pointer;border-top:2.5px solid transparent;transition:color .15s,background .15s; }
+.hostnav-btn .hn-ico { font-size:1.2rem;line-height:1; }
+.hostnav-btn .hn-lbl { font-size:0.63rem;font-weight:600;letter-spacing:-0.02em;white-space:nowrap; }
+.hostnav-btn:hover { background:var(--green-light); }
+.hostnav-btn.active { color:var(--green);border-top-color:var(--green);background:var(--green-light); }
+.hostnav-btn.active .hn-lbl { font-weight:700; }
+body.has-hostnav { padding-bottom:64px; }
+@media (max-width:360px){ .hostnav-btn .hn-lbl { font-size:0.58rem; } .hostnav-btn .hn-ico { font-size:1.05rem; } }
 
 /* ── イベントハブ（紐付く記録） ── */
 .back-to-menu {
@@ -1427,21 +1432,21 @@ body.gourmet-open #gFrame {
   </div>
 </div>
 
-<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:56px;z-index:49;pointer-events:none;">
+<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:64px;z-index:49;pointer-events:none;">
   <div style="max-width:760px;margin:0 auto;padding:8px 14px;text-align:center;">
     <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(45,66,40,0.25);">この画面を参加者に表示</button>
   </div>
 </div>
 
-<nav id="hostNav" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:1px solid var(--border);">
+<nav id="hostNav" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:1px solid var(--border);box-shadow:0 -2px 12px rgba(45,66,40,0.08);">
   <div style="max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(7,1fr);">
-    <button type="button" class="hostnav-btn" data-view="scheduleCreate">作成</button>
-    <button type="button" class="hostnav-btn" data-view="schedule">日程</button>
-    <button type="button" class="hostnav-btn" data-view="gourmet">お店</button>
-    <button type="button" class="hostnav-btn" data-view="announce">お知らせ</button>
-    <button type="button" class="hostnav-btn" data-view="seating">座席</button>
-    <button type="button" class="hostnav-btn" data-view="walica">割り勘</button>
-    <button type="button" class="hostnav-btn" data-view="settle">精算</button>
+    <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-ico">✏️</span><span class="hn-lbl">作成</span></button>
+    <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-ico">📅</span><span class="hn-lbl">日程</span></button>
+    <button type="button" class="hostnav-btn" data-view="gourmet"><span class="hn-ico">🍽️</span><span class="hn-lbl">お店</span></button>
+    <button type="button" class="hostnav-btn" data-view="announce"><span class="hn-ico">📣</span><span class="hn-lbl">お知らせ</span></button>
+    <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-ico">💺</span><span class="hn-lbl">座席</span></button>
+    <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-ico">💴</span><span class="hn-lbl">割り勘</span></button>
+    <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-ico">🧾</span><span class="hn-lbl">精算</span></button>
   </div>
 </nav>
 
