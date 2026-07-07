@@ -3135,6 +3135,7 @@ body.gourmet-open #gFrame {
             const sel = td.querySelector('.vote-btn.selected');
             let disp = td.querySelector('.vote-display');
             if (!disp) { disp = document.createElement('span'); disp.className = 'vote-display'; td.insertBefore(disp, td.firstChild); }
+            disp.style.display = ''; // 編集モードで display:none にした表示を戻す（マークが消えるバグ修正）
             if (sel) {
               disp.className = `vote-display vote-display-${sel.dataset.key}`;
               disp.textContent = labelMap[sel.dataset.key];
@@ -3145,6 +3146,7 @@ body.gourmet-open #gFrame {
           });
           delBtn.classList.remove('visible');
           showToast('変更を保存しました');
+          if (rerenderCurrentEvent) rerenderCurrentEvent(); // 最新データで再描画（同値保存でも◯△✕が消えないように）
         } else {
           // 編集モード開始：投票ボタンを出す。保存は下部の「登録する」で行う（上部の「完了」は廃止）
           btn.classList.add('editing');
