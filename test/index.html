@@ -3107,6 +3107,7 @@ body.gourmet-open #gFrame {
           }
           btn.classList.remove('editing');
           btn.textContent = '変更・削除';
+          btn.style.display = '';
           cells.forEach(td => {
             td.classList.add('locked');
             // ボタンを隠して表示ラベルを出す
@@ -3127,9 +3128,11 @@ body.gourmet-open #gFrame {
           delBtn.classList.remove('visible');
           showToast('変更を保存しました');
         } else {
-          // 編集モード開始：表示ラベルを隠してボタンを出す
+          // 編集モード開始：投票ボタンを出す。保存は下部の「登録する」で行う（上部の「完了」は廃止）
           btn.classList.add('editing');
-          btn.textContent = '完了';
+          btn.style.display = 'none'; // 上部の完了ボタンは出さない
+          const regBtn = wrap.querySelector(`.edit-register-btn[data-name="${CSS.escape(name)}"]`);
+          if (regBtn) regBtn.style.display = '';
           cells.forEach(td => {
             td.classList.remove('locked');
             td.querySelectorAll('.vote-display, .vote-display-empty').forEach(el => el.style.display = 'none');
@@ -4323,9 +4326,17 @@ body.gourmet-open #gFrame {
     // 各列の登録ボタン行（未登録＝全日未入力の参加者のみ表示。1日でも回答済みなら何も表示しない）
     const registerCells = allEntries.map(([name, votes]) => {
       const answeredCount = dates.filter((_, di) => votes[di]).length;
-      if (answeredCount > 0) return `<td></td>`; // 登録済み（全日回答済み含む）→ 非表示
-      return `<td style="text-align:center;padding:4px 6px;background:var(--green-light);">
-          <button class="register-btn preset-register-btn" data-name="${escHtml(name)}">登録する</button>
+      const total = dates.length;
+      if (answeredCount === 0) {
+        // 未登録（全日未入力）：新規登録ボタン
+        return `<td style="text-align:center;padding:4px 6px;background:var(--green-light);">
+            <button class="register-btn preset-register-btn" data-name="${escHtml(name)}">登録する</button>
+           </td>`;
+      }
+      // 登録済み：編集時に押す「登録する」。未回答の日程が残る場合（ホストの日程追加後など）は最初から活性表示。
+      const incomplete = answeredCount < total;
+      return `<td style="text-align:center;padding:4px 6px;${incomplete ? 'background:var(--green-light);' : ''}">
+          <button class="register-btn edit-register-btn" data-name="${escHtml(name)}"${incomplete ? '' : ' style="display:none;"'}>登録する</button>
          </td>`;
     }).join('');
     const registerRow = `<tr>
@@ -4490,6 +4501,15 @@ body.gourmet-open #gFrame {
         });
         await updateDoc(doc(db, 'events', eventId), updates);
         showToast(`${name} さんの回答を登録しました`);
+      });
+    });
+
+    // 登録済み参加者の編集用「登録する」：1回目で編集モード開始、回答変更後にもう一度押すと保存（上部「完了」の代替）
+    wrap.querySelectorAll('.edit-register-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        const editBtn = wrap.querySelector(`.edit-btn[data-name="${CSS.escape(name)}"]`);
+        if (editBtn) editBtn.click(); // 未編集→編集モード開始 / 編集中→保存（既存ロジックを流用）
       });
     });
 
