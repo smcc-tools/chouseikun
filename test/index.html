@@ -4519,6 +4519,7 @@ body.gourmet-open #gFrame {
         });
         await updateDoc(doc(db, 'events', eventId), updates);
         showToast(`${name} さんの回答を登録しました`);
+        if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画（列がブランクにならないように）
       });
     });
 
@@ -4552,24 +4553,27 @@ body.gourmet-open #gFrame {
           const sel = wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`);
           votes[i] = sel ? sel.dataset.key : '';
         });
+        // 重複名チェック（正規化・最新データで判定）
+        const existingP = (latestEventData && latestEventData.participants) || {};
+        if (Object.keys(existingP).some(n => normalizeName(n) === normalizeName(rawName))) {
+          showToast('同じ名前が既に登録されています');
+          return;
+        }
         // 登録成功による再描画で新規入力列を空にリセット（前の入力を引き継がない）
         resetNewEntry = true;
-        // トランザクションで重複名チェックと書き込みを原子的に行う
+        // updateDoc（楽観的更新）で即座に列へ反映。participantOrder にも追加して並び順を確定
+        // （runTransaction だとサーバ往復まで反映されず、リロードまで列がブランクになるため）。
+        const newOrder = [...((latestEventData && latestEventData.participantOrder) || []), rawName];
         try {
-          await runTransaction(db, async (tx) => {
-            const ref = doc(db, 'events', eventId);
-            const fresh = await tx.get(ref);
-            const existing = fresh.data().participants || {};
-            if (Object.keys(existing).some(n => normalizeName(n) === normalizeName(rawName))) {
-              throw new Error('DUP');
-            }
-            tx.update(ref, { [`participants.${rawName}`]: votes });
+          await updateDoc(doc(db, 'events', eventId), {
+            [`participants.${rawName}`]: votes,
+            participantOrder: newOrder,
           });
           showToast(`${rawName} さんの回答を登録しました`);
+          if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画
         } catch (e) {
           resetNewEntry = false; // 失敗時は入力を維持
-          if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
-          else { showToast('登録に失敗しました'); console.error(e); }
+          showToast('登録に失敗しました'); console.error(e);
         }
       });
     }
