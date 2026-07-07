@@ -1073,6 +1073,10 @@ body.gourmet-open #gFrame {
     <label>タイトル</label>
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
   </div>
+  <div class="field">
+    <label>開催日（任意）</label>
+    <input type="text" id="announceCreateDate" placeholder="例：1月15日(木) 19:00">
+  </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
 </div>
 
@@ -1471,7 +1475,8 @@ body.gourmet-open #gFrame {
 
   <!-- ホスト専用：お店・行き方の入力 -->
   <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">集合・お店を設定（保存後に「参加者に表示」で公開）</div>
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">開催日・集合・お店を設定（保存後に「参加者に表示」で公開）</div>
+    <input type="text" id="announceEventDateInput" placeholder="開催日（例：1月15日(木)）" style="margin-bottom:8px;">
     <div style="display:flex;gap:8px;margin-bottom:8px;">
       <input type="text" id="venueMeetTimeInput" placeholder="集合時間（例：19:00）" style="flex:1;margin-bottom:0;">
       <input type="text" id="venueMeetPlaceInput" placeholder="集合場所（例：○○駅 改札前）" style="flex:2;margin-bottom:0;">
@@ -1898,6 +1903,7 @@ body.gourmet-open #gFrame {
     hideOtherSetupCards('announceSetupCard');
     document.getElementById('announceSetupCard').style.display = 'block';
     const nameEl = document.getElementById('announceName'); if (nameEl) nameEl.value = '';
+    const dateEl = document.getElementById('announceCreateDate'); if (dateEl) dateEl.value = '';
     window.scrollTo(0, 0);
   }
 
@@ -2335,6 +2341,7 @@ body.gourmet-open #gFrame {
   // お知らせを作成（日程調整なし・集合/お店のみ）
   document.getElementById('createAnnounceBtn')?.addEventListener('click', async () => {
     const name = (document.getElementById('announceName')?.value || '').trim();
+    const eventDate = (document.getElementById('announceCreateDate')?.value || '').trim();
     if (!name) { showToast('タイトルを入力してください'); return; }
     if (!currentUser) { showToast('作成にはログインが必要です'); await signIn(); return; }
     const btn = document.getElementById('createAnnounceBtn');
@@ -2344,7 +2351,7 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants: {},
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: [], activeView: 'announce',
+        participantOrder: [], activeView: 'announce', eventDate,
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2609,7 +2616,7 @@ body.gourmet-open #gFrame {
       const v = data.venue || {};
       switch (view) {
         case 'schedule':  return Array.isArray(data.dates) && data.dates.length > 0;
-        case 'announce':  return !!((v.shop||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim() || (v.note||'').trim() || data.confirmedDate != null);
+        case 'announce':  return !!((v.shop||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim() || (v.note||'').trim() || (data.eventDate||'').trim() || data.confirmedDate != null);
         case 'walica':    return Array.isArray(data.expenses) && data.expenses.length > 0;
         case 'seating':   return Array.isArray(data.seatParties) && data.seatParties.some(p => Array.isArray(p.tables) && p.tables.length > 0);
         default:          return true;
@@ -2722,7 +2729,12 @@ body.gourmet-open #gFrame {
     // お知らせページ：開催日＋集合・お店。参加者は閲覧、ホストは venueEdit で編集。
     function renderAnnounceView(data) {
       const dt = document.getElementById('announceDateText');
-      if (dt) dt.textContent = data.confirmedDate ? data.confirmedDate : '未確定';
+      if (dt) {
+        // confirmedDate は dates 配列のインデックス。単体お知らせ用に eventDate(文字列) を優先。
+        const ci = data.confirmedDate;
+        const resolved = (ci != null && Array.isArray(data.dates) && data.dates[ci]) ? data.dates[ci] : '';
+        dt.textContent = (data.eventDate && String(data.eventDate).trim()) ? String(data.eventDate).trim() : (resolved || '未確定');
+      }
       renderVenue(data.venue || {});
       const v = data.venue || {};
       const hasVenue = !!((v.shop||'').trim() || (v.note||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim());
@@ -2734,6 +2746,7 @@ body.gourmet-open #gFrame {
       set('venueMeetPlaceInput', v.meetPlace);
       set('venueShopInput', v.shop);
       set('venueNoteInput', v.note);
+      set('announceEventDateInput', data.eventDate);
       // ホストには参加者用URLを表示
       const shareWrap = document.getElementById('announceShareWrap');
       if (shareWrap) shareWrap.style.display = isHost ? 'block' : 'none';
@@ -2842,11 +2855,13 @@ body.gourmet-open #gFrame {
       const note = (document.getElementById('venueNoteInput')?.value || '').trim();
       const meetTime = (document.getElementById('venueMeetTimeInput')?.value || '').trim();
       const meetPlace = (document.getElementById('venueMeetPlaceInput')?.value || '').trim();
+      const eventDate = (document.getElementById('announceEventDateInput')?.value || '').trim();
       try {
         // ドット記法でフィールドのみ更新（Functionが付与するvenue.previewを保持）
         await updateDoc(doc(db, 'events', eventId), {
           'venue.shop': shop, 'venue.note': note,
-          'venue.meetTime': meetTime, 'venue.meetPlace': meetPlace
+          'venue.meetTime': meetTime, 'venue.meetPlace': meetPlace,
+          eventDate: eventDate
         });
         showToast((shop || note || meetTime || meetPlace) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
       } catch (e) { showToast('保存に失敗しました'); console.error(e); }
