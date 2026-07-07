@@ -60,10 +60,12 @@ service cloud.firestore {
         && request.resource.data.settle.diff(resource.data.settle).affectedKeys().hasOnly(['paid']);
     }
 
-    // 立替・割り勘（walica:true）：リンクを開いた誰でも メンバー / 立替 を編集可。
+    // 立替・割り勘：リンクを開いた誰でも メンバー / 立替 を編集可。
+    // 旧イベント(walica:true)と統合イベント(activeView='walica')の両方を許可。
     // ホスト専用項目（name, ownerUids 等）は変更不可。
     function isWalicaWrite() {
-      return resource.data.walica == true
+      return (resource.data.walica == true
+              || (('activeView' in resource.data) && resource.data.activeView == 'walica'))
         && request.resource.data.diff(resource.data)
              .affectedKeys().hasOnly(['participants', 'participantOrder', 'expenses']);
     }
