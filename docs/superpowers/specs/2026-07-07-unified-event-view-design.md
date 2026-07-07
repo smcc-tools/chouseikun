@@ -41,7 +41,7 @@
 イベントは `events/{id}` の1ドキュメントに全画面のデータを内包できる：
 
 - スケジュール作成／日程調整：`dates`, `participants`, `confirmedDate`, `participantOrder`
-- お店検索／お知らせ：`venue{ url, preview{...} }`（既存の venue 構造。Cloud Function `fetchVenuePreview` が url 設定時に preview を補完）、`meetTime`（集合時間の文字列・新規）
+- お店検索／お知らせ：`venue{ shop, note, meetTime, meetPlace, preview{...} }`（既存の venue 構造を流用。集合時間＝`venue.meetTime`／集合場所＝`venue.meetPlace`／店（名称・住所・食べログURL）＝`venue.shop`／補足＝`venue.note`。**トップレベルの `meetTime` フィールドは作らず venue に集約**。Cloud Function `fetchVenuePreview` が店URL設定時に `venue.preview` を補完）
 - 座席決め：既存の座席データ構造（`parties[]` 等・実装に合わせる）
 - 割り勘：`expenses[]`
 - 精算：`settle{ ... }`, `settlePublished`
@@ -79,7 +79,7 @@ const view = data.activeView
   - スケジュール作成：候補日の追加・編集（既存の候補日編集UIを流用）。ボタン無し。
   - 日程調整：投票状況の確認・開催日決定。「参加者に表示」で投票を公開（`activeView='schedule'`）。
   - お店検索：Tabel 埋め込みで検索 → 選んだ店を `venue` に保存（url 保存で既存 `fetchVenuePreview` が preview を補完）。ボタン無し（参加者非公開）。
-  - お知らせ：集合時間 `meetTime` を入力。開催日（`confirmedDate`）と `venue` は自動反映。「参加者に表示」で公開（`activeView='announce'`）。
+  - お知らせ：集合時間 `venue.meetTime`・集合場所 `venue.meetPlace`・店 `venue.shop`・補足 `venue.note` を入力（venueEdit）。開催日（`confirmedDate`）と `venue.preview` は自動反映。「参加者に表示」で公開（`activeView='announce'`）。
   - 座席決め／割り勘／精算：既存の入力UIを同一イベント内で使用。各「参加者に表示」で公開。
 - 旧「この会でできること」＝子レコード起動ボタン、「この会に紐付く記録」一覧は撤去し、上記の ホスト作業タブ＋「参加者に表示」ボタン群に置き換える。
 
@@ -102,7 +102,7 @@ test 環境のみに存在する以下を撤去する（本番 root は未反映
 ### 6. Firestore ルール
 
 - `events` の `allow create`：`parentEventId` 許可は不要化。代わりに `activeView`（任意の許可文字列 or 未設定）の書込を許可。
-- `allow update`：`activeView` / `meetTime` / `venue` の変更はホスト本人（`isOwner()`）のみ。既存の参加者書込（投票 `isParticipantWrite` / 支払済み `isPaidToggle` / 立替 `isWalicaWrite` / 旧クレーム `isLegacyClaim`）の hasOnly ホワイトリストは不変（これらのホスト専用項目は含めない＝参加者は変更不可）。
+- `allow update`：`activeView` / `venue`（`venue.meetTime`・`venue.meetPlace`・`venue.shop` 等を含む）の変更はホスト本人（`isOwner()`）のみ。既存の参加者書込（投票 `isParticipantWrite` / 支払済み `isPaidToggle` / 立替 `isWalicaWrite` / 旧クレーム `isLegacyClaim`）の hasOnly ホワイトリストは不変（これらのホスト専用項目は含めない＝参加者は変更不可）。
 
 ### 7. 通知・共有
 
