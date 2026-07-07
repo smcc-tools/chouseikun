@@ -763,7 +763,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 body.has-hostnav { padding-bottom:80px; }
 /* お店検索を下部ナビ経由で開いた時、iframe が固定ナビに隠れないよう高さを詰める */
 body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360px !important; }
-@media (min-width:768px){ .hostnav-btn { font-size:0.82rem; padding:13px 4px; } #hostNav .hostnav-inner { gap:4px; padding:6px; } }
+@media (min-width:768px){
+  /* PC：ホストナビをヘッダー直下の上部横タブバーに（SPは下部ピルのまま） */
+  #hostNav { top:62px; bottom:auto; left:0; right:0; transform:none; width:100%; border-radius:0; border:none; border-bottom:1px solid var(--green-mid); box-shadow:0 3px 14px rgba(45,66,40,0.06); background:rgba(250,248,242,0.92); }
+  #hostNav .hostnav-inner { max-width:980px; margin:0 auto; gap:4px; padding:6px 12px; }
+  .hostnav-btn { font-size:0.82rem; padding:12px 4px; min-height:42px; border-radius:11px; }
+  body.has-hostnav { padding-bottom:0; }
+  body.has-hostnav .page { padding-top:74px; }
+  #publishBar { bottom:20px; }
+}
 @media (max-width:360px){ .hostnav-btn { font-size:0.66rem; letter-spacing:0; padding:11px 1px; } }
 
 /* ── イベントハブ（紐付く記録） ── */
