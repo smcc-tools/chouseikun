@@ -2165,16 +2165,31 @@ body.gourmet-open #gFrame {
       // Tabel iframe が既に開いていれば、この時点でログイン情報を引き継ぐ
       pushAuthToTabel();
     } else {
-      // 未ログイン
+      // 未ログイン：ホストUIをクリア（サインアウト時に .host-only や #hostNav が表示されたままにならないよう明示リセット）
       signInBtn.style.display  = 'flex';
       authUser.style.display   = 'none';
+      // I1修正：以前ホストだったUIがログアウト後も残る問題への対応
+      try {
+        isHost = false;
+        myEventSavedAsHost = null;
+        const hostBadge = document.getElementById('hostBadge'); if (hostBadge) hostBadge.style.display = 'none';
+        document.querySelectorAll('.host-only').forEach(el => el.style.display = 'none');
+        const nav = document.getElementById('hostNav'); if (nav) nav.style.display = 'none';
+        document.body.classList.remove('has-hostnav');
+        const bar = document.getElementById('publishBar'); if (bar) bar.style.display = 'none';
+        // Tabel iframe にもログアウトを伝播（I10修正）：セッション残存による他ユーザーの誤ログインを防ぐ
+        try {
+          const f = document.getElementById('gFrame');
+          if (f && f.contentWindow) f.contentWindow.postMessage({ type: 'chouseikun-signout' }, TABEL_ORIGIN);
+        } catch (_) {}
+      } catch (_) {}
     }
 
     // トップページのみマイイベントを再描画
     if (!new URLSearchParams(location.search).get('event')) {
       renderMyEvents();
     } else if (latestEventData) {
-      // イベントページでログイン後にホスト権限を再評価し、表示（ホストナビ/公開バー等）を作り直す
+      // イベントページで認証状態変化 → ホスト権限を再評価し、表示（ホストナビ/公開バー等）を作り直す
       await evaluateHost(latestEventData);
       if (rerenderCurrentEvent) rerenderCurrentEvent();
     }
@@ -2584,7 +2599,10 @@ body.gourmet-open #gFrame {
       const data = latestEventData;
       if (!data) return;
       const participantView = deriveView(data);
-      // ホストは作業画面(hostView)優先。未選択なら公開中の画面。参加者は常に公開中の画面。
+      // I3修正：ホストのhostViewは初回スナップショットで participantView に固定し、以降は自動追従しない。
+      // → 別タブのホストが公開画面を変更しても、このタブの作業画面が予期せず切り替わらない。
+      // ユーザーが明示的にナビ操作した時のみ setHostView で更新される。
+      if (isHost && hostView == null) hostView = participantView;
       const view = (isHost && hostView) ? hostView : participantView;
       // 精算：未公開なら参加者には見せない（従来の保護を維持）
       if (view === 'settle' && !isHost && !data.settlePublished) {
@@ -2608,7 +2626,8 @@ body.gourmet-open #gFrame {
     // ホストの下部ナビ：作業画面(hostView)を切り替える（activeView=公開は変えない）
     function setHostView(view) {
       hostView = view;
-      hostSettleAutoOpened = false; // 精算に入り直したら開き直す
+      // hostSettleAutoOpened は意図的にリセットしない：精算タブに戻った際、既に開いた精算フォームの入力
+      // （金額・口座・按分等）が再オープンで消失するのを防ぐ。既存のカードはshowEventPage後もDOM保持。
       showEventPage(view);
       if (latestEventData) renderEventView(view, latestEventData);
       syncHostNav(view);
@@ -2758,13 +2777,28 @@ body.gourmet-open #gFrame {
       const hasVenue = !!((v.shop||'').trim() || (v.note||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim());
       const empty = document.getElementById('announceEmpty');
       if (empty) empty.style.display = hasVenue ? 'none' : 'block';
-      // ホスト入力欄に現在値を反映（フォーカス中は上書きしない）
-      const set = (id, val) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = val || ''; };
+      // ホスト入力欄に現在値を反映：ユーザーが編集中（dirty）の欄は絶対に上書きしない
+      // → ホストが入力→未保存で「参加者に表示」等の操作でsnapshot発火しても入力が消えない
+      const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (document.activeElement === el) return;   // フォーカス中は触らない
+        if (el.dataset.dirty === '1') return;         // 未保存の編集がある
+        el.value = val || '';
+      };
       set('venueMeetTimeInput', v.meetTime);
       set('venueMeetPlaceInput', v.meetPlace);
       set('venueShopInput', v.shop);
       set('venueNoteInput', v.note);
       set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : '');
+      // dirty追跡：入力があった欄はdirty=1を立て、保存時にクリア（saveVenueBtnハンドラで解除）
+      ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueNoteInput','announceEventDateInput'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.dataset.dirtyBound) {
+          el.dataset.dirtyBound = '1';
+          el.addEventListener('input', () => { el.dataset.dirty = '1'; });
+        }
+      });
       // ホストには参加者用URLを表示
       const shareWrap = document.getElementById('announceShareWrap');
       if (shareWrap) shareWrap.style.display = isHost ? 'block' : 'none';
@@ -2876,12 +2910,19 @@ body.gourmet-open #gFrame {
       const eventDate = (document.getElementById('announceEventDateInput')?.value || '').trim();
       try {
         // ドット記法でフィールドのみ更新（Functionが付与するvenue.previewを保持）
-        await updateDoc(doc(db, 'events', eventId), {
+        const updates = {
           'venue.shop': shop, 'venue.note': note,
           'venue.meetTime': meetTime, 'venue.meetPlace': meetPlace,
-          eventDate: eventDate
+        };
+        // eventDate はホストが入力欄に値を入れた時だけ書込。空欄で保存しても既存の値（旧型式の
+        // 「1月15日(木)」等）を silent 消去しない（I2修正）。明示的にクリアしたい場合は将来ボタンで対応。
+        if (eventDate) updates.eventDate = eventDate;
+        await updateDoc(doc(db, 'events', eventId), updates);
+        // 保存成功したので dirty マークをクリア（以降のsnapshotで最新値を反映可能に）
+        ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueNoteInput','announceEventDateInput'].forEach(id => {
+          const el = document.getElementById(id); if (el) el.dataset.dirty = '';
         });
-        showToast((shop || note || meetTime || meetPlace) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
+        showToast((shop || note || meetTime || meetPlace || eventDate) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
       } catch (e) { showToast('保存に失敗しました'); console.error(e); }
     });
 
@@ -4389,7 +4430,8 @@ body.gourmet-open #gFrame {
       newName: skipNewEntry ? '' : (wrap.querySelector('#newName')?.value || ''),
       newNote: skipNewEntry ? '' : (wrap.querySelector('#newNote')?.value || ''),
       newVotes: {},      // dateIdx -> key  (新規入力列)
-      pendingVotes: {},  // name -> dateIdx -> key  (未登録の未回答セル)
+      pendingVotes: {},  // name -> dateIdx -> key  (未登録セル or 編集中セル)
+      editingRows: [],   // 編集モード中の参加者名（再描画後に再度edit-btn.click()で復元）
     };
     if (!skipNewEntry) {
       dates.forEach((_, i) => {
@@ -4398,10 +4440,14 @@ body.gourmet-open #gFrame {
       });
     }
     allEntries.forEach(([name, votes]) => {
+      // 編集モード中の行は全セルの選択状態を保持（回答済みセルも変更中の可能性あり）
+      const inEditMode = !!wrap.querySelector(`.edit-btn[data-name="${CSS.escape(name)}"].editing`);
+      if (inEditMode) savedInput.editingRows.push(name);
       const hasUnAnswered = dates.some((_, di) => !votes[di]);
-      if (!hasUnAnswered) return;
+      if (!inEditMode && !hasUnAnswered) return;
       dates.forEach((_, i) => {
-        if (votes[i]) return; // 回答済みはスキップ
+        // 編集モード中でなければ、既保存の回答セルはスキップ（未回答セルのみ保持）
+        if (!inEditMode && votes[i]) return;
         const sel = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
         if (sel) {
           if (!savedInput.pendingVotes[name]) savedInput.pendingVotes[name] = {};
@@ -4451,6 +4497,22 @@ body.gourmet-open #gFrame {
           btn.classList.add('selected');
         }
       });
+    });
+    // 編集モード中だった行を再度編集モードに復元（.editingクラス付与＋セルのボタン表示）
+    savedInput.editingRows.forEach(name => {
+      const editBtn = wrap.querySelector(`.edit-btn[data-name="${CSS.escape(name)}"]`);
+      if (!editBtn || editBtn.classList.contains('editing')) return;
+      editBtn.classList.add('editing');
+      editBtn.style.display = 'none';
+      const regBtn = wrap.querySelector(`.edit-register-btn[data-name="${CSS.escape(name)}"]`);
+      if (regBtn) regBtn.style.display = '';
+      wrap.querySelectorAll(`td[data-col="${CSS.escape(name)}"]`).forEach(td => {
+        td.classList.remove('locked');
+        td.querySelectorAll('.vote-display, .vote-display-empty').forEach(el => el.style.display = 'none');
+        td.querySelectorAll('.vote-btns').forEach(b => b.style.display = 'flex');
+      });
+      const delBtn = wrap.querySelector(`.del-btn[data-name="${CSS.escape(name)}"]`);
+      if (delBtn) delBtn.classList.add('visible');
     });
 
     attachVoteHandlers(wrap);
