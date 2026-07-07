@@ -754,18 +754,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tile .mt-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; font-weight: 400; }
 .menu-tile.soon { opacity: 0.55; cursor: default; border-style: dashed; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
-/* OliveLounge 風：浮遊するクリーム色の丸みナビ、アクティブはオリーブのピル */
-#hostNav .hostnav-inner { max-width:760px; margin:0 auto; display:grid; grid-template-columns:repeat(7,1fr); gap:3px; padding:6px; }
-.hostnav-btn { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;padding:8px 0;min-height:52px;color:#6E7B5F;cursor:pointer;border-radius:15px;transition:background .16s,color .16s; }
-.hostnav-btn .hn-ico { font-size:1.16rem;line-height:1; }
-.hostnav-btn .hn-lbl { font-size:0.62rem;font-weight:600;letter-spacing:-0.02em;white-space:nowrap; }
-.hostnav-btn:hover { background:rgba(110,123,95,0.12); }
-.hostnav-btn.active { background:var(--green);color:#fff;box-shadow:0 3px 10px rgba(45,66,40,0.28); }
-.hostnav-btn.active .hn-lbl { font-weight:700; }
-body.has-hostnav { padding-bottom:88px; }
+/* OliveLounge 風：浮遊するフロスト調ナビ。絵文字なしのテキストタブ、アクティブはオリーブのピル */
+#hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:5px; }
+.hostnav-btn { display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:#6E7460; cursor:pointer; border-radius:13px; font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
+.hostnav-btn .hn-lbl { white-space:nowrap; }
+.hostnav-btn:hover { background:rgba(110,116,96,0.10); color:var(--green); }
+.hostnav-btn.active { background:var(--green); color:#fff; box-shadow:0 3px 10px rgba(45,66,40,0.25); }
+body.has-hostnav { padding-bottom:80px; }
 /* お店検索を下部ナビ経由で開いた時、iframe が固定ナビに隠れないよう高さを詰める */
 body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360px !important; }
-@media (max-width:360px){ .hostnav-btn .hn-lbl { font-size:0.57rem; } .hostnav-btn .hn-ico { font-size:1.02rem; } }
+@media (min-width:768px){ .hostnav-btn { font-size:0.82rem; padding:13px 4px; } #hostNav .hostnav-inner { gap:4px; padding:6px; } }
+@media (max-width:360px){ .hostnav-btn { font-size:0.66rem; letter-spacing:0; padding:11px 1px; } }
 
 /* ── イベントハブ（紐付く記録） ── */
 .back-to-menu {
@@ -1487,21 +1486,21 @@ body.gourmet-open #gFrame {
   </div>
 </div>
 
-<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:84px;z-index:49;pointer-events:none;">
+<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:74px;z-index:49;pointer-events:none;">
   <div style="max-width:760px;margin:0 auto;padding:8px 14px;text-align:center;">
     <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(45,66,40,0.25);">この画面を参加者に表示</button>
   </div>
 </div>
 
-<nav id="hostNav" style="display:none;position:fixed;left:10px;right:10px;bottom:10px;z-index:50;background:#FBF7EC;border:1px solid var(--green-mid);border-radius:24px;box-shadow:0 8px 26px rgba(45,66,40,0.18);">
+<nav id="hostNav" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:12px;width:min(680px,calc(100% - 20px));z-index:50;background:rgba(251,247,236,0.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--green-mid);border-radius:18px;box-shadow:0 10px 30px rgba(45,66,40,0.16);">
   <div class="hostnav-inner">
-    <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-ico">✏️</span><span class="hn-lbl">作成</span></button>
-    <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-ico">📅</span><span class="hn-lbl">日程</span></button>
-    <button type="button" class="hostnav-btn" data-view="gourmet"><span class="hn-ico">🍽️</span><span class="hn-lbl">お店</span></button>
-    <button type="button" class="hostnav-btn" data-view="announce"><span class="hn-ico">📣</span><span class="hn-lbl">お知らせ</span></button>
-    <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-ico">💺</span><span class="hn-lbl">座席</span></button>
-    <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-ico">💴</span><span class="hn-lbl">割り勘</span></button>
-    <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-ico">🧾</span><span class="hn-lbl">精算</span></button>
+    <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-lbl">作成</span></button>
+    <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-lbl">日程</span></button>
+    <button type="button" class="hostnav-btn" data-view="gourmet"><span class="hn-lbl">お店</span></button>
+    <button type="button" class="hostnav-btn" data-view="announce"><span class="hn-lbl">お知らせ</span></button>
+    <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-lbl">座席</span></button>
+    <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-lbl">割り勘</span></button>
+    <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-lbl">精算</span></button>
   </div>
 </nav>
 
