@@ -198,6 +198,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
   margin-bottom: 8px; animation: fadeUp 0.2s ease;
 }
 .date-row input[type="date"] { flex: 1; }
+.ve-lbl { display:block; font-size:0.72rem; color:var(--text-muted); font-weight:600; margin-bottom:3px; }
 .day-badge {
   min-width: 36px; text-align: center; font-size: 0.8rem;
   font-weight: 700; color: white; background: var(--green);
@@ -1080,11 +1081,8 @@ body.gourmet-open #gFrame {
     <label>タイトル</label>
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
   </div>
-  <div class="field">
-    <label>開催日（任意）</label>
-    <input type="text" id="announceCreateDate" placeholder="例：1月15日(木) 19:00">
-  </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
+  <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">※ 開催日・集合時間・お店は、作成後の「お知らせ」画面で入力します。</p>
 </div>
 
 <!-- 立替・割り勘 作成カード -->
@@ -1483,10 +1481,17 @@ body.gourmet-open #gFrame {
   <!-- ホスト専用：お店・行き方の入力 -->
   <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">開催日・集合・お店を設定（保存後に「参加者に表示」で公開）</div>
-    <input type="text" id="announceEventDateInput" placeholder="開催日（例：1月15日(木)）" style="margin-bottom:8px;">
+    <label class="ve-lbl">開催日</label>
+    <input type="date" id="announceEventDateInput" style="margin-bottom:8px;">
     <div style="display:flex;gap:8px;margin-bottom:8px;">
-      <input type="text" id="venueMeetTimeInput" placeholder="集合時間（例：19:00）" style="flex:1;margin-bottom:0;">
-      <input type="text" id="venueMeetPlaceInput" placeholder="集合場所（例：○○駅 改札前）" style="flex:2;margin-bottom:0;">
+      <div style="flex:1;">
+        <label class="ve-lbl">集合時間</label>
+        <input type="time" id="venueMeetTimeInput" style="width:100%;margin-bottom:0;">
+      </div>
+      <div style="flex:2;">
+        <label class="ve-lbl">集合場所</label>
+        <input type="text" id="venueMeetPlaceInput" placeholder="○○駅 改札前" style="width:100%;margin-bottom:0;">
+      </div>
     </div>
     <input type="text" id="venueShopInput" placeholder="店名／住所／食べログURL（店名＋URLも可）" style="margin-bottom:8px;">
     <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
@@ -1910,7 +1915,6 @@ body.gourmet-open #gFrame {
     hideOtherSetupCards('announceSetupCard');
     document.getElementById('announceSetupCard').style.display = 'block';
     const nameEl = document.getElementById('announceName'); if (nameEl) nameEl.value = '';
-    const dateEl = document.getElementById('announceCreateDate'); if (dateEl) dateEl.value = '';
     window.scrollTo(0, 0);
   }
 
@@ -2348,7 +2352,6 @@ body.gourmet-open #gFrame {
   // お知らせを作成（日程調整なし・集合/お店のみ）
   document.getElementById('createAnnounceBtn')?.addEventListener('click', async () => {
     const name = (document.getElementById('announceName')?.value || '').trim();
-    const eventDate = (document.getElementById('announceCreateDate')?.value || '').trim();
     if (!name) { showToast('タイトルを入力してください'); return; }
     if (!currentUser) { showToast('作成にはログインが必要です'); await signIn(); return; }
     const btn = document.getElementById('createAnnounceBtn');
@@ -2358,7 +2361,7 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants: {},
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: [], activeView: 'announce', eventDate,
+        participantOrder: [], activeView: 'announce',
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2737,10 +2740,18 @@ body.gourmet-open #gFrame {
     function renderAnnounceView(data) {
       const dt = document.getElementById('announceDateText');
       if (dt) {
-        // confirmedDate は dates 配列のインデックス。単体お知らせ用に eventDate(文字列) を優先。
+        // confirmedDate は dates 配列のインデックス。単体お知らせ用に eventDate(YYYY-MM-DD) を優先。
         const ci = data.confirmedDate;
         const resolved = (ci != null && Array.isArray(data.dates) && data.dates[ci]) ? data.dates[ci] : '';
-        dt.textContent = (data.eventDate && String(data.eventDate).trim()) ? String(data.eventDate).trim() : (resolved || '未確定');
+        const ev = String(data.eventDate || '').trim();
+        let evDisp = ev;
+        const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ev);
+        if (md) {
+          const d = new Date(+md[1], +md[2]-1, +md[3]);
+          const w = ['日','月','火','水','木','金','土'][d.getDay()];
+          evDisp = `${+md[2]}月${+md[3]}日(${w})`;
+        }
+        dt.textContent = evDisp || resolved || '未確定';
       }
       renderVenue(data.venue || {});
       const v = data.venue || {};
@@ -2753,7 +2764,7 @@ body.gourmet-open #gFrame {
       set('venueMeetPlaceInput', v.meetPlace);
       set('venueShopInput', v.shop);
       set('venueNoteInput', v.note);
-      set('announceEventDateInput', data.eventDate);
+      set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : '');
       // ホストには参加者用URLを表示
       const shareWrap = document.getElementById('announceShareWrap');
       if (shareWrap) shareWrap.style.display = isHost ? 'block' : 'none';
