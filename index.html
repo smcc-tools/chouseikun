@@ -166,13 +166,13 @@ body {
 input[type="text"], input[type="date"], input[type="password"], input[type="number"], input[type="time"], textarea, select {
   font-family: var(--font-ui);
 }
-input[type="text"], input[type="date"], input[type="password"] {
+input[type="text"], input[type="date"], input[type="time"], input[type="number"], input[type="password"] {
   width: 100%; padding: 13px 15px;
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
   font-size: 0.95rem; outline: none; color: var(--text);
   transition: border-color 0.18s, box-shadow 0.18s, background 0.18s; background: var(--field-bg);
 }
-input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus {
+input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="number"]:focus, input[type="password"]:focus {
   border-color: var(--green); background: #fff;
   box-shadow: 0 0 0 3px rgba(61,90,58,0.12);
 }
@@ -198,6 +198,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="password"]:focus
   margin-bottom: 8px; animation: fadeUp 0.2s ease;
 }
 .date-row input[type="date"] { flex: 1; }
+.ve-lbl { display:block; font-size:0.72rem; color:var(--text-muted); font-weight:600; margin-bottom:3px; }
 .day-badge {
   min-width: 36px; text-align: center; font-size: 0.8rem;
   font-weight: 700; color: white; background: var(--green);
@@ -754,18 +755,25 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tile .mt-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; font-weight: 400; }
 .menu-tile.soon { opacity: 0.55; cursor: default; border-style: dashed; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
-/* OliveLounge 風：浮遊するクリーム色の丸みナビ、アクティブはオリーブのピル */
-#hostNav .hostnav-inner { max-width:760px; margin:0 auto; display:grid; grid-template-columns:repeat(7,1fr); gap:3px; padding:6px; }
-.hostnav-btn { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;padding:8px 0;min-height:52px;color:#6E7B5F;cursor:pointer;border-radius:15px;transition:background .16s,color .16s; }
-.hostnav-btn .hn-ico { font-size:1.16rem;line-height:1; }
-.hostnav-btn .hn-lbl { font-size:0.62rem;font-weight:600;letter-spacing:-0.02em;white-space:nowrap; }
-.hostnav-btn:hover { background:rgba(110,123,95,0.12); }
-.hostnav-btn.active { background:var(--green);color:#fff;box-shadow:0 3px 10px rgba(45,66,40,0.28); }
-.hostnav-btn.active .hn-lbl { font-weight:700; }
-body.has-hostnav { padding-bottom:88px; }
+/* OliveLounge 風：浮遊するフロスト調ナビ。絵文字なしのテキストタブ、アクティブはオリーブのピル */
+#hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:5px; }
+.hostnav-btn { display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:#6E7460; cursor:pointer; border-radius:13px; font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
+.hostnav-btn .hn-lbl { white-space:nowrap; }
+.hostnav-btn:hover { background:rgba(110,116,96,0.10); color:var(--green); }
+.hostnav-btn.active { background:var(--green); color:#fff; box-shadow:0 3px 10px rgba(45,66,40,0.25); }
+body.has-hostnav { padding-bottom:80px; }
 /* お店検索を下部ナビ経由で開いた時、iframe が固定ナビに隠れないよう高さを詰める */
 body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360px !important; }
-@media (max-width:360px){ .hostnav-btn .hn-lbl { font-size:0.57rem; } .hostnav-btn .hn-ico { font-size:1.02rem; } }
+@media (min-width:768px){
+  /* PC：ホストナビをヘッダー直下の上部横タブバーに（SPは下部ピルのまま） */
+  #hostNav { top:62px; bottom:auto; left:0; right:0; transform:none; width:100%; border-radius:0; border:none; border-bottom:1px solid var(--green-mid); box-shadow:0 3px 14px rgba(45,66,40,0.06); background:rgba(250,248,242,0.92); }
+  #hostNav .hostnav-inner { max-width:980px; margin:0 auto; gap:4px; padding:6px 12px; }
+  .hostnav-btn { font-size:0.82rem; padding:12px 4px; min-height:42px; border-radius:11px; }
+  body.has-hostnav { padding-bottom:0; }
+  body.has-hostnav .page { padding-top:74px; }
+  #publishBar { bottom:20px; }
+}
+@media (max-width:360px){ .hostnav-btn { font-size:0.66rem; letter-spacing:0; padding:11px 1px; } }
 
 /* ── イベントハブ（紐付く記録） ── */
 .back-to-menu {
@@ -1073,11 +1081,8 @@ body.gourmet-open #gFrame {
     <label>タイトル</label>
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
   </div>
-  <div class="field">
-    <label>開催日（任意）</label>
-    <input type="text" id="announceCreateDate" placeholder="例：1月15日(木) 19:00">
-  </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
+  <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">※ 開催日・集合時間・お店は、作成後の「お知らせ」画面で入力します。</p>
 </div>
 
 <!-- 立替・割り勘 作成カード -->
@@ -1476,10 +1481,17 @@ body.gourmet-open #gFrame {
   <!-- ホスト専用：お店・行き方の入力 -->
   <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:8px;">開催日・集合・お店を設定（保存後に「参加者に表示」で公開）</div>
-    <input type="text" id="announceEventDateInput" placeholder="開催日（例：1月15日(木)）" style="margin-bottom:8px;">
+    <label class="ve-lbl">開催日</label>
+    <input type="date" id="announceEventDateInput" style="margin-bottom:8px;">
     <div style="display:flex;gap:8px;margin-bottom:8px;">
-      <input type="text" id="venueMeetTimeInput" placeholder="集合時間（例：19:00）" style="flex:1;margin-bottom:0;">
-      <input type="text" id="venueMeetPlaceInput" placeholder="集合場所（例：○○駅 改札前）" style="flex:2;margin-bottom:0;">
+      <div style="flex:1;">
+        <label class="ve-lbl">集合時間</label>
+        <input type="time" id="venueMeetTimeInput" style="width:100%;margin-bottom:0;">
+      </div>
+      <div style="flex:2;">
+        <label class="ve-lbl">集合場所</label>
+        <input type="text" id="venueMeetPlaceInput" placeholder="○○駅 改札前" style="width:100%;margin-bottom:0;">
+      </div>
     </div>
     <input type="text" id="venueShopInput" placeholder="店名／住所／食べログURL（店名＋URLも可）" style="margin-bottom:8px;">
     <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
@@ -1487,21 +1499,21 @@ body.gourmet-open #gFrame {
   </div>
 </div>
 
-<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:84px;z-index:49;pointer-events:none;">
+<div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:74px;z-index:49;pointer-events:none;">
   <div style="max-width:760px;margin:0 auto;padding:8px 14px;text-align:center;">
     <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(45,66,40,0.25);">この画面を参加者に表示</button>
   </div>
 </div>
 
-<nav id="hostNav" style="display:none;position:fixed;left:10px;right:10px;bottom:10px;z-index:50;background:#FBF7EC;border:1px solid var(--green-mid);border-radius:24px;box-shadow:0 8px 26px rgba(45,66,40,0.18);">
+<nav id="hostNav" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:12px;width:min(680px,calc(100% - 20px));z-index:50;background:rgba(251,247,236,0.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--green-mid);border-radius:18px;box-shadow:0 10px 30px rgba(45,66,40,0.16);">
   <div class="hostnav-inner">
-    <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-ico">✏️</span><span class="hn-lbl">作成</span></button>
-    <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-ico">📅</span><span class="hn-lbl">日程</span></button>
-    <button type="button" class="hostnav-btn" data-view="gourmet"><span class="hn-ico">🍽️</span><span class="hn-lbl">お店</span></button>
-    <button type="button" class="hostnav-btn" data-view="announce"><span class="hn-ico">📣</span><span class="hn-lbl">お知らせ</span></button>
-    <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-ico">💺</span><span class="hn-lbl">座席</span></button>
-    <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-ico">💴</span><span class="hn-lbl">割り勘</span></button>
-    <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-ico">🧾</span><span class="hn-lbl">精算</span></button>
+    <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-lbl">作成</span></button>
+    <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-lbl">日程</span></button>
+    <button type="button" class="hostnav-btn" data-view="gourmet"><span class="hn-lbl">お店</span></button>
+    <button type="button" class="hostnav-btn" data-view="announce"><span class="hn-lbl">お知らせ</span></button>
+    <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-lbl">座席</span></button>
+    <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-lbl">割り勘</span></button>
+    <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-lbl">精算</span></button>
   </div>
 </nav>
 
@@ -1903,7 +1915,6 @@ body.gourmet-open #gFrame {
     hideOtherSetupCards('announceSetupCard');
     document.getElementById('announceSetupCard').style.display = 'block';
     const nameEl = document.getElementById('announceName'); if (nameEl) nameEl.value = '';
-    const dateEl = document.getElementById('announceCreateDate'); if (dateEl) dateEl.value = '';
     window.scrollTo(0, 0);
   }
 
@@ -2341,7 +2352,6 @@ body.gourmet-open #gFrame {
   // お知らせを作成（日程調整なし・集合/お店のみ）
   document.getElementById('createAnnounceBtn')?.addEventListener('click', async () => {
     const name = (document.getElementById('announceName')?.value || '').trim();
-    const eventDate = (document.getElementById('announceCreateDate')?.value || '').trim();
     if (!name) { showToast('タイトルを入力してください'); return; }
     if (!currentUser) { showToast('作成にはログインが必要です'); await signIn(); return; }
     const btn = document.getElementById('createAnnounceBtn');
@@ -2351,7 +2361,7 @@ body.gourmet-open #gFrame {
       await setDoc(doc(db, 'events', evId), {
         name, dates: [], memo: '', participants: {},
         ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: [], activeView: 'announce', eventDate,
+        participantOrder: [], activeView: 'announce',
       });
       addMyEvent(evId, name, true);
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
@@ -2730,10 +2740,18 @@ body.gourmet-open #gFrame {
     function renderAnnounceView(data) {
       const dt = document.getElementById('announceDateText');
       if (dt) {
-        // confirmedDate は dates 配列のインデックス。単体お知らせ用に eventDate(文字列) を優先。
+        // confirmedDate は dates 配列のインデックス。単体お知らせ用に eventDate(YYYY-MM-DD) を優先。
         const ci = data.confirmedDate;
         const resolved = (ci != null && Array.isArray(data.dates) && data.dates[ci]) ? data.dates[ci] : '';
-        dt.textContent = (data.eventDate && String(data.eventDate).trim()) ? String(data.eventDate).trim() : (resolved || '未確定');
+        const ev = String(data.eventDate || '').trim();
+        let evDisp = ev;
+        const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ev);
+        if (md) {
+          const d = new Date(+md[1], +md[2]-1, +md[3]);
+          const w = ['日','月','火','水','木','金','土'][d.getDay()];
+          evDisp = `${+md[2]}月${+md[3]}日(${w})`;
+        }
+        dt.textContent = evDisp || resolved || '未確定';
       }
       renderVenue(data.venue || {});
       const v = data.venue || {};
@@ -2746,7 +2764,7 @@ body.gourmet-open #gFrame {
       set('venueMeetPlaceInput', v.meetPlace);
       set('venueShopInput', v.shop);
       set('venueNoteInput', v.note);
-      set('announceEventDateInput', data.eventDate);
+      set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : '');
       // ホストには参加者用URLを表示
       const shareWrap = document.getElementById('announceShareWrap');
       if (shareWrap) shareWrap.style.display = isHost ? 'block' : 'none';
@@ -3117,6 +3135,7 @@ body.gourmet-open #gFrame {
             const sel = td.querySelector('.vote-btn.selected');
             let disp = td.querySelector('.vote-display');
             if (!disp) { disp = document.createElement('span'); disp.className = 'vote-display'; td.insertBefore(disp, td.firstChild); }
+            disp.style.display = ''; // 編集モードで display:none にした表示を戻す（マークが消えるバグ修正）
             if (sel) {
               disp.className = `vote-display vote-display-${sel.dataset.key}`;
               disp.textContent = labelMap[sel.dataset.key];
@@ -3127,6 +3146,7 @@ body.gourmet-open #gFrame {
           });
           delBtn.classList.remove('visible');
           showToast('変更を保存しました');
+          if (rerenderCurrentEvent) rerenderCurrentEvent(); // 最新データで再描画（同値保存でも◯△✕が消えないように）
         } else {
           // 編集モード開始：投票ボタンを出す。保存は下部の「登録する」で行う（上部の「完了」は廃止）
           btn.classList.add('editing');
@@ -4501,6 +4521,7 @@ body.gourmet-open #gFrame {
         });
         await updateDoc(doc(db, 'events', eventId), updates);
         showToast(`${name} さんの回答を登録しました`);
+        if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画（列がブランクにならないように）
       });
     });
 
@@ -4534,24 +4555,27 @@ body.gourmet-open #gFrame {
           const sel = wrap.querySelector(`.vote-btn[data-new-idx="${i}"].selected`);
           votes[i] = sel ? sel.dataset.key : '';
         });
+        // 重複名チェック（正規化・最新データで判定）
+        const existingP = (latestEventData && latestEventData.participants) || {};
+        if (Object.keys(existingP).some(n => normalizeName(n) === normalizeName(rawName))) {
+          showToast('同じ名前が既に登録されています');
+          return;
+        }
         // 登録成功による再描画で新規入力列を空にリセット（前の入力を引き継がない）
         resetNewEntry = true;
-        // トランザクションで重複名チェックと書き込みを原子的に行う
+        // updateDoc（楽観的更新）で即座に列へ反映。participantOrder にも追加して並び順を確定
+        // （runTransaction だとサーバ往復まで反映されず、リロードまで列がブランクになるため）。
+        const newOrder = [...((latestEventData && latestEventData.participantOrder) || []), rawName];
         try {
-          await runTransaction(db, async (tx) => {
-            const ref = doc(db, 'events', eventId);
-            const fresh = await tx.get(ref);
-            const existing = fresh.data().participants || {};
-            if (Object.keys(existing).some(n => normalizeName(n) === normalizeName(rawName))) {
-              throw new Error('DUP');
-            }
-            tx.update(ref, { [`participants.${rawName}`]: votes });
+          await updateDoc(doc(db, 'events', eventId), {
+            [`participants.${rawName}`]: votes,
+            participantOrder: newOrder,
           });
           showToast(`${rawName} さんの回答を登録しました`);
+          if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画
         } catch (e) {
           resetNewEntry = false; // 失敗時は入力を維持
-          if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
-          else { showToast('登録に失敗しました'); console.error(e); }
+          showToast('登録に失敗しました'); console.error(e);
         }
       });
     }
