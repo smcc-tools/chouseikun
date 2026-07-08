@@ -5077,7 +5077,9 @@ body.gourmet-open #gFrame {
     if (settleToolsMounted) return;
     const mount = document.getElementById('settleToolsMount');
     if (!mount) return;
-    ['participantUrlWrap', 'notifyWrap', 'coHostWrap'].forEach(id => {
+    // 参加者URL(participantUrlWrap)は精算画面内で settleShareUrl と重複するため移動しない。
+    // 通知設定と共同ホスト管理のみ精算画面に集約する。
+    ['notifyWrap', 'coHostWrap'].forEach(id => {
       const el = document.getElementById(id);
       if (el) mount.appendChild(el);
     });
