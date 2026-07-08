@@ -1267,6 +1267,15 @@ body.gourmet-open #gFrame {
     <input type="hidden" id="totalAmount">
   </div>
 
+  <!-- 幹事（精算対象外・並び順の最下段） -->
+  <div id="settleOrganizerWrap" class="host-only" style="display:none;margin-bottom:20px;padding:14px 16px;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;">
+    <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:6px;">幹事（会を主催する人）</div>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 10px;line-height:1.55;">幹事は精算画面の一番下に表示され、支払済チェックは非表示になります。</p>
+    <select id="settleOrganizerSelect" style="width:100%;padding:9px 12px;border:1.5px solid var(--green-mid);border-radius:8px;font-size:0.92rem;background:#fff;color:var(--text);outline:none;">
+      <option value="">（未設定）</option>
+    </select>
+  </div>
+
   <!-- 振込先口座 -->
   <div id="bankInfoWrap" style="margin-bottom:20px;">
     <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;">振込先口座</div>
@@ -5049,6 +5058,7 @@ body.gourmet-open #gFrame {
   let settleReadOnly = false;
   let amountsCustomized = false; // 金額を手動変更したか
   let settleWeights = {};        // 名前 -> 次会別の割合(%)配列
+  let settleOrganizer = '';      // 幹事の名前（並び順の最下段・支払済チェック非表示）
 
   function getSortedNames(data) {
     const participants = data.participants || {};
@@ -5149,6 +5159,33 @@ body.gourmet-open #gFrame {
     settleNames = getSortedNames(data);
     settleReadOnly = readOnly;
     amountsCustomized = !!(data.settle?.amounts && Object.keys(data.settle.amounts).length);
+    settleOrganizer = (data.settle?.organizer || '').trim();
+    // 幹事セレクタ（ホストのみ表示）を populate
+    const orgWrap = document.getElementById('settleOrganizerWrap');
+    const orgSel = document.getElementById('settleOrganizerSelect');
+    if (orgWrap) orgWrap.style.display = readOnly ? 'none' : 'block';
+    if (orgSel && !readOnly) {
+      const cur = settleOrganizer;
+      orgSel.innerHTML = '<option value="">（未設定）</option>' +
+        settleNames.map(n => `<option value="${escHtml(n)}" ${normalizeName(n)===normalizeName(cur)?'selected':''}>${escHtml(n)}</option>`).join('');
+      if (!orgSel.dataset.bound) {
+        orgSel.dataset.bound = '1';
+        orgSel.addEventListener('change', () => {
+          settleOrganizer = orgSel.value.trim();
+          // 表示を即更新（保存は publishSettleBtn 押下時）
+          if (settleNames.length > 0) {
+            const cur = getCurrentAmounts();
+            const partyCount = parseInt(document.getElementById('partiesCount')?.value) || 1;
+            const partyAmountsArr = Array.from(document.querySelectorAll('.party-amount-input'))
+              .sort((a,b)=>parseInt(a.dataset.idx)-parseInt(b.dataset.idx)).map(el=>parseInt(el.value)||0);
+            const total = partyAmountsArr.reduce((s,v)=>s+v,0);
+            const partyNamesArr = Array.from(document.querySelectorAll('.party-name-input'))
+              .sort((a,b)=>parseInt(a.dataset.idx)-parseInt(b.dataset.idx)).map((el,i)=>el.value.trim()||`${i+1}次会`);
+            renderSettle(settleNames, total, partyCount, partyAmountsArr, partyNamesArr, cur, getCurrentPaid(), false);
+          }
+        });
+      }
+    }
     document.getElementById('settleTitle').textContent = (data.name || 'イベント') + ' 精算';
     document.getElementById('viewCard').style.display = 'none';
     document.getElementById('settleCard').style.display = 'block';
@@ -5301,7 +5338,7 @@ body.gourmet-open #gFrame {
     };
     await updateDoc(doc(db, 'events', eventId), {
       settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
-                weights: settleWeights },
+                weights: settleWeights, organizer: settleOrganizer || '' },
       settlePublished: true,
       activeView: 'settle'  // 参加者の表示画面も精算に切り替える（統合公開）
     });
@@ -5405,7 +5442,7 @@ body.gourmet-open #gFrame {
     </div>`;
   }
 
-  function buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly) {
+  function buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly, organizer) {
     const overallPerPerson = perPartyPerson.reduce((s, v) => s + v, 0);
     const partyHeaders = Array.from({length: partyCount}, (_, i) => {
       const nm = (partyNames && partyNames[i]) ? partyNames[i] : `${i+1}次会`;
@@ -5437,13 +5474,19 @@ body.gourmet-open #gFrame {
 
       const totalCell = `<td class="settle-amount-cell" id="ptotal-${ri}" style="font-weight:700;color:var(--green);">¥${personTotal.toLocaleString()}</td>`;
       const diffCell  = readOnly ? '' : `<td class="settle-diff" id="diff-${ri}"></td>`;
-      const paidCell  = `<div class="settle-paid">
-        <input type="checkbox" id="paid-${ri}" class="paid-check" data-name="${en}" data-ri="${ri}" ${isPaid?'checked':''}>
-        <label for="paid-${ri}">支払済み</label>
-      </div>`;
-
-      return `<tr id="row-${ri}" class="${isPaid?'paid':''}">
-        <td class="settle-name">${en}</td>
+      // 幹事の行には支払済チェックを出さない（幹事は集金する側なので）
+      const isOrganizer = organizer && normalizeName(name) === normalizeName(organizer);
+      const paidCell  = isOrganizer
+        ? `<span style="font-size:0.75rem;color:var(--gold);font-weight:700;">幹事</span>`
+        : `<div class="settle-paid">
+             <input type="checkbox" id="paid-${ri}" class="paid-check" data-name="${en}" data-ri="${ri}" ${isPaid?'checked':''}>
+             <label for="paid-${ri}">支払済み</label>
+           </div>`;
+      const nameCell = isOrganizer
+        ? `<td class="settle-name">${en} <span style="display:inline-block;margin-left:6px;font-size:0.66rem;background:var(--gold);color:#fff;padding:1px 6px;border-radius:4px;font-weight:700;">幹事</span></td>`
+        : `<td class="settle-name">${en}</td>`;
+      return `<tr id="row-${ri}" class="${isPaid?'paid':''}${isOrganizer?' organizer-row':''}">
+        ${nameCell}
         ${partyCells}
         ${totalCell}
         ${diffCell}
@@ -5480,13 +5523,21 @@ body.gourmet-open #gFrame {
       const pa = savedPartyPersonAmounts[name] || perPartyPerson.slice();
       return pa.reduce((s, v) => s + (v || 0), 0);
     };
-    const sortedNames = [...names].sort((a, b) => getPersonTotal(b) - getPersonTotal(a));
+    const organizer = (settleOrganizer || '').trim();
+    const isOrg = n => organizer && normalizeName(n) === normalizeName(organizer);
+    // 金額の多い順にソート。ただし幹事は必ず最下段に配置する。
+    const sortedNames = [...names].sort((a, b) => {
+      const oa = isOrg(a), ob = isOrg(b);
+      if (oa && !ob) return 1;
+      if (!oa && ob) return -1;
+      return getPersonTotal(b) - getPersonTotal(a);
+    });
     const collected = names.reduce((sum, name) => sum + getPersonTotal(name), 0);
 
     result.innerHTML = `
       ${readOnly ? '' : buildSettleMatchBanner(collected - total, total, collected)}
       ${readOnly ? '' : buildSettleSummary(total, collected, count, overallPerPerson, readOnly)}
-      ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly)}
+      ${buildSettleTable(sortedNames, partyCount, perPartyPerson, partyNames, savedPartyPersonAmounts, savedPaid, readOnly, organizer)}
       ${readOnly ? '' : `
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">
           各次会セルの「割合」は<strong>均等割り＝100%</strong>が基準です。割合を変えるとその人の金額だけが変わります（他の人は自動調整されません）。各次会ヘッダーに「あと何%増やす/減らすか」が出るので、「✅ 割合OK」と「金額一致」になるよう各人の割合（または金額）を調整してください。金額を直接入力すると割合も自動で逆算表示されます。
