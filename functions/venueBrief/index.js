@@ -63,7 +63,18 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   }
 
   // Firestore に書込（既存 visible を保持）
+  // ドット記法で各フィールドを top-level に書き込む（FieldValue.delete が top-level 必須のため）
   const priorVisible = !!(data.venue && data.venue.brief && data.venue.brief.visible);
+  await ref.update({
+    'venue.brief.overview': parsed.overview,
+    'venue.brief.dishes': parsed.dishes,
+    'venue.brief.generatedAt': now,
+    'venue.brief.sourceUrls': sourceUrls,
+    'venue.brief.edited': false,
+    'venue.brief.visible': priorVisible,
+    'venue.brief.error': admin.firestore.FieldValue.delete(),
+  });
+
   const brief = {
     overview: parsed.overview,
     dishes: parsed.dishes,
@@ -71,11 +82,8 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
     sourceUrls,
     edited: false,
     visible: priorVisible,
-    error: admin.firestore.FieldValue.delete(),
   };
-  await ref.update({ 'venue.brief': brief });
-
-  return { ok: true, brief: { ...brief, error: undefined } };
+  return { ok: true, brief };
 }
 
 module.exports = { generateVenueBriefImpl };
