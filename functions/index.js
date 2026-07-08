@@ -171,3 +171,36 @@ async function fetchPreview(url) {
     genre: genre !== '' ? String(genre).slice(0, 80) : ''
   };
 }
+
+// 店の概要・おすすめメニュー生成（Callable、ホスト認証必須）
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { generateVenueBriefImpl } = require('./venueBrief');
+
+exports.generateVenueBrief = onCall({
+  region: 'asia-northeast1',
+  timeoutSeconds: 45,
+  memory: '256MiB',
+  secrets: ['GEMINI_API_KEY'],
+}, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  const { eventId } = request.data || {};
+  try {
+    return await generateVenueBriefImpl({
+      uid,
+      eventId,
+      secrets: {
+        geminiKey: process.env.GEMINI_API_KEY,
+      },
+    });
+  } catch (e) {
+    const code = e.message === 'UNAUTHENTICATED' ? 'unauthenticated'
+      : e.message === 'INVALID_ARG' ? 'invalid-argument'
+      : e.message === 'NOT_FOUND' ? 'not-found'
+      : e.message === 'PERMISSION_DENIED' ? 'permission-denied'
+      : e.message === 'RATE_LIMITED' ? 'resource-exhausted'
+      : e.message === 'SHOP_EMPTY' ? 'failed-precondition'
+      : e.message === 'NO_RESULTS' ? 'not-found'
+      : 'internal';
+    throw new HttpsError(code, e.message);
+  }
+});
