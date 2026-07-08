@@ -1584,7 +1584,7 @@ body.gourmet-open #gFrame {
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
   import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-functions.js";
@@ -3154,6 +3154,69 @@ body.gourmet-open #gFrame {
 
     document.getElementById('fetchVenueBriefBtn')?.addEventListener('click', invokeGenerateVenueBrief);
     document.getElementById('retryVenueBriefBtn')?.addEventListener('click', invokeGenerateVenueBrief);
+
+    // 編集ハンドラ（600ms debounce）
+    let _briefSaveTimer = null;
+    function scheduleBriefSave() {
+      if (_briefSaveTimer) clearTimeout(_briefSaveTimer);
+      _briefSaveTimer = setTimeout(async () => {
+        _briefSaveTimer = null;
+        const ov = document.getElementById('briefOverviewInput');
+        const list = document.getElementById('briefDishesList');
+        if (!ov || !list) return;
+        const dishes = [0, 1, 2].map(i => ({
+          name: (list.querySelector(`[data-brief-dish="${i}"][data-field="name"]`)?.value || '').trim(),
+          why:  (list.querySelector(`[data-brief-dish="${i}"][data-field="why"]`)?.value  || '').trim(),
+        }));
+        try {
+          await updateDoc(doc(db, 'events', eventId), {
+            'venue.brief.overview': ov.value.trim(),
+            'venue.brief.dishes': dishes,
+            'venue.brief.edited': true,
+          });
+          ov.dataset.dirty = '';
+          list.dataset.dirty = '';
+        } catch (e) { console.error('brief save error:', e); }
+      }, 600);
+    }
+
+    document.getElementById('briefOverviewInput')?.addEventListener('input', (e) => {
+      e.target.dataset.dirty = '1';
+      scheduleBriefSave();
+    });
+    document.getElementById('briefDishesList')?.addEventListener('input', (e) => {
+      const list = document.getElementById('briefDishesList');
+      if (list) list.dataset.dirty = '1';
+      scheduleBriefSave();
+    });
+
+    // 参加者に見せるトグル
+    document.getElementById('briefVisibleToggle')?.addEventListener('change', async (e) => {
+      try {
+        await updateDoc(doc(db, 'events', eventId), { 'venue.brief.visible': !!e.target.checked });
+      } catch (err) {
+        showToast('切替に失敗しました');
+        e.target.checked = !e.target.checked;
+      }
+    });
+
+    // 再取得ボタン（edited=true なら確認）
+    document.getElementById('regenerateVenueBriefBtn')?.addEventListener('click', () => {
+      const b = latestEventData?.venue?.brief;
+      if (b && b.edited) {
+        if (!confirm('編集した内容は上書きされます。よろしいですか？')) return;
+      }
+      invokeGenerateVenueBrief();
+    });
+
+    // 削除ボタン
+    document.getElementById('deleteVenueBriefBtn')?.addEventListener('click', async () => {
+      if (!confirm('店情報を削除しますか？')) return;
+      try {
+        await updateDoc(doc(db, 'events', eventId), { 'venue.brief': deleteField() });
+        showToast('店情報を削除しました');
+      } catch (e) { showToast('削除に失敗しました'); console.error(e); }
+    });
 
     // 参加登録のプッシュ通知 ON/OFF（イベント毎・ホスト本人のuidを notifyUids に出し入れ）
     document.getElementById('notifyToggle')?.addEventListener('change', async (e) => {
