@@ -8,7 +8,7 @@ const { buildGeminiRequestBody, parseGeminiResponse, extractSourceUrls, validate
 const _lastCallAt = new Map(); // key: `${uid}:${eventId}` → timestampMs
 
 const RATE_LIMIT_MS = 5000;
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
 
 async function callGemini(body, geminiKey) {
   const url = `${GEMINI_ENDPOINT}?key=${encodeURIComponent(geminiKey)}`;
