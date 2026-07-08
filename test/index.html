@@ -755,7 +755,9 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tile .mt-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; font-weight: 400; }
 .menu-tile.soon { opacity: 0.55; cursor: default; border-style: dashed; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
-/* OliveLounge 風：浮遊するフロスト調ナビ。絵文字なしのテキストタブ、アクティブはオリーブのピル */
+/* OliveLounge 風：浮遊するフロスト調ナビ。絵文字なしのテキストタブ、アクティブはオリーブのピル
+   SPは下部浮遊ピル、PC(≥768px)はヘッダー直下の上部横タブバーに切替（下のmedia queryで上書き） */
+#hostNav { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; top:auto; width:min(680px, calc(100% - 20px)); z-index:50; background:rgba(251,247,236,0.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--green-mid); border-radius:18px; box-shadow:0 10px 30px rgba(45,66,40,0.16); }
 #hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:5px; }
 .hostnav-btn { display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:#6E7460; cursor:pointer; border-radius:13px; font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
 .hostnav-btn .hn-lbl { white-space:nowrap; }
@@ -1507,7 +1509,7 @@ body.gourmet-open #gFrame {
   </div>
 </div>
 
-<nav id="hostNav" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:12px;width:min(680px,calc(100% - 20px));z-index:50;background:rgba(251,247,236,0.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--green-mid);border-radius:18px;box-shadow:0 10px 30px rgba(45,66,40,0.16);">
+<nav id="hostNav" style="display:none;">
   <div class="hostnav-inner">
     <button type="button" class="hostnav-btn" data-view="scheduleCreate"><span class="hn-lbl">作成</span></button>
     <button type="button" class="hostnav-btn" data-view="schedule"><span class="hn-lbl">日程</span></button>
