@@ -3115,6 +3115,30 @@ body.gourmet-open #gFrame {
     // 「店情報を取得」クリック
     async function invokeGenerateVenueBrief() {
       if (!currentUser) { showToast('ログインが必要です'); return; }
+      // 未保存の venue 入力があれば先に保存してから取得する（SHOP_EMPTY 回避）
+      const shopInp = document.getElementById('venueShopInput');
+      const savedShop = ((latestEventData && latestEventData.venue && latestEventData.venue.shop) || '').trim();
+      const currentShop = (shopInp?.value || '').trim();
+      if (currentShop && currentShop !== savedShop) {
+        try {
+          const noteInp = document.getElementById('venueNoteInput');
+          const timeInp = document.getElementById('venueMeetTimeInput');
+          const placeInp = document.getElementById('venueMeetPlaceInput');
+          const dateInp = document.getElementById('announceEventDateInput');
+          const updates = {
+            'venue.shop': currentShop,
+            'venue.note': (noteInp?.value || '').trim(),
+            'venue.meetTime': (timeInp?.value || '').trim(),
+            'venue.meetPlace': (placeInp?.value || '').trim(),
+          };
+          const eventDate = (dateInp?.value || '').trim();
+          if (eventDate) updates.eventDate = eventDate;
+          await updateDoc(doc(db, 'events', eventId), updates);
+        } catch (e) {
+          showToast('店情報の保存に失敗しました'); console.error(e);
+          return;
+        }
+      }
       document.body.dataset.briefFetching = '1';
       applyVenueBriefState(latestEventData?.venue?.brief);
       try {
