@@ -109,6 +109,13 @@ test('validateBrief: dishes が 3件でなければ false', () => {
   assert.equal(validateBrief({ overview: 'x', dishes: [{name:'a',why:'b'}] }), false);
 });
 
+test('validateBrief: dishes の why が空文字なら false', () => {
+  assert.equal(validateBrief({
+    overview: 'x',
+    dishes: [{name:'a',why:'b'},{name:'c',why:'d'},{name:'e',why:''}],
+  }), false);
+});
+
 test('validateBrief: 正しい形なら true', () => {
   assert.equal(validateBrief({
     overview: 'x',

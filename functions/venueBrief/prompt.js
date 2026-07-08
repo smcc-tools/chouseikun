@@ -86,7 +86,7 @@ function validateBrief(brief) {
   if (!brief || typeof brief !== 'object') return false;
   if (!brief.overview || typeof brief.overview !== 'string') return false;
   if (!Array.isArray(brief.dishes) || brief.dishes.length !== 3) return false;
-  return brief.dishes.every(d => d && typeof d.name === 'string' && d.name && typeof d.why === 'string');
+  return brief.dishes.every(d => d && typeof d.name === 'string' && d.name && d.why && typeof d.why === 'string');
 }
 
 module.exports = { buildGeminiRequestBody, parseGeminiResponse, extractSourceUrls, validateBrief };
