@@ -5689,7 +5689,8 @@ body.gourmet-open #gFrame {
           const equalShare = count > 0 ? partyTotal / count : 0; // 100% = 均等額
           const ri = sortedNames.indexOf(n);
           const amtInp = result.querySelector(`.settle-amount-input[data-ri="${ri}"][data-party="${pi}"]`);
-          if (amtInp) amtInp.value = Math.round(equalShare * pct / 100 / 100) * 100;
+          // ¥1単位で四捨五入（従来¥100単位でmath.roundしていたため割合通りに反映されず誤差が出ていた）
+          if (amtInp) amtInp.value = Math.round(equalShare * pct / 100);
           amountsCustomized = true;
           updateWeightSums();
           updateDiffs();
