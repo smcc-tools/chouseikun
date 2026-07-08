@@ -2,10 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildGeminiRequestBody, parseGeminiResponse, extractSourceUrls, validateBrief } = require('../prompt');
 
-test('buildGeminiRequestBody: tools に googleSearchRetrieval を含む', () => {
+test('buildGeminiRequestBody: tools に google_search を含む (Gemini 2.x)', () => {
   const body = buildGeminiRequestBody('銀座 うち山', '');
   assert.ok(Array.isArray(body.tools));
-  assert.ok(body.tools.some(t => t.googleSearchRetrieval !== undefined));
+  assert.ok(body.tools.some(t => t.google_search !== undefined));
 });
 
 test('buildGeminiRequestBody: systemInstruction と contents に店名を含む', () => {

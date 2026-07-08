@@ -17,7 +17,7 @@ function buildGeminiRequestBody(shopName, shopUrl) {
   const userText = parts.join('\n');
 
   return {
-    tools: [{ googleSearchRetrieval: {} }],
+    tools: [{ google_search: {} }],
     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
     contents: [{ role: 'user', parts: [{ text: userText }] }],
     generationConfig: {
