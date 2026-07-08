@@ -1892,6 +1892,42 @@ body.gourmet-open #gFrame {
     const my = document.getElementById('myEventsCard'); if (my) my.style.display = currentUser ? 'block' : 'none';
     window.scrollTo(0, 0);
   }
+
+  // ── スマホ戻るボタン対応：内部画面遷移を history に積み、戻るで前画面に戻す（アプリごと閉じない） ──
+  // 仕組み：メニュー→サブ画面(setup系/gourmet)遷移時に pushState、戻るで popstate → goToMenu。
+  // これでトップページ内のサブ画面から1回目の戻るは「メニューに戻る」、2回目で通常のブラウザ戻る。
+  let _navPushing = false;
+  function pushNav(screen) {
+    if (_navPushing) return;
+    try {
+      const cur = history.state;
+      if (cur && cur.chouseikun_screen === screen) return; // 同じ画面は多重pushしない
+      history.pushState({ chouseikun_screen: screen }, '');
+    } catch (_) {}
+  }
+  window.addEventListener('popstate', (e) => {
+    const params = new URLSearchParams(location.search);
+    const onEventPage = !!params.get('event');
+    if (onEventPage) return; // イベント個別ページは対象外（URL戻し=前ページ遷移でOK）
+    const s = e.state;
+    // pushしたサブ画面から戻ってきた（stateがnull=元のメニュー状態）→ メニュー表示
+    if (!s || !s.chouseikun_screen) {
+      _navPushing = true; goToMenu(); _navPushing = false;
+      return;
+    }
+    // pushしたstateが残っている→それに応じて画面を復元
+    _navPushing = true;
+    switch (s.chouseikun_screen) {
+      case 'setupCard': goToSchedule(); break;
+      case 'settleSetupCard': goToSettleSetup(); break;
+      case 'walicaSetupCard': goToWalicaSetup(); break;
+      case 'seatingSetupCard': goToSeatingSetup(); break;
+      case 'announceSetupCard': goToAnnounceSetup(); break;
+      case 'gourmetCard': goToGourmet(); break;
+      default: goToMenu();
+    }
+    _navPushing = false;
+  });
   function hideOtherSetupCards(keepId) {
     ['menuCard','myEventsCard'].concat(SETUP_CARDS).forEach(id => {
       if (id === keepId) return;
@@ -1902,6 +1938,7 @@ body.gourmet-open #gFrame {
     hideOtherSetupCards('setupCard');
     document.getElementById('setupCard').style.display = 'block';
     window.scrollTo(0, 0);
+    pushNav('setupCard');
   }
   function goToSettleSetup() {
     hideOtherSetupCards('settleSetupCard');
@@ -1910,6 +1947,7 @@ body.gourmet-open #gFrame {
     settleDraftMembers = [];
     renderSettleDraft();
     window.scrollTo(0, 0);
+    pushNav('settleSetupCard');
   }
   function goToWalicaSetup() {
     hideOtherSetupCards('walicaSetupCard');
@@ -1918,6 +1956,7 @@ body.gourmet-open #gFrame {
     walicaDraftMembers = [];
     renderWalicaDraft();
     window.scrollTo(0, 0);
+    pushNav('walicaSetupCard');
   }
   function goToSeatingSetup() {
     hideOtherSetupCards('seatingSetupCard');
@@ -1926,12 +1965,14 @@ body.gourmet-open #gFrame {
     seatingDraftMembers = [];
     renderSeatingDraft();
     window.scrollTo(0, 0);
+    pushNav('seatingSetupCard');
   }
   function goToAnnounceSetup() {
     hideOtherSetupCards('announceSetupCard');
     document.getElementById('announceSetupCard').style.display = 'block';
     const nameEl = document.getElementById('announceName'); if (nameEl) nameEl.value = '';
     window.scrollTo(0, 0);
+    pushNav('announceSetupCard');
   }
 
   // ── お店検索（食べログ検索アプリを iframe で埋め込み）─────────
@@ -1951,6 +1992,7 @@ body.gourmet-open #gFrame {
       f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
     }
     window.scrollTo(0, 0);
+    pushNav('gourmetCard');
   }
 
 
@@ -1983,7 +2025,12 @@ body.gourmet-open #gFrame {
   document.getElementById('menuSeatingBtn')?.addEventListener('click', goToSeatingSetup);
   document.getElementById('menuGourmetBtn')?.addEventListener('click', goToGourmet);
   document.getElementById('menuAnnounceBtn')?.addEventListener('click', goToAnnounceSetup);
-  document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', goToMenu));
+  // 「← メニューに戻る」ボタン：history.back() を使うことでスマホの戻るボタンと挙動を統一する
+  document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', () => {
+    const s = history.state;
+    if (s && s.chouseikun_screen) history.back();
+    else goToMenu();
+  }));
 
   // ── マイイベント管理（Firestore アカウントベース） ──────
 
@@ -2640,7 +2687,8 @@ body.gourmet-open #gFrame {
         b.classList.toggle('active', b.dataset.view === view));
     }
     // ホストの下部ナビ：作業画面(hostView)を切り替える（activeView=公開は変えない）
-    function setHostView(view) {
+    function setHostView(view, opts) {
+      const skipPush = !!(opts && opts.skipPush);
       hostView = view;
       // hostSettleAutoOpened は意図的にリセットしない：精算タブに戻った際、既に開いた精算フォームの入力
       // （金額・口座・按分等）が再オープンで消失するのを防ぐ。既存のカードはshowEventPage後もDOM保持。
@@ -2649,9 +2697,31 @@ body.gourmet-open #gFrame {
       syncHostNav(view);
       updatePublishBar(view, latestEventData);
       window.scrollTo(0, 0);
+      // スマホ戻るボタン対応：ホストナビの遷移を history に積む（同じ view の連続push は避ける）
+      if (!skipPush) {
+        try {
+          const cur = history.state;
+          if (!cur || cur.chouseikun_hostView !== view) {
+            history.pushState({ chouseikun_hostView: view }, '');
+          }
+        } catch (_) {}
+      }
     }
     document.querySelectorAll('#hostNav .hostnav-btn').forEach(b =>
       b.addEventListener('click', () => setHostView(b.dataset.view)));
+    // イベントページで戻るボタンが押されたら、ホストナビの1つ前の画面に戻す（アプリを閉じない）
+    window.addEventListener('popstate', (e) => {
+      const params = new URLSearchParams(location.search);
+      if (!params.get('event')) return; // イベントページ以外は上のトップ用ハンドラに任せる
+      const s = e.state;
+      if (s && s.chouseikun_hostView) {
+        setHostView(s.chouseikun_hostView, { skipPush: true });
+      } else if (isHost) {
+        // 履歴が公開画面の状態に戻った → 参加者ビューに戻す
+        hostView = null;
+        applyEventView();
+      }
+    });
 
     // 「参加者に表示」＝ activeView を公開。scheduleCreate/gourmet は公開しない。
     // 精算は settle カード内の「保存して参加者に表示」ボタンが公開を担う（activeView＋settlePublished）ため除外。
