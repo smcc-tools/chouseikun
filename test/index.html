@@ -941,9 +941,15 @@ body.gourmet-open #gFrame {
     <div class="menu-tile" id="menuGourmetBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="30" cy="30" r="19" stroke="#EFE5CD" stroke-width="6"/>
-          <path d="M44 44 L64 64" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
-          <path d="M24 20 V40 M30 20 V40 M27 40 V52" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round"/>
+          <!-- お店検索：ナイフ×フォーク交差（±18°）。既存の全ストローク線画に整合、線幅 6/4 -->
+          <g transform="rotate(-18 37 37)">
+            <path d="M31 12 V25 M37 12 V25 M43 12 V25 M31 25 H43" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M37 25 V66" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+          </g>
+          <g transform="rotate(18 37 37)">
+            <path d="M37 10 V66" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+            <path d="M37 12 C45 17 45 29 37 33" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
         </svg>
       </div>
       <div class="mt-title">お店検索</div>
