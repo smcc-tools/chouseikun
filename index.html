@@ -941,9 +941,15 @@ body.gourmet-open #gFrame {
     <div class="menu-tile" id="menuGourmetBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="30" cy="30" r="19" stroke="#EFE5CD" stroke-width="6"/>
-          <path d="M44 44 L64 64" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
-          <path d="M24 20 V40 M30 20 V40 M27 40 V52" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round"/>
+          <!-- お店検索：ナイフ×フォーク交差（±18°）。既存の全ストローク線画に整合、線幅 6/4 -->
+          <g transform="rotate(-18 37 37)">
+            <path d="M31 12 V25 M37 12 V25 M43 12 V25 M31 25 H43" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M37 25 V66" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+          </g>
+          <g transform="rotate(18 37 37)">
+            <path d="M37 10 V66" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+            <path d="M37 12 C45 17 45 29 37 33" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
         </svg>
       </div>
       <div class="mt-title">お店検索</div>
@@ -1489,6 +1495,17 @@ body.gourmet-open #gFrame {
     </div>
     <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
   </div>
+
+  <!-- お店の概要・おすすめメニュー（AI要約、参加者向け） -->
+  <div id="participantBriefSection" style="display:none; margin-top:14px; padding:14px; background:#FBF7EC; border:1px solid var(--border); border-radius:10px;">
+    <div style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">📖 お店の概要</div>
+    <p id="participantBriefOverview" style="font-size:0.86rem; line-height:1.7; color:var(--text); margin:0 0 12px;"></p>
+    <div style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">🍽 おすすめメニュー</div>
+    <ol id="participantBriefDishes" style="font-size:0.86rem; line-height:1.7; color:var(--text); padding-left:1.2em; margin:0;"></ol>
+    <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px;">
+      ※ AIによる自動要約のため、実際の情報と異なる場合があります。
+    </div>
+  </div>
   <div id="announceEmpty" class="empty-msg" style="display:none;">集合時間・お店はまだ設定されていません。</div>
 
   <!-- ホスト専用：お店・行き方の入力 -->
@@ -1508,6 +1525,49 @@ body.gourmet-open #gFrame {
     </div>
     <input type="text" id="venueShopInput" placeholder="店名／住所／食べログURL（店名＋URLも可）" style="margin-bottom:8px;">
     <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
+    <div id="venueBriefSection" class="host-only" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div style="font-size:0.9rem; font-weight:700; color:var(--text); margin-bottom:6px;">お店の情報</div>
+      <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:10px;">
+        ネット上の情報を集めて、店の概要とおすすめメニューを自動生成します。参加者に見せるかはトグルで切替できます。
+      </div>
+
+      <button id="fetchVenueBriefBtn" class="btn btn-secondary" type="button" style="width:100%;">
+        店情報を取得
+      </button>
+
+      <div id="venueBriefLoading" style="display:none; text-align:center; padding:12px; color:var(--text-muted);">
+        店の情報を集めています…（15〜25秒）
+      </div>
+
+      <div id="venueBriefPreview" style="display:none; margin-top:10px;">
+        <div class="field" style="margin-bottom:10px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">概要</label>
+          <textarea id="briefOverviewInput" rows="4" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:0.85rem; box-sizing:border-box;"></textarea>
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">おすすめメニュー</label>
+          <div id="briefDishesList"></div>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <button id="regenerateVenueBriefBtn" class="btn btn-tertiary" type="button" style="flex:1;">🔄 再取得</button>
+          <button id="deleteVenueBriefBtn" class="btn btn-tertiary" type="button" style="flex:1;">🗑 削除</button>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+          <input type="checkbox" id="briefVisibleToggle">
+          <span>参加者に見せる</span>
+        </label>
+        <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">
+          ※ AIによる自動要約のため、実際の情報と異なる場合があります。
+        </div>
+      </div>
+
+      <div id="venueBriefError" style="display:none; margin-top:10px; padding:10px; background:#FDF2E9; border:1px solid #F0B090; border-radius:6px;">
+        <div style="font-size:0.85rem; color:#C05010; margin-bottom:8px;">
+          店の情報を取得できませんでした。<span id="briefErrorDetail"></span>
+        </div>
+        <button id="retryVenueBriefBtn" class="btn btn-secondary" type="button" style="width:100%;">再取得</button>
+      </div>
+    </div>
     <button class="btn btn-primary" id="saveVenueBtn" style="width:100%;">保存</button>
   </div>
 </div>
@@ -1535,9 +1595,10 @@ body.gourmet-open #gFrame {
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
   import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-functions.js";
 
   // ── 環境判定：本番=ルート / テスト=/test/ サブフォルダ ──
   const APP_ENV = location.pathname.includes('/test/') ? 'test' : 'prod';
@@ -1579,6 +1640,8 @@ body.gourmet-open #gFrame {
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const functions = getFunctions(app, 'asia-northeast1');
+  const generateVenueBriefCallable = httpsCallable(functions, 'generateVenueBrief');
   const auth = getAuth(app);
   let currentUser = null;
 
@@ -2885,6 +2948,7 @@ body.gourmet-open #gFrame {
       set('venueMeetPlaceInput', v.meetPlace);
       set('venueShopInput', v.shop);
       set('venueNoteInput', v.note);
+      applyVenueBriefState(data.venue && data.venue.brief);
       set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : '');
       // dirty追跡：入力があった欄はdirty=1を立て、保存時にクリア（saveVenueBtnハンドラで解除）
       ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueNoteInput','announceEventDateInput'].forEach(id => {
@@ -2899,6 +2963,26 @@ body.gourmet-open #gFrame {
       if (shareWrap) shareWrap.style.display = isHost ? 'block' : 'none';
       const shareInput = document.getElementById('announceShareUrl');
       if (shareInput) shareInput.value = `${location.origin}${location.pathname}?event=${eventId}`;
+      // 参加者側 brief 描画（visible=true かつ overview あり かつ dishes 有効時のみ）
+      const briefSec = document.getElementById('participantBriefSection');
+      const brief = data.venue && data.venue.brief;
+      const showBrief = brief && brief.visible === true && brief.overview
+        && Array.isArray(brief.dishes) && brief.dishes.length > 0;
+      if (briefSec) {
+        if (showBrief && !isHost) {
+          briefSec.style.display = 'block';
+          const ovEl = document.getElementById('participantBriefOverview');
+          const dishesEl = document.getElementById('participantBriefDishes');
+          if (ovEl) ovEl.textContent = brief.overview;
+          if (dishesEl) {
+            dishesEl.innerHTML = brief.dishes.filter(d => d && d.name).map(d =>
+              `<li><strong>${escHtml(d.name)}</strong>：${escHtml(d.why || '')}</li>`
+            ).join('');
+          }
+        } else {
+          briefSec.style.display = 'none';
+        }
+      }
     }
     document.getElementById('copyAnnounceUrlBtn')?.addEventListener('click', () =>
       copyText(document.getElementById('announceShareUrl').value, document.getElementById('copyAnnounceUrlBtn'), '参加者用URL'));
@@ -3019,6 +3103,150 @@ body.gourmet-open #gFrame {
         });
         showToast((shop || note || meetTime || meetPlace || eventDate) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
       } catch (e) { showToast('保存に失敗しました'); console.error(e); }
+    });
+
+    // venueBrief: 状態を UI に反映（未取得/取得中/プレビュー/エラー）
+    function applyVenueBriefState(brief) {
+      const btn = document.getElementById('fetchVenueBriefBtn');
+      const loading = document.getElementById('venueBriefLoading');
+      const preview = document.getElementById('venueBriefPreview');
+      const errBox = document.getElementById('venueBriefError');
+      const errDetail = document.getElementById('briefErrorDetail');
+      if (!btn || !preview || !loading || !errBox) return;
+
+      const isFetching = document.body.dataset.briefFetching === '1';
+      const hasBrief = brief && brief.overview;
+      const hasErr = brief && brief.error;
+
+      btn.style.display = (!hasBrief && !isFetching && !hasErr) ? '' : 'none';
+      loading.style.display = isFetching ? '' : 'none';
+      preview.style.display = (hasBrief && !isFetching) ? '' : 'none';
+      errBox.style.display = (hasErr && !isFetching) ? '' : 'none';
+      if (hasErr && errDetail) errDetail.textContent = String(brief.error || '').slice(0, 100);
+
+      if (hasBrief) {
+        const ov = document.getElementById('briefOverviewInput');
+        if (ov && document.activeElement !== ov && ov.dataset.dirty !== '1') {
+          ov.value = brief.overview || '';
+        }
+        const list = document.getElementById('briefDishesList');
+        if (list && list.dataset.dirty !== '1') {
+          list.innerHTML = (brief.dishes || []).map((d, i) => `
+            <div style="display:flex; gap:6px; margin-bottom:4px;">
+              <input type="text" data-brief-dish="${i}" data-field="name" value="${escHtml(d.name || '')}" placeholder="料理名" style="flex:1; padding:6px; border:1px solid var(--border); border-radius:6px; font-size:0.82rem;">
+              <input type="text" data-brief-dish="${i}" data-field="why" value="${escHtml(d.why || '')}" placeholder="理由" style="flex:2; padding:6px; border:1px solid var(--border); border-radius:6px; font-size:0.82rem;">
+            </div>
+          `).join('');
+        }
+        const tog = document.getElementById('briefVisibleToggle');
+        if (tog) tog.checked = !!brief.visible;
+      }
+    }
+
+    // 「店情報を取得」クリック
+    async function invokeGenerateVenueBrief() {
+      if (!currentUser) { showToast('ログインが必要です'); return; }
+      // 未保存の venue 入力があれば先に保存してから取得する（SHOP_EMPTY 回避）
+      const shopInp = document.getElementById('venueShopInput');
+      const savedShop = ((latestEventData && latestEventData.venue && latestEventData.venue.shop) || '').trim();
+      const currentShop = (shopInp?.value || '').trim();
+      if (currentShop && currentShop !== savedShop) {
+        try {
+          const noteInp = document.getElementById('venueNoteInput');
+          const timeInp = document.getElementById('venueMeetTimeInput');
+          const placeInp = document.getElementById('venueMeetPlaceInput');
+          const dateInp = document.getElementById('announceEventDateInput');
+          const updates = {
+            'venue.shop': currentShop,
+            'venue.note': (noteInp?.value || '').trim(),
+            'venue.meetTime': (timeInp?.value || '').trim(),
+            'venue.meetPlace': (placeInp?.value || '').trim(),
+          };
+          const eventDate = (dateInp?.value || '').trim();
+          if (eventDate) updates.eventDate = eventDate;
+          await updateDoc(doc(db, 'events', eventId), updates);
+        } catch (e) {
+          showToast('店情報の保存に失敗しました'); console.error(e);
+          return;
+        }
+      }
+      document.body.dataset.briefFetching = '1';
+      applyVenueBriefState(latestEventData?.venue?.brief);
+      try {
+        await generateVenueBriefCallable({ eventId });
+        // 結果は onSnapshot で自動反映されるためここでは何もしない
+      } catch (e) {
+        showToast('取得に失敗しました：' + (e.message || 'エラー'));
+      } finally {
+        document.body.dataset.briefFetching = '';
+        applyVenueBriefState(latestEventData?.venue?.brief);
+      }
+    }
+
+    document.getElementById('fetchVenueBriefBtn')?.addEventListener('click', invokeGenerateVenueBrief);
+    document.getElementById('retryVenueBriefBtn')?.addEventListener('click', invokeGenerateVenueBrief);
+
+    // 編集ハンドラ（600ms debounce）
+    let _briefSaveTimer = null;
+    function scheduleBriefSave() {
+      if (_briefSaveTimer) clearTimeout(_briefSaveTimer);
+      _briefSaveTimer = setTimeout(async () => {
+        _briefSaveTimer = null;
+        const ov = document.getElementById('briefOverviewInput');
+        const list = document.getElementById('briefDishesList');
+        if (!ov || !list) return;
+        const dishes = [0, 1, 2].map(i => ({
+          name: (list.querySelector(`[data-brief-dish="${i}"][data-field="name"]`)?.value || '').trim(),
+          why:  (list.querySelector(`[data-brief-dish="${i}"][data-field="why"]`)?.value  || '').trim(),
+        }));
+        try {
+          await updateDoc(doc(db, 'events', eventId), {
+            'venue.brief.overview': ov.value.trim(),
+            'venue.brief.dishes': dishes,
+            'venue.brief.edited': true,
+          });
+          ov.dataset.dirty = '';
+          list.dataset.dirty = '';
+        } catch (e) { console.error('brief save error:', e); }
+      }, 600);
+    }
+
+    document.getElementById('briefOverviewInput')?.addEventListener('input', (e) => {
+      e.target.dataset.dirty = '1';
+      scheduleBriefSave();
+    });
+    document.getElementById('briefDishesList')?.addEventListener('input', (e) => {
+      const list = document.getElementById('briefDishesList');
+      if (list) list.dataset.dirty = '1';
+      scheduleBriefSave();
+    });
+
+    // 参加者に見せるトグル
+    document.getElementById('briefVisibleToggle')?.addEventListener('change', async (e) => {
+      try {
+        await updateDoc(doc(db, 'events', eventId), { 'venue.brief.visible': !!e.target.checked });
+      } catch (err) {
+        showToast('切替に失敗しました');
+        e.target.checked = !e.target.checked;
+      }
+    });
+
+    // 再取得ボタン（edited=true なら確認）
+    document.getElementById('regenerateVenueBriefBtn')?.addEventListener('click', () => {
+      const b = latestEventData?.venue?.brief;
+      if (b && b.edited) {
+        if (!confirm('編集した内容は上書きされます。よろしいですか？')) return;
+      }
+      invokeGenerateVenueBrief();
+    });
+
+    // 削除ボタン
+    document.getElementById('deleteVenueBriefBtn')?.addEventListener('click', async () => {
+      if (!confirm('店情報を削除しますか？')) return;
+      try {
+        await updateDoc(doc(db, 'events', eventId), { 'venue.brief': deleteField() });
+        showToast('店情報を削除しました');
+      } catch (e) { showToast('削除に失敗しました'); console.error(e); }
     });
 
     // 参加登録のプッシュ通知 ON/OFF（イベント毎・ホスト本人のuidを notifyUids に出し入れ）
