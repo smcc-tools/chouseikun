@@ -13,7 +13,7 @@
 
 ## ゴール（要件）
 
-1. **無料枠内で運用**：Google Custom Search JSON API（無料 100 req/day）＋ Google Gemini 1.5 Flash（無料 1500 req/day, 15 req/min）のみを使う。
+1. **無料枠内で運用**：Google Gemini 1.5 Flash（無料 1500 req/day, 15 req/min）＋ Google Search grounding（Gemini API 側で処理・追加無料枠内）のみを使う。
 2. **複数情報源からの総合要約**：食べログ・ぐるなび・ホットペッパー・Google Maps・個人ブログ等、複数サイトの検索スニペットを情報源とする。
 3. **2項目に絞って高精度で取得**：
    - **概要（overview）**：店の雰囲気・ジャンル・予算目安・向いているシーンを含む2〜4文の文章。
@@ -56,7 +56,7 @@ venue: {
     overview: string;                              // 概要文（2〜4文の日本語）
     dishes: Array<{ name: string; why: string }>;  // おすすめメニュー（最大3件）
     generatedAt: number;                           // 生成時刻（unix ms）
-    sourceQuery: string;                           // 使用した検索クエリ（デバッグ用）
+    sourceUrls: string[];                          // Gemini grounding が引用した情報源URL（最大5件）
     edited: boolean;                               // ホストがテキストを編集済みか
     visible: boolean;                              // 参加者に表示するか（デフォルト false）
     error?: string;                                // 直近の生成エラー（成功時は削除）
@@ -75,68 +75,60 @@ venue: {
 ```typescript
 // Callable: ホストのみ呼び出し可能
 exports.generateVenueBrief = onCall({
-  secrets: ['GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'GEMINI_API_KEY'],
+  secrets: ['GEMINI_API_KEY'],
   region: 'asia-northeast1',
+  timeoutSeconds: 45,
+  memory: '256MiB',
 }, async (request) => {
   // 1. 認証確認: request.auth.uid が events/{eventId}.ownerUids に含まれるか
-  // 2. venue.shop を読み取り（空なら early return + エラー返却）
-  // 3. venue.shop から検索クエリを組み立て:
-  //    - URL があれば URL のドメイン + パスから店名を抽出
-  //    - なければ shop 文字列全体を使用
-  //    - 「<店名> メニュー おすすめ」「<店名> レビュー」の2クエリを投げる
-  // 4. Google Custom Search JSON API 呼び出し（各クエリ 5件 x 2クエリ = 最大10件のスニペット）
-  // 5. スニペットの重複除去・整形
-  // 6. Gemini 1.5 Flash に投入:
-  //    - system: 「あなたはグルメサイトの要約を作るアシスタントです。
-  //               複数の検索スニペットから店の概要と、頻出のおすすめ料理3品を
-  //               JSON形式で返してください。」
-  //    - user: 検索スニペット群 + 店名
-  //    - response_mime_type: application/json でスキーマ強制
-  // 7. Firestore events/{eventId}.venue.brief を更新
-  //    - overview, dishes, generatedAt, sourceQuery, edited=false, visible=既存値(または false)
+  // 2. venue.shop を読み取り（空なら SHOP_EMPTY を返却）
+  // 3. venue.shop から店名を抽出（URLがあればホスト名/URL部分を除いた行を優先）
+  // 4. Gemini 1.5 Flash の generateContent を1回呼び出し:
+  //    - tools: [{ googleSearchRetrieval: {} }]  ← Google Search grounding を有効化
+  //    - systemInstruction: 「日本のグルメサイトを検索して、店の概要と、
+  //                          頻出するおすすめ料理3品を JSON で返してください」
+  //    - contents.user.text: 店名（+ URL があれば「参考URL: <URL>」も追加）
+  //    - generationConfig.responseMimeType: 'application/json'
+  //    - generationConfig.responseSchema: { overview, dishes[{name, why}] }
+  //    - generationConfig.temperature: 0.3
+  // 5. レスポンスから overview / dishes をパース、groundingMetadata から情報源URLを抽出
+  // 6. Firestore events/{eventId}.venue.brief を更新
+  //    - overview, dishes, generatedAt, sourceUrls, edited=false, visible=既存値(または false)
   //    - error は削除
-  // 8. 成功レスポンス返却
+  // 7. 成功レスポンス返却
 });
 ```
 
 - **リージョン**は既存 Functions と同じ `asia-northeast1`。
-- **Secrets** は Firebase CLI で `firebase functions:secrets:set GEMINI_API_KEY` 等で登録。
-- **タイムアウト**: 30秒（デフォルトの60秒より短くし、参加者のインタラクションを阻害しない）。
-- **メモリ**: 256MB で十分（大きなJSONの整形程度）。
+- **Secrets** は `GEMINI_API_KEY` の1件のみ（`firebase functions:secrets:set GEMINI_API_KEY`）。
+- **タイムアウト**: 45秒（Google Search grounding はスニペット取得＋要約を1回で行うため 30秒より少し長めに）。
+- **メモリ**: 256MB で十分。
+- **重要**: `googleSearchRetrieval` ツールは Gemini 1.5 Flash の **v1beta モデル**でサポート。エンドポイントは `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`。
 
 ### 3. Gemini プロンプト仕様
 
 ```
-system:
-あなたは日本のグルメサイトの要約を作るアシスタントです。
-複数の検索結果スニペットから、店の概要と、頻出する
-おすすめ料理3品を抽出し、JSON形式で回答してください。
+tools: [{ googleSearchRetrieval: {} }]  // Google Search grounding 有効化
 
-出力フォーマット（JSON schema）:
-{
-  "overview": string,  // 2〜4文の日本語。雰囲気・ジャンル・予算目安・向いているシーンを含める
-  "dishes": [
-    {
-      "name": string,  // 料理名
-      "why": string    // 1文の理由。「口コミで頻出」「看板料理」「珍しい」等
-    }
-  ]  // 必ず3件。情報が不十分な場合は「（情報不足）」と記載
-}
+systemInstruction:
+あなたは日本のグルメサイトを検索して要約するアシスタントです。
+Google 検索で店の情報を集め、店の概要と、頻出するおすすめ料理3品を JSON 形式で回答してください。
 
 制約:
 - 事実として確認できないことは書かない。
-- 予算・営業時間・住所などの具体情報は概要に入れず、確度の高い雰囲気描写にとどめる。
-- おすすめメニューは検索スニペットに複数回出現する料理を優先する。
+- 概要には雰囲気・ジャンル・予算目安・向いているシーンを含める（2〜4文の日本語）。
+- おすすめメニューは検索結果に複数回出現する料理を優先。
+- 情報が不足している項目は「（情報不足）」と記載。
 - 出力は必ず有効な JSON（他のテキストは含めない）。
 
 user:
 店名: {venue.shop から抽出した店名}
-検索スニペット:
-1. [検索結果1のtitle] - [snippet]
-2. ...
+参考URL: {URL があれば、なければ省略}
 ```
 
-**構造化出力の強制**: Gemini API の `generation_config.response_mime_type = "application/json"` と `response_schema` で JSON スキーマを与え、パース失敗を防ぐ。
+**構造化出力の強制**: Gemini API の `generationConfig.responseMimeType = "application/json"` と `responseSchema` で JSON スキーマを与え、パース失敗を防ぐ。
+
+**情報源の記録**: Gemini レスポンスの `candidates[0].groundingMetadata.groundingChunks[].web.uri` から実際に参照された URL を最大5件抽出し、`venue.brief.sourceUrls` に保存（デバッグ・監査用途、参加者には表示しない）。
 
 ### 4. UI変更（テスト環境 `test/index.html`）
 
@@ -234,39 +226,32 @@ user:
 初回デプロイ時にのみ実行：
 
 ```bash
-# Google Custom Search Engine 設定（1回のみ）:
-# 1. https://programmablesearchengine.google.com/ で新規 CSE 作成
-#    - 「ウェブ全体を検索」ON、日本語優先
-#    - 検索対象サイト: 空欄でOK（全ウェブ検索）
-# 2. CSE ID (cx) を控える
-# 3. https://developers.google.com/custom-search/v1/introduction で API Key を発行
-# 4. 秘密として登録:
-firebase functions:secrets:set GOOGLE_CSE_KEY --project chouseikun-tabel
-firebase functions:secrets:set GOOGLE_CSE_CX --project chouseikun-tabel
-
 # Gemini API Key（1回のみ）:
-# 1. https://aistudio.google.com/ で無料の API Key を発行
-# 2. 秘密として登録:
-firebase functions:secrets:set GEMINI_API_KEY --project chouseikun-tabel
+# 1. https://aistudio.google.com/apikey で無料の API Key を発行
+#    - プロジェクト chouseikun-tabel に紐付ける（既存プロジェクト選択）
+# 2. Firebase Secrets に登録:
+firebase functions:secrets:set GEMINI_API_KEY --project chouseikun-tabel \
+  --account takedakyoichi0926@gmail.com
 
 # 関数デプロイ
 firebase deploy --only functions:generateVenueBrief --project chouseikun-tabel \
   --account takedakyoichi0926@gmail.com
 ```
 
+**CSE は使用しない**：Google Custom Search JSON API は 2027/1/1 でサービス終了予定 + 「ウェブ全体を検索」設定廃止のため採用せず、Gemini の Google Search grounding 機能に一本化する。
+
 ### 7. エラー処理・レート制限対策
 
-- **CSE 100/日超過**: Cloud Function が 429 を返す → クライアントに「本日の取得上限に達しました。翌日再試行してください」メッセージ表示。
-- **Gemini 15/分・1500/日超過**: 同様に上限メッセージ。
-- **CSE 応答が0件**: 「情報が見つかりませんでした。店名を確認してください」メッセージ。
+- **Gemini 15/分・1500/日超過**: Cloud Function が 429 を返す → クライアントに「本日の取得上限に達しました。翌日再試行してください」メッセージ表示。
+- **Gemini grounding で情報0件**: `groundingChunks` が空 + `dishes` が全て「（情報不足）」→ 「情報が見つかりませんでした。店名を確認してください」メッセージ。
 - **Gemini JSON パース失敗**: 自動リトライは行わず「取得に失敗しました。再取得してください」メッセージ。
 - **エラーは Firestore の `venue.brief.error` に一時保存**し、UI に表示。次回成功時に削除。
 
 ### 8. コスト試算
 
-- **無料枠**: CSE 100/日、Gemini 1500/日
+- **無料枠**: Gemini 1.5 Flash 1500 req/日, 15 req/分（Google Search grounding も無料枠内）
 - **想定利用量**: 1イベント作成で 1〜3回の brief 取得 → 数百イベント/日まで完全無料
-- **超過時**: Cloud Functions 呼び出し自体は無料枠（Firebase Blaze プランでも呼び出し課金は $0.40/百万回）なので、CSE/Gemini の上限までは実質無料で稼働
+- **超過時**: Cloud Functions 呼び出し自体は無料枠内。Gemini の上限まで実質無料で稼働
 
 ## ロールアウト
 
@@ -281,9 +266,10 @@ firebase deploy --only functions:generateVenueBrief --project chouseikun-tabel \
 
 ## リスク・留意
 
-- **Gemini の要約は事実と異なる可能性**：プロンプトで「確認できないことは書かない」と制約するが、完全は保証できない。「参考情報として」の但し書きを参加者UIに小さく表示する。
-- **Google CSE は 100 件/日固定**：拡張したい場合は月額 $5〜（1000クエリ）へ有料アップグレードが必要。運用開始後、需要が超えたらユーザーに通知。
-- **食べログの TOS**：本 Function は食べログ本体をスクレイピングせず、Google 検索結果のスニペットのみ利用するため、TOS 違反リスクは低い。ただし CSE 結果に食べログURL の title/snippet が含まれる点は変わらないため、参加者UIに情報源URLは表示しない。
+- **Gemini の要約は事実と異なる可能性**：Google Search grounding で実データに紐付けても、要約段階でハルシネーションのリスクは残る。「参考情報として」の但し書きを参加者UIに小さく表示する。
+- **Gemini 1500/日固定**：規模拡大時は Vertex AI 経由の有料 Gemini に切替可能。当面は無料枠で十分。
+- **食べログの TOS**：Gemini の Google Search grounding は Google 検索インデックスからのスニペット引用であり、直接スクレイピングではない。TOS 違反リスクは低い。参加者UIに情報源URLは表示しない（`sourceUrls` はホストのデバッグ用途のみ）。
+- **grounding 機能の可用性**：`googleSearchRetrieval` ツールは Gemini 1.5 Flash の v1beta API でサポート。将来 API バージョンアップで名称変更の可能性あり、その場合は generateVenueBriefImpl のみ改修で対応可能。
 - **API Key 漏洩リスク**：Firebase Secrets Manager で管理し、クライアントに一切露出しない。Callable Function の認証（`request.auth.uid` チェック）でホストのみに限定。
 - **venue.shop が空欄で「情報を取得」ボタンが押される事故**：ボタンを disabled 制御。念のため Function 側でも空欄チェック。
 - **同時多発リクエストによる 15/分超過**：クライアント側で取得ボタンを実行中に disable、Function 側でも rate limit を実装（同一ホストが 5秒以内に再呼び出しは 429）。
