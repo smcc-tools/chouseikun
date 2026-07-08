@@ -1495,6 +1495,17 @@ body.gourmet-open #gFrame {
     </div>
     <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
   </div>
+
+  <!-- お店の概要・おすすめメニュー（AI要約、参加者向け） -->
+  <div id="participantBriefSection" style="display:none; margin-top:14px; padding:14px; background:#FBF7EC; border:1px solid var(--border); border-radius:10px;">
+    <div style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">📖 お店の概要</div>
+    <p id="participantBriefOverview" style="font-size:0.86rem; line-height:1.7; color:var(--text); margin:0 0 12px;"></p>
+    <div style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">🍽 おすすめメニュー</div>
+    <ol id="participantBriefDishes" style="font-size:0.86rem; line-height:1.7; color:var(--text); padding-left:1.2em; margin:0;"></ol>
+    <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px;">
+      ※ AIによる自動要約のため、実際の情報と異なる場合があります。
+    </div>
+  </div>
   <div id="announceEmpty" class="empty-msg" style="display:none;">集合時間・お店はまだ設定されていません。</div>
 
   <!-- ホスト専用：お店・行き方の入力 -->
@@ -2952,6 +2963,26 @@ body.gourmet-open #gFrame {
       if (shareWrap) shareWrap.style.display = isHost ? 'block' : 'none';
       const shareInput = document.getElementById('announceShareUrl');
       if (shareInput) shareInput.value = `${location.origin}${location.pathname}?event=${eventId}`;
+      // 参加者側 brief 描画（visible=true かつ overview あり かつ dishes 有効時のみ）
+      const briefSec = document.getElementById('participantBriefSection');
+      const brief = data.venue && data.venue.brief;
+      const showBrief = brief && brief.visible === true && brief.overview
+        && Array.isArray(brief.dishes) && brief.dishes.length > 0;
+      if (briefSec) {
+        if (showBrief && !isHost) {
+          briefSec.style.display = 'block';
+          const ovEl = document.getElementById('participantBriefOverview');
+          const dishesEl = document.getElementById('participantBriefDishes');
+          if (ovEl) ovEl.textContent = brief.overview;
+          if (dishesEl) {
+            dishesEl.innerHTML = brief.dishes.filter(d => d && d.name).map(d =>
+              `<li><strong>${escHtml(d.name)}</strong>：${escHtml(d.why || '')}</li>`
+            ).join('');
+          }
+        } else {
+          briefSec.style.display = 'none';
+        }
+      }
     }
     document.getElementById('copyAnnounceUrlBtn')?.addEventListener('click', () =>
       copyText(document.getElementById('announceShareUrl').value, document.getElementById('copyAnnounceUrlBtn'), '参加者用URL'));
