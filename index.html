@@ -199,6 +199,10 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 }
 .date-row input[type="date"] { flex: 1; }
 .ve-lbl { display:block; font-size:0.72rem; color:var(--text-muted); font-weight:600; margin-bottom:3px; }
+/* venue-brief 折りたたみ：デフォルトの開閉三角を隠して自前のテキストで案内する */
+#venueBriefPreview summary::-webkit-details-marker { display: none; }
+#venueBriefPreview summary::marker { display: none; }
+#venueBriefPreview[open] summary { border-bottom: 1px solid var(--border); border-radius: 10px 10px 0 0; }
 .day-badge {
   min-width: 36px; text-align: center; font-size: 0.8rem;
   font-weight: 700; color: white; background: var(--green);
@@ -1539,27 +1543,33 @@ body.gourmet-open #gFrame {
         店の情報を集めています…（15〜25秒）
       </div>
 
-      <div id="venueBriefPreview" style="display:none; margin-top:10px;">
-        <div class="field" style="margin-bottom:10px;">
-          <label style="font-size:0.75rem; color:var(--text-muted);">概要</label>
-          <textarea id="briefOverviewInput" rows="4" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:0.85rem; box-sizing:border-box;"></textarea>
+      <details id="venueBriefPreview" open style="display:none; margin-top:10px; border:1px solid var(--green-mid); border-radius:10px; background:#fff;">
+        <summary style="cursor:pointer; padding:10px 14px; font-weight:700; font-size:0.9rem; color:var(--text); user-select:none; list-style:none; display:flex; align-items:center; justify-content:space-between;">
+          <span>📝 生成されたお店の情報</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:500;">クリックで開閉 ▾</span>
+        </summary>
+        <div style="padding:12px 14px 14px;">
+          <div class="field" style="margin-bottom:10px;">
+            <label style="font-size:0.75rem; color:var(--text-muted);">概要</label>
+            <textarea id="briefOverviewInput" rows="6" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:0.85rem; box-sizing:border-box;"></textarea>
+          </div>
+          <div class="field" style="margin-bottom:10px;">
+            <label style="font-size:0.75rem; color:var(--text-muted);">おすすめメニュー</label>
+            <div id="briefDishesList"></div>
+          </div>
+          <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <button id="regenerateVenueBriefBtn" class="btn btn-tertiary" type="button" style="flex:1;">🔄 再取得</button>
+            <button id="deleteVenueBriefBtn" class="btn btn-tertiary" type="button" style="flex:1;">🗑 削除</button>
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+            <input type="checkbox" id="briefVisibleToggle">
+            <span>参加者に見せる</span>
+          </label>
+          <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">
+            ※ AIによる自動要約のため、実際の情報と異なる場合があります。
+          </div>
         </div>
-        <div class="field" style="margin-bottom:10px;">
-          <label style="font-size:0.75rem; color:var(--text-muted);">おすすめメニュー</label>
-          <div id="briefDishesList"></div>
-        </div>
-        <div style="display:flex; gap:8px; margin-bottom:10px;">
-          <button id="regenerateVenueBriefBtn" class="btn btn-tertiary" type="button" style="flex:1;">🔄 再取得</button>
-          <button id="deleteVenueBriefBtn" class="btn btn-tertiary" type="button" style="flex:1;">🗑 削除</button>
-        </div>
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
-          <input type="checkbox" id="briefVisibleToggle">
-          <span>参加者に見せる</span>
-        </label>
-        <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">
-          ※ AIによる自動要約のため、実際の情報と異なる場合があります。
-        </div>
-      </div>
+      </details>
 
       <div id="venueBriefError" style="display:none; margin-top:10px; padding:10px; background:#FDF2E9; border:1px solid #F0B090; border-radius:6px;">
         <div style="font-size:0.85rem; color:#C05010; margin-bottom:8px;">
