@@ -5,37 +5,48 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 exports.notifyOnParticipantRegister = onDocumentUpdated('events/{eventId}', async (event) => {
+  const eventId = event.params.eventId;
   const before = event.data.before.data() || {};
   const after  = event.data.after.data()  || {};
 
   const notifyUids = after.notifyUids || [];
-  if (!notifyUids.length) return;
-
-  const eventName = after.name || 'イベント';
-  const url = `https://smcc-tools.github.io/chouseikun/?event=${event.params.eventId}`;
-  const notifications = [];
 
   // ① 新規回答登録
   const beforeP = before.participants || {};
   const afterP  = after.participants  || {};
   const newNames = Object.keys(afterP).filter(n => !(n in beforeP));
-  if (newNames.length) {
-    notifications.push({
-      title: `「${eventName}」に新しい回答`,
-      body: `${newNames.join('、')} さんが回答を登録しました`,
-      tag: `evt-${event.params.eventId}`
-    });
-  }
 
   // ② 支払済みにした
   const beforePaid = (before.settle && before.settle.paid) || {};
   const afterPaid  = (after.settle && after.settle.paid)  || {};
   const newlyPaid = Object.keys(afterPaid).filter(n => afterPaid[n] === true && beforePaid[n] !== true);
+
+  // 診断ログ：何もしない場合でも何が起きたか可視化する
+  console.log(JSON.stringify({
+    fn: 'notify', eventId,
+    notifyUidsCount: notifyUids.length,
+    newParticipants: newNames.length,
+    newlyPaid: newlyPaid.length,
+  }));
+
+  if (!notifyUids.length) return;
+
+  const notifications = [];
+  const eventName = after.name || 'イベント';
+  const url = `https://smcc-tools.github.io/chouseikun/?event=${eventId}`;
+
+  if (newNames.length) {
+    notifications.push({
+      title: `「${eventName}」に新しい回答`,
+      body: `${newNames.join('、')} さんが回答を登録しました`,
+      tag: `evt-${eventId}`
+    });
+  }
   if (newlyPaid.length) {
     notifications.push({
       title: `「${eventName}」の精算`,
       body: `${newlyPaid.join('、')} さんが支払済みにしました`,
-      tag: `paid-${event.params.eventId}`
+      tag: `paid-${eventId}`
     });
   }
 
@@ -50,23 +61,42 @@ exports.notifyOnParticipantRegister = onDocumentUpdated('events/{eventId}', asyn
     if (snap.exists && Array.isArray(snap.data().tokens)) tokens.push(...snap.data().tokens);
   }
   tokens = [...new Set(tokens)];
-  if (!tokens.length) return;
+
+  console.log(JSON.stringify({
+    fn: 'notify', eventId,
+    tokensFound: tokens.length,
+    notificationsToSend: notifications.length,
+  }));
+
+  if (!tokens.length) {
+    console.warn(JSON.stringify({ fn: 'notify', eventId, warn: 'no_tokens_for_notifyUids', notifyUids }));
+    return;
+  }
 
   // data-only メッセージ（表示はService Worker側で行う）
   const invalid = new Set();
+  const sendResults = [];
   for (const n of notifications) {
     const resp = await admin.messaging().sendEachForMulticast({
       tokens,
       data: { title: n.title, body: n.body, url, tag: n.tag }
     });
+    sendResults.push({ successCount: resp.successCount, failureCount: resp.failureCount });
     resp.responses.forEach((r, i) => {
-      const code = r.error && r.error.code;
-      if (!r.success && (code === 'messaging/invalid-registration-token' ||
-                         code === 'messaging/registration-token-not-registered')) {
-        invalid.add(tokens[i]);
+      if (!r.success) {
+        const code = r.error && r.error.code;
+        console.warn(JSON.stringify({ fn: 'notify', eventId, send_error: code || 'unknown', token_hint: tokens[i].slice(-8) }));
+        // 旧プロジェクト由来の mismatched-credential も掃除対象に含める
+        // （プロジェクト統合前に発行されたトークンが残っているケース）
+        if (code === 'messaging/invalid-registration-token' ||
+            code === 'messaging/registration-token-not-registered' ||
+            code === 'messaging/mismatched-credential') {
+          invalid.add(tokens[i]);
+        }
       }
     });
   }
+  console.log(JSON.stringify({ fn: 'notify', eventId, sendResults, invalidCount: invalid.size }));
 
   // 無効になったトークンを掃除
   if (invalid.size) {
