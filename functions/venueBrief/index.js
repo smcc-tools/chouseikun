@@ -49,8 +49,12 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   const shopUrl = extractShopUrl(shopField);
   if (!shopName) throw new Error('SHOP_EMPTY');
 
+  // venue.preview（OGP/JSON-LDから確定済みの店舗情報）を「検証済み情報」として Gemini に渡し、
+  // 別店舗と混同することを防ぐ
+  const preview = (data.venue && data.venue.preview) || null;
+
   // Gemini + grounding で1コール要約
-  const geminiBody = buildGeminiRequestBody(shopName, shopUrl);
+  const geminiBody = buildGeminiRequestBody(shopName, shopUrl, preview);
   const geminiJson = await callGemini(geminiBody, secrets.geminiKey);
   const parsed = parseGeminiResponse(geminiJson);
   const sourceUrls = extractSourceUrls(geminiJson);

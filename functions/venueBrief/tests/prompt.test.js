@@ -15,15 +15,39 @@ test('buildGeminiRequestBody: systemInstruction と contents に店名を含む'
   assert.ok(body.contents[0].parts[0].text.includes('銀座 うち山'));
 });
 
-test('buildGeminiRequestBody: URL が渡された時は user text に「参考URL」を含む', () => {
+test('buildGeminiRequestBody: URL が渡された時は user text に URL を含む', () => {
   const body = buildGeminiRequestBody('銀座 うち山', 'https://tabelog.com/x');
-  assert.ok(body.contents[0].parts[0].text.includes('参考URL'));
+  assert.ok(body.contents[0].parts[0].text.includes('URL:'));
   assert.ok(body.contents[0].parts[0].text.includes('https://tabelog.com/x'));
 });
 
-test('buildGeminiRequestBody: URL 空の時は「参考URL」を含めない', () => {
+test('buildGeminiRequestBody: URL 空の時は URL 行を含めない', () => {
   const body = buildGeminiRequestBody('銀座 うち山', '');
-  assert.ok(!body.contents[0].parts[0].text.includes('参考URL'));
+  assert.ok(!body.contents[0].parts[0].text.includes('URL:'));
+});
+
+test('buildGeminiRequestBody: URL が渡された時は url_context ツールも追加される', () => {
+  const body = buildGeminiRequestBody('X', 'https://tabelog.com/x');
+  assert.ok(body.tools.some(t => t.url_context !== undefined));
+});
+
+test('buildGeminiRequestBody: URL 空なら url_context ツールは追加されない', () => {
+  const body = buildGeminiRequestBody('X', '');
+  assert.ok(!body.tools.some(t => t.url_context !== undefined));
+});
+
+test('buildGeminiRequestBody: preview が渡されたら「検証済み情報」を prompt に含める', () => {
+  const preview = { title: '銀座 うち山', sub: '銀座 / 割烹', rating: '4.10', price: '¥30,000〜' };
+  const body = buildGeminiRequestBody('銀座 うち山', 'https://tabelog.com/x', preview);
+  const text = body.contents[0].parts[0].text;
+  assert.ok(text.includes('検証済み情報'));
+  assert.ok(text.includes('銀座 / 割烹'));
+  assert.ok(text.includes('¥30,000'));
+});
+
+test('buildGeminiRequestBody: preview が null なら「検証済み情報」ブロックを含めない', () => {
+  const body = buildGeminiRequestBody('銀座 うち山', 'https://tabelog.com/x', null);
+  assert.ok(!body.contents[0].parts[0].text.includes('検証済み情報'));
 });
 
 test('buildGeminiRequestBody: generationConfig は temperature のみ（tools と mimeType 併用不可のため schema 撤廃）', () => {
