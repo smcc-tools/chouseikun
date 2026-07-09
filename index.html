@@ -2673,7 +2673,13 @@ body.gourmet-open #gFrame {
       // 通知トグルの状態を反映
       const notifyToggle = document.getElementById('notifyToggle');
       if (notifyToggle && currentUser) {
-        notifyToggle.checked = (data.notifyUids || []).includes(currentUser.uid);
+        const isNotifyOn = (data.notifyUids || []).includes(currentUser.uid);
+        notifyToggle.checked = isNotifyOn;
+        // 通知ONだが古いプロジェクト由来のFCMトークンで送信失敗しているケースを解消するため、
+        // 通知許可が既に granted の時のみ静かにトークンを再取得して最新化する
+        if (isNotifyOn && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          registerFcmToken().catch(() => {});
+        }
       }
     }
     // 開いたイベントをマイイベントに記録（ホスト/参加者問わず、ログイン時）
