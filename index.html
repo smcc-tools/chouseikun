@@ -2926,6 +2926,24 @@ body.gourmet-open #gFrame {
           }
         });
         if (isHost) renderSettleInlineMembers(data);
+
+        // 参加者の追加/削除/名前変更を即座に精算表へ反映する（リロード不要）
+        const freshNames = getSortedNames(data);
+        if (settleNames.length > 0 &&
+            JSON.stringify(freshNames) !== JSON.stringify(settleNames)) {
+          settleNames = freshNames;
+          const partiesCountEl = document.getElementById('partiesCount');
+          const partyCount = parseInt(partiesCountEl?.value) || 1;
+          const partyAmountsArr = Array.from(document.querySelectorAll('.party-amount-input'))
+            .sort((a, b) => parseInt(a.dataset.idx) - parseInt(b.dataset.idx))
+            .map(el => parseInt(el.value) || 0);
+          const total = partyAmountsArr.reduce((s, v) => s + v, 0);
+          const partyNamesArr = Array.from(document.querySelectorAll('.party-name-input'))
+            .sort((a, b) => parseInt(a.dataset.idx) - parseInt(b.dataset.idx))
+            .map((el, i) => el.value.trim() || `${i + 1}次会`);
+          const cur = getCurrentAmounts();
+          renderSettle(settleNames, total, partyCount, partyAmountsArr, partyNamesArr, cur, getCurrentPaid(), settleReadOnly);
+        }
       }
     }
 
