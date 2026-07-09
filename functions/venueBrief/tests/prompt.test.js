@@ -50,6 +50,32 @@ test('buildGeminiRequestBody: preview が null なら「検証済み情報」ブ
   assert.ok(!body.contents[0].parts[0].text.includes('検証済み情報'));
 });
 
+test('systemInstruction: overview の書き方に 4〜7文と6つの要素を含む指示がある', () => {
+  const body = buildGeminiRequestBody('X', '');
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(sys.includes('4〜7文'), 'overview の文数指定');
+  assert.ok(sys.includes('何屋か'), '要素1: ジャンル');
+  assert.ok(sys.includes('差別化'), '要素2: 特徴');
+  assert.ok(sys.includes('価格帯'), '要素3: 予算');
+  assert.ok(sys.includes('席の雰囲気'), '要素4: 席');
+  assert.ok(sys.includes('利用シーン'), '要素5: シーン');
+  assert.ok(sys.includes('予約'), '要素6: 予約');
+});
+
+test('systemInstruction: dishes の書き方に具体的な料理名の指示と根拠フレーズ禁止例がある', () => {
+  const body = buildGeminiRequestBody('X', '');
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(sys.includes('具体的な料理名'), '具体性の要求');
+  assert.ok(sys.includes('看板料理'), '禁止フレーズの明示例');
+});
+
+test('systemInstruction: 推奨手順と自問セクションを含む', () => {
+  const body = buildGeminiRequestBody('X', '');
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(sys.includes('推奨手順'), '手順明示');
+  assert.ok(sys.includes('自問'), 'self-check');
+});
+
 test('buildGeminiRequestBody: generationConfig は temperature のみ（tools と mimeType 併用不可のため schema 撤廃）', () => {
   const body = buildGeminiRequestBody('X', '');
   assert.equal(typeof body.generationConfig.temperature, 'number');
