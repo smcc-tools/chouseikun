@@ -2196,6 +2196,13 @@ body.gourmet-open #gFrame {
           if (ci != null && data.dates && data.dates[ci]) {
             e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
           }
+          // 旧イベント（ownerUids未設定）で自分が正当なホスト（hostKey一致）なら、
+          // 新方式(uid)へ自動移行。以降は ?event=<id> だけでホスト判定され、URLに host= が不要になる。
+          const owners = data.ownerUids || [];
+          const legacyKeys = data.hostKeys || (data.hostKey ? [data.hostKey] : []);
+          if (owners.length === 0 && e.hostKey && legacyKeys.includes(e.hostKey)) {
+            try { await updateDoc(doc(db, 'events', e.eventId), { ownerUids: [currentUser.uid] }); } catch (_) {}
+          }
         }
       } catch (_) { /* 取得失敗時は日程調整・未確定扱い */ }
     }));
@@ -2239,7 +2246,7 @@ body.gourmet-open #gFrame {
           <div class="my-event-meta">${statusChip}${dateStr ? `<span style="margin-left:8px;">${dateStr}</span>` : ''}</div>
         </div>
         <div class="my-event-actions">
-          <a class="btn btn-secondary my-event-open" href="${base}?event=${encodeURIComponent(e.eventId)}${e.hostKey ? `&host=${encodeURIComponent(e.hostKey)}` : ''}">開く</a>
+          <a class="btn btn-secondary my-event-open" href="${base}?event=${encodeURIComponent(e.eventId)}">開く</a>
           ${toggleBtn}
           <button class="my-event-remove" data-id="${escHtml(e.eventId)}" title="一覧から削除" aria-label="一覧から削除">✕</button>
         </div>
