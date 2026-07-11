@@ -3443,12 +3443,12 @@ body.gourmet-open #gFrame {
     const cells = entries.map(([name, votes]) => {
       const en = escHtml(name);
       const noteVal = escHtml(votes._note || '');
-      return `<td class="locked" data-col="${en}"><input type="text" class="note-input" data-name="${en}" value="${noteVal}" placeholder="備考を追加..."></td>`;
+      return `<td class="locked" data-col="${en}"><input type="text" class="note-input" data-name="${en}" value="${noteVal}" placeholder="アレルギー・苦手なもの"></td>`;
     }).join('');
     const inputCell = `<td class="input-col">
-      <input type="text" id="newNote" placeholder="備考（任意）" style="width:100%;padding:5px 8px;border:1.5px solid var(--green-mid);border-radius:6px;font-size:0.82rem;outline:none;">
+      <input type="text" id="newNote" placeholder="アレルギー・苦手なもの（任意）" style="width:100%;padding:5px 8px;border:1.5px solid var(--green-mid);border-radius:6px;font-size:0.82rem;outline:none;">
     </td>`;
-    return `<tr class="note-row"><td class="date-cell note-label">備考</td>${cells}${inputCell}<td></td></tr>`;
+    return `<tr class="note-row"><td class="date-cell note-label">アレルギー・苦手</td>${cells}${inputCell}<td></td></tr>`;
   }
 
   function attachVoteHandlers(wrap) {
