@@ -1504,7 +1504,7 @@ body.gourmet-open #gFrame {
   <div id="participantBriefSection" style="display:none; margin-top:14px; padding:14px; background:#FBF7EC; border:1px solid var(--border); border-radius:10px;">
     <div style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">📖 お店の概要</div>
     <p id="participantBriefOverview" style="font-size:0.86rem; line-height:1.7; color:var(--text); margin:0 0 12px;"></p>
-    <div style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">🍽 おすすめメニュー</div>
+    <div id="participantBriefDishesLabel" style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">🍽 おすすめメニュー</div>
     <ol id="participantBriefDishes" style="font-size:0.86rem; line-height:1.7; color:var(--text); padding-left:1.2em; margin:0;"></ol>
     <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px;">
       ※ AIによる自動要約のため、実際の情報と異なる場合があります。
@@ -1528,6 +1528,7 @@ body.gourmet-open #gFrame {
       </div>
     </div>
     <input type="text" id="venueShopInput" placeholder="店名／住所／食べログURL（店名＋URLも可）" style="margin-bottom:8px;">
+    <input type="text" id="venueCourseInput" placeholder="コース名（任意：記載があればコースの特徴を生成 例 特選会席コース ¥10,000）" style="margin-bottom:8px;">
     <input type="text" id="venueNoteInput" placeholder="補足（任意：○番出口、3号車が便利 など）" style="margin-bottom:10px;">
     <div id="venueBriefSection" class="host-only" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
       <div style="font-size:0.9rem; font-weight:700; color:var(--text); margin-bottom:6px;">お店の情報</div>
@@ -1540,7 +1541,7 @@ body.gourmet-open #gFrame {
       </button>
 
       <div id="venueBriefLoading" style="display:none; text-align:center; padding:12px; color:var(--text-muted);">
-        店の情報を集めています…（15〜25秒）
+        店の情報を集めています…（20〜40秒）
       </div>
 
       <details id="venueBriefPreview" open style="display:none; margin-top:10px; border:1px solid var(--green-mid); border-radius:10px; background:#fff;">
@@ -1554,7 +1555,7 @@ body.gourmet-open #gFrame {
             <textarea id="briefOverviewInput" rows="6" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:0.85rem; box-sizing:border-box;"></textarea>
           </div>
           <div class="field" style="margin-bottom:10px;">
-            <label style="font-size:0.75rem; color:var(--text-muted);">おすすめメニュー</label>
+            <label id="briefDishesLabel" style="font-size:0.75rem; color:var(--text-muted);">おすすめメニュー</label>
             <div id="briefDishesList"></div>
           </div>
           <div style="display:flex; gap:8px; margin-bottom:10px;">
@@ -2992,6 +2993,7 @@ body.gourmet-open #gFrame {
       set('venueMeetTimeInput', v.meetTime);
       set('venueMeetPlaceInput', v.meetPlace);
       set('venueShopInput', v.shop);
+      set('venueCourseInput', v.course);
       set('venueNoteInput', v.note);
       applyVenueBriefState(data.venue && data.venue.brief);
       // 既にbrief生成済みの食べログURLは「処理済み」として記録し、ホストが入力欄に触れても自動再取得しないようにする
@@ -3001,7 +3003,7 @@ body.gourmet-open #gFrame {
       }
       set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : '');
       // dirty追跡：入力があった欄はdirty=1を立て、保存時にクリア（saveVenueBtnハンドラで解除）
-      ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueNoteInput','announceEventDateInput'].forEach(id => {
+      ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueCourseInput','venueNoteInput','announceEventDateInput'].forEach(id => {
         const el = document.getElementById(id);
         if (el && !el.dataset.dirtyBound) {
           el.dataset.dirtyBound = '1';
@@ -3023,6 +3025,9 @@ body.gourmet-open #gFrame {
           briefSec.style.display = 'block';
           const ovEl = document.getElementById('participantBriefOverview');
           const dishesEl = document.getElementById('participantBriefDishes');
+          // モードに応じてラベルを切替（コース記載時は「コースの特徴」）
+          const dishesLblEl = document.getElementById('participantBriefDishesLabel');
+          if (dishesLblEl) dishesLblEl.textContent = brief.mode === 'course' ? '📋 コースの特徴' : '🍽 おすすめメニュー';
           if (ovEl) ovEl.textContent = brief.overview;
           if (dishesEl) {
             dishesEl.innerHTML = brief.dishes.filter(d => d && d.name).map(d =>
@@ -3133,6 +3138,7 @@ body.gourmet-open #gFrame {
     // お店・行き方の保存（ホスト）
     document.getElementById('saveVenueBtn')?.addEventListener('click', async () => {
       const shop = (document.getElementById('venueShopInput')?.value || '').trim();
+      const course = (document.getElementById('venueCourseInput')?.value || '').trim();
       const note = (document.getElementById('venueNoteInput')?.value || '').trim();
       const meetTime = (document.getElementById('venueMeetTimeInput')?.value || '').trim();
       const meetPlace = (document.getElementById('venueMeetPlaceInput')?.value || '').trim();
@@ -3140,7 +3146,7 @@ body.gourmet-open #gFrame {
       try {
         // ドット記法でフィールドのみ更新（Functionが付与するvenue.previewを保持）
         const updates = {
-          'venue.shop': shop, 'venue.note': note,
+          'venue.shop': shop, 'venue.course': course, 'venue.note': note,
           'venue.meetTime': meetTime, 'venue.meetPlace': meetPlace,
         };
         // eventDate はホストが入力欄に値を入れた時だけ書込。空欄で保存しても既存の値（旧型式の
@@ -3148,7 +3154,7 @@ body.gourmet-open #gFrame {
         if (eventDate) updates.eventDate = eventDate;
         await updateDoc(doc(db, 'events', eventId), updates);
         // 保存成功したので dirty マークをクリア（以降のsnapshotで最新値を反映可能に）
-        ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueNoteInput','announceEventDateInput'].forEach(id => {
+        ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueCourseInput','venueNoteInput','announceEventDateInput'].forEach(id => {
           const el = document.getElementById(id); if (el) el.dataset.dirty = '';
         });
         showToast((shop || note || meetTime || meetPlace || eventDate) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
@@ -3175,6 +3181,9 @@ body.gourmet-open #gFrame {
       if (hasErr && errDetail) errDetail.textContent = String(brief.error || '').slice(0, 100);
 
       if (hasBrief) {
+        // モードに応じてラベルを切替（コース記載時は「コースの特徴」）
+        const dishesLbl = document.getElementById('briefDishesLabel');
+        if (dishesLbl) dishesLbl.textContent = brief.mode === 'course' ? 'コースの特徴' : 'おすすめメニュー';
         const ov = document.getElementById('briefOverviewInput');
         if (ov && document.activeElement !== ov && ov.dataset.dirty !== '1') {
           ov.value = brief.overview || '';
@@ -3202,12 +3211,14 @@ body.gourmet-open #gFrame {
       const currentShop = (shopInp?.value || '').trim();
       if (currentShop && currentShop !== savedShop) {
         try {
+          const courseInp = document.getElementById('venueCourseInput');
           const noteInp = document.getElementById('venueNoteInput');
           const timeInp = document.getElementById('venueMeetTimeInput');
           const placeInp = document.getElementById('venueMeetPlaceInput');
           const dateInp = document.getElementById('announceEventDateInput');
           const updates = {
             'venue.shop': currentShop,
+            'venue.course': (courseInp?.value || '').trim(),
             'venue.note': (noteInp?.value || '').trim(),
             'venue.meetTime': (timeInp?.value || '').trim(),
             'venue.meetPlace': (placeInp?.value || '').trim(),
