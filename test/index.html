@@ -2653,10 +2653,6 @@ body.gourmet-open #gFrame {
   let rerenderCurrentEvent = null; // 現在のイベント表示を再描画する関数（ログイン後の再評価用）
   let myEventSavedAsHost = null;   // マイイベント保存済みのロール（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
-  // 食べログURL自動読み取り（保存ボタン不要）用の状態
-  const TABELOG_RE = /https?:\/\/[^\s]*tabelog\.com[^\s]*/i;
-  let _autoBriefTimer = null;      // 入力デバウンスのタイマー
-  let _autoBriefLastUrl = '';      // 直近で自動発火した食べログURL（同一URLの再発火を防ぐ）
 
   // ホスト判定（アカウントuidベース。旧hostKey方式は互換のため残す）
   async function evaluateHost(data) {
@@ -2996,11 +2992,6 @@ body.gourmet-open #gFrame {
       set('venueCourseInput', v.course);
       set('venueNoteInput', v.note);
       applyVenueBriefState(data.venue && data.venue.brief);
-      // 既にbrief生成済みの食べログURLは「処理済み」として記録し、ホストが入力欄に触れても自動再取得しないようにする
-      if (!_autoBriefLastUrl && data.venue && data.venue.brief && data.venue.brief.overview) {
-        const _ex = (v.shop || '').match(TABELOG_RE);
-        if (_ex) _autoBriefLastUrl = _ex[0];
-      }
       set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : '');
       // dirty追跡：入力があった欄はdirty=1を立て、保存時にクリア（saveVenueBtnハンドラで解除）
       ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueCourseInput','venueNoteInput','announceEventDateInput'].forEach(id => {
@@ -3246,23 +3237,6 @@ body.gourmet-open #gFrame {
 
     document.getElementById('fetchVenueBriefBtn')?.addEventListener('click', invokeGenerateVenueBrief);
     document.getElementById('retryVenueBriefBtn')?.addEventListener('click', invokeGenerateVenueBrief);
-
-    // 食べログURLを入力欄に入れたら、保存ボタンを押さなくても自動でAI読み取りを開始する。
-    // 誤発火・API浪費を防ぐ：食べログURL検出時のみ／同一URLは再発火せず／取得中はスキップ／1.5秒デバウンス。
-    document.getElementById('venueShopInput')?.addEventListener('input', (e) => {
-      const m = (e.target.value || '').match(TABELOG_RE);
-      if (!m) return;
-      const url = m[0];
-      if (url === _autoBriefLastUrl) return;
-      if (_autoBriefTimer) clearTimeout(_autoBriefTimer);
-      _autoBriefTimer = setTimeout(() => {
-        _autoBriefTimer = null;
-        if (!currentUser) return;
-        if (document.body.dataset.briefFetching === '1') return;
-        _autoBriefLastUrl = url;
-        invokeGenerateVenueBrief();
-      }, 1500);
-    });
 
     // 編集ハンドラ（600ms debounce）
     let _briefSaveTimer = null;
