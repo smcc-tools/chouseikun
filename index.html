@@ -4328,13 +4328,21 @@ body.gourmet-open #gFrame {
     const tables = party.tables || [];
     const members = roundMembers(data, party);
     const tags = data.seatTags || {};
-    if (!party.assignment) {
-      el.innerHTML = isHost
-        ? '<div class="wl-empty">参加者・卓を設定して「席を決める」を押すと、ここに座席表が表示されます。</div>'
-        : '<div class="wl-empty">この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
+    const isPreview = !party.assignment;
+    // 参加者側は未確定なら placeholder
+    if (isPreview && !isHost) {
+      el.innerHTML = '<div class="wl-empty">この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
       return;
     }
-    const assignment = normalizeAssignment(tables, party.assignment, members);
+    // ホスト側で卓が0件なら placeholder（設定を促す）
+    if (isPreview && tables.length === 0) {
+      el.innerHTML = '<div class="wl-empty">参加者・卓を設定して「席を決める」を押すと、ここに座席表が表示されます。</div>';
+      return;
+    }
+    // プレビューモード：空 assignment を合成してレイアウトだけ描画
+    const assignment = isPreview
+      ? Object.fromEntries(tables.map(t => [t.id, Array(parseInt(t.capacity) || 0).fill(null)]))
+      : normalizeAssignment(tables, party.assignment, members);
     const lockSet = new Set(party.locks || []);
     const placed = new Set();
     Object.values(assignment).forEach(arr => arr.forEach(n => { if (n) placed.add(n); }));
@@ -4355,7 +4363,9 @@ body.gourmet-open #gFrame {
       return `<div class="${cls}"${dataAttr} title="${escHtml(title)}"><span class="sc-name">${dot}${name ? escHtml(name) : '空'}</span>${lockBtn}</div>`;
     };
 
-    let html = isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の丸い<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '';
+    let html = isPreview
+      ? '<div class="seat-swap-hint">👀 <b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
+      : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の丸い<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
     tables.forEach(t => {
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
@@ -4380,7 +4390,8 @@ body.gourmet-open #gFrame {
       }
       html += `</div>`;
     });
-    if (unassigned.length || (isHost && seatSel && seatSel.t)) {
+    // プレビュー時は未割当ゾーン・クリックハンドラ不要（配置ロジック未確定のため）
+    if (!isPreview && (unassigned.length || (isHost && seatSel && seatSel.t))) {
       html += `<div class="seat-unassigned seat-unassigned-zone"><b>未割当：</b><div class="seat-row" style="justify-content:flex-start;">${
         unassigned.map(n => {
           const sel = seatSel && seatSel.u === n;
@@ -4390,7 +4401,7 @@ body.gourmet-open #gFrame {
     }
     el.innerHTML = html;
 
-    if (!isHost) return;
+    if (!isHost || isPreview) return;
     el.querySelectorAll('.seat-chip[data-t], .seat-chip[data-u], .seat-chip[data-uzone]').forEach(c => c.addEventListener('click', () => onSeatChipClick(c)));
     el.querySelectorAll('.seat-lock-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleSeatLock(b.dataset.lock); }));
   }
