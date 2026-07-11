@@ -8,7 +8,7 @@ const { buildGeminiRequestBody, parseGeminiResponse, extractSourceUrls, validate
 const _lastCallAt = new Map(); // key: `${uid}:${eventId}` → timestampMs
 
 const RATE_LIMIT_MS = 5000;
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
 
 async function callGemini(body, geminiKey) {
   const url = `${GEMINI_ENDPOINT}?key=${encodeURIComponent(geminiKey)}`;
@@ -53,8 +53,11 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   // 別店舗と混同することを防ぐ
   const preview = (data.venue && data.venue.preview) || null;
 
+  // コース名が入力されていれば、おすすめメニューではなくコースの特徴を生成する
+  const course = ((data.venue && data.venue.course) || '').trim();
+
   // Gemini + grounding で1コール要約
-  const geminiBody = buildGeminiRequestBody(shopName, shopUrl, preview);
+  const geminiBody = buildGeminiRequestBody(shopName, shopUrl, preview, course);
   const geminiJson = await callGemini(geminiBody, secrets.geminiKey);
   const parsed = parseGeminiResponse(geminiJson);
   const sourceUrls = extractSourceUrls(geminiJson);
@@ -69,9 +72,11 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   // Firestore に書込（既存 visible を保持）
   // ドット記法で各フィールドを top-level に書き込む（FieldValue.delete が top-level 必須のため）
   const priorVisible = !!(data.venue && data.venue.brief && data.venue.brief.visible);
+  const mode = course ? 'course' : 'dishes';
   await ref.update({
     'venue.brief.overview': parsed.overview,
     'venue.brief.dishes': parsed.dishes,
+    'venue.brief.mode': mode,
     'venue.brief.generatedAt': now,
     'venue.brief.sourceUrls': sourceUrls,
     'venue.brief.edited': false,
@@ -82,6 +87,7 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   const brief = {
     overview: parsed.overview,
     dishes: parsed.dishes,
+    mode,
     generatedAt: now,
     sourceUrls,
     edited: false,

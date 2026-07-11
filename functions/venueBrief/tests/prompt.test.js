@@ -186,3 +186,45 @@ test('validateBrief: 正しい形なら true', () => {
     dishes: [{name:'a',why:'b'},{name:'c',why:'d'},{name:'e',why:'f'}],
   }), true);
 });
+
+// ── コース対応・Pro化 ──────────────────────────
+
+test('buildGeminiRequestBody: course が渡されたら systemInstruction にコース特徴モードの指示を含む', () => {
+  const body = buildGeminiRequestBody('銀座 うち山', 'https://tabelog.com/x', null, '特選会席コース ¥10,000');
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(sys.includes('コース特徴モード'), 'コース特徴モードの指示');
+  assert.ok(sys.includes('品数と価格'), 'コース3項目の見出し1');
+  assert.ok(sys.includes('主な料理の流れ'), 'コース3項目の見出し2');
+  assert.ok(sys.includes('目玉'), 'コース3項目の見出し3');
+});
+
+test('buildGeminiRequestBody: course が渡されたら user text にコース名を明示する', () => {
+  const body = buildGeminiRequestBody('銀座 うち山', '', null, '特選会席コース');
+  assert.ok(body.contents[0].parts[0].text.includes('特選会席コース'));
+});
+
+test('buildGeminiRequestBody: course 空なら従来のおすすめメニュー指示（コース特徴モードは含まない）', () => {
+  const body = buildGeminiRequestBody('X', '', null, '');
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(!sys.includes('コース特徴モード'), 'コースモードは含まない');
+  assert.ok(sys.includes('具体的な料理名'), 'おすすめメニュー指示');
+});
+
+test('buildGeminiRequestBody: course 未指定（3引数）でも従来どおり動く（後方互換）', () => {
+  const body = buildGeminiRequestBody('X', '', null);
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(!sys.includes('コース特徴モード'));
+  assert.ok(sys.includes('具体的な料理名'));
+});
+
+test('buildGeminiRequestBody: maxOutputTokens を 4096 に設定（Pro の thinking で出力が切れないように）', () => {
+  const body = buildGeminiRequestBody('X', '');
+  assert.equal(body.generationConfig.maxOutputTokens, 4096);
+});
+
+test('systemInstruction: プロンプト強化（検索の多観点化・情報源の厳格化）を含む', () => {
+  const body = buildGeminiRequestBody('X', '');
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(sys.includes('最低2回'), '検索の多観点化');
+  assert.ok(sys.includes('口コミ'), '情報源の言及');
+});
