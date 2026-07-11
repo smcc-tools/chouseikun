@@ -4364,7 +4364,7 @@ body.gourmet-open #gFrame {
     };
 
     let html = isPreview
-      ? '<div class="seat-swap-hint">👀 <b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
+      ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
       : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の丸い<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
     tables.forEach(t => {
       const cap = parseInt(t.capacity) || 0;
