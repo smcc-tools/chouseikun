@@ -3452,25 +3452,32 @@ body.gourmet-open #gFrame {
   }
 
   function attachVoteHandlers(wrap) {
-    // 既存参加者：編集モード中のみUI上の選択状態を変更
+    // 既存参加者：編集モード中のみUI上の選択状態を変更（同じ記号を2回タップでクリア）
     wrap.querySelectorAll('.vote-btn[data-name]').forEach(btn => {
       btn.addEventListener('click', () => {
+        const wasSelected = btn.classList.contains('selected');
         const name = btn.dataset.name;
         const idx = btn.dataset.idx;
         wrap.querySelectorAll(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${idx}"]`)
           .forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
-        btn.classList.add('selected');
-        btn.setAttribute('aria-pressed', 'true');
+        // 同じ選択肢を再タップした場合はトグルでクリア、それ以外は選択
+        if (!wasSelected) {
+          btn.classList.add('selected');
+          btn.setAttribute('aria-pressed', 'true');
+        }
       });
     });
-    // 入力列：新規回答の選択
+    // 入力列：新規回答の選択（同じ記号を2回タップでクリア）
     wrap.querySelectorAll('.vote-btn[data-new-idx]').forEach(btn => {
       btn.addEventListener('click', () => {
+        const wasSelected = btn.classList.contains('selected');
         const idx = btn.dataset.newIdx;
         wrap.querySelectorAll(`.vote-btn[data-new-idx="${idx}"]`)
           .forEach(b => { b.classList.remove('selected'); b.setAttribute('aria-pressed', 'false'); });
-        btn.classList.add('selected');
-        btn.setAttribute('aria-pressed', 'true');
+        if (!wasSelected) {
+          btn.classList.add('selected');
+          btn.setAttribute('aria-pressed', 'true');
+        }
       });
     });
   }
@@ -3506,10 +3513,12 @@ body.gourmet-open #gFrame {
                 if (!ps[name]) throw new Error('GONE');
                 if (Object.keys(ps).some(n => n !== name && normalizeName(n) === normalizeName(newName))) throw new Error('DUP');
                 // UIの投票・備考を反映してから新キーへ移し替え
+                // 未選択（トグルクリア）は削除して未回答扱いに
                 const cur = { ...ps[name] };
                 dates.forEach((_, i) => {
                   const sel = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
                   if (sel) cur[i] = sel.dataset.key;
+                  else delete cur[i];
                 });
                 const ni = wrap.querySelector(`.note-input[data-name="${CSS.escape(name)}"]`);
                 if (ni) cur._note = ni.value.trim();
@@ -3528,10 +3537,11 @@ body.gourmet-open #gFrame {
           }
 
           // 名前変更なし：従来どおり投票・備考を保存
+          // 未選択（同記号2回タップでクリアされた状態）は deleteField で Firestore からも削除
           const updates = {};
           dates.forEach((_, i) => {
             const selected = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
-            if (selected) updates[`participants.${name}.${i}`] = selected.dataset.key;
+            updates[`participants.${name}.${i}`] = selected ? selected.dataset.key : deleteField();
           });
           const noteInput = wrap.querySelector(`.note-input[data-name="${CSS.escape(name)}"]`);
           if (noteInput) updates[`participants.${name}._note`] = noteInput.value.trim();
