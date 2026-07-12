@@ -217,9 +217,26 @@ test('buildGeminiRequestBody: course 未指定（3引数）でも従来どおり
   assert.ok(sys.includes('具体的な料理名'));
 });
 
-test('buildGeminiRequestBody: maxOutputTokens を 4096 に設定（Pro の thinking で出力が切れないように）', () => {
+test('buildGeminiRequestBody: maxOutputTokens を 8192 に設定（Pro の thinking で出力が切れないように余裕を確保）', () => {
   const body = buildGeminiRequestBody('X', '');
-  assert.equal(body.generationConfig.maxOutputTokens, 4096);
+  assert.equal(body.generationConfig.maxOutputTokens, 8192);
+});
+
+test('buildGeminiRequestBody: thinkingConfig.thinkingBudget を明示（思考予算を絞り JSON 出力を保護）', () => {
+  const body = buildGeminiRequestBody('X', '');
+  assert.equal(body.generationConfig.thinkingConfig.thinkingBudget, 1024);
+});
+
+test('parseGeminiResponse: finishReason を含む診断情報付きエラー', () => {
+  const { parseGeminiResponse } = require('../prompt');
+  const apiJson = { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '' }] } }] };
+  assert.throws(() => parseGeminiResponse(apiJson), /finishReason=MAX_TOKENS/);
+});
+
+test('parseGeminiResponse: candidates 空でも promptFeedback.blockReason を含む', () => {
+  const { parseGeminiResponse } = require('../prompt');
+  const apiJson = { candidates: [], promptFeedback: { blockReason: 'SAFETY' } };
+  assert.throws(() => parseGeminiResponse(apiJson), /blockReason=SAFETY/);
 });
 
 test('systemInstruction: プロンプト強化（検索の多観点化・情報源の厳格化）を含む', () => {

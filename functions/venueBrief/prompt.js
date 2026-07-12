@@ -124,24 +124,35 @@ function buildGeminiRequestBody(shopName, shopUrl, preview, course) {
     contents: [{ role: 'user', parts: [{ text: userText }] }],
     generationConfig: {
       temperature: 0.2,       // 事実重視に振る
-      maxOutputTokens: 4096,  // Pro は常時 thinking のため、思考で出力が切れないよう十分確保
+      maxOutputTokens: 8192,  // Pro は常時 thinking のため、思考で出力が切れないよう余裕を確保
+      // 思考予算を明示的に絞り、JSON 出力に十分なトークンを残す（Pro の推論力は保持）
+      thinkingConfig: { thinkingBudget: 1024 },
     },
   };
 }
 
 function parseGeminiResponse(apiJson) {
   const cands = (apiJson && apiJson.candidates) || [];
-  if (!cands.length) throw new Error('gemini: empty candidates');
+  // 応答が空 or ブロックされたケースの詳細を含める（次障害の切り分けを速める）
+  if (!cands.length) {
+    const pf = (apiJson && apiJson.promptFeedback) || {};
+    const blockReason = pf.blockReason ? ` blockReason=${pf.blockReason}` : '';
+    throw new Error(`gemini: empty candidates${blockReason}`);
+  }
+  const finishReason = cands[0].finishReason || '';
   const parts = (cands[0].content && cands[0].content.parts) || [];
   const rawText = parts.map(p => p.text || '').join('');
-  if (!rawText) throw new Error('gemini: empty parts text');
+  if (!rawText) {
+    // MAX_TOKENS/SAFETY 等の理由を明示。「empty parts text」だけだと Pro の思考消費過多と safety が区別できない
+    throw new Error(`gemini: empty parts text (finishReason=${finishReason || 'unknown'})`);
+  }
 
   // grounding では JSON がコードフェンスや前置き付きで返る可能性があるので、
   // 最初の { から最後の } を抽出する（robust JSON extraction）
   const first = rawText.indexOf('{');
   const last = rawText.lastIndexOf('}');
   if (first === -1 || last === -1 || last < first) {
-    throw new Error('gemini: failed to parse JSON: no JSON object found in text');
+    throw new Error(`gemini: failed to parse JSON: no JSON object found (finishReason=${finishReason || 'unknown'}, textLen=${rawText.length})`);
   }
   const jsonText = rawText.slice(first, last + 1);
 
@@ -149,7 +160,8 @@ function parseGeminiResponse(apiJson) {
   try {
     obj = JSON.parse(jsonText);
   } catch (e) {
-    throw new Error(`gemini: failed to parse JSON: ${e.message}`);
+    // 途中で切れた JSON か構文エラーかを判別しやすくするため、末尾を含めた診断情報を付与
+    throw new Error(`gemini: failed to parse JSON: ${e.message} (finishReason=${finishReason || 'unknown'}, jsonLen=${jsonText.length}, tail=${JSON.stringify(jsonText.slice(-40))})`);
   }
   return {
     overview: String(obj.overview || '').trim(),
