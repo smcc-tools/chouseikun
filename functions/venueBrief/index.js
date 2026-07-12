@@ -8,7 +8,8 @@ const { buildGeminiRequestBody, parseGeminiResponse, extractSourceUrls, validate
 const _lastCallAt = new Map(); // key: `${uid}:${eventId}` → timestampMs
 
 const RATE_LIMIT_MS = 5000;
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent';
+// gemini-2.5-pro は "no longer available to new users" で 404 のため、Pro 相当のエイリアス gemini-pro-latest を使う
+const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent';
 
 async function callGemini(body, geminiKey) {
   const url = `${GEMINI_ENDPOINT}?key=${encodeURIComponent(geminiKey)}`;
