@@ -61,17 +61,28 @@ self.addEventListener('activate', e => {
   );
 });
 
-// ネットワーク優先（Firebase等の動的データはキャッシュしない）
+// ネットワーク優先（Firebase等の動的データはキャッシュしない）。
+// 成功レスポンス（同一オリジンのみ）をキャッシュに保存し、オフライン時はそのコピーを返す。
+// 以前は保存処理が無く caches.match が常にミスする「見せかけのフォールバック」だった。
+function putCache(request, response) {
+  caches.open(CACHE_NAME).then(c => c.put(request, response)).catch(() => {});
+}
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   // ページ本体（HTML）は常に最新を取得（ブラウザのHTTPキャッシュも回避）
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request).then(r => r || caches.match('./')))
+      fetch(e.request, { cache: 'no-store' }).then(res => {
+        if (res.ok) putCache(e.request, res.clone());
+        return res;
+      }).catch(() => caches.match(e.request).then(r => r || caches.match('./')))
     );
     return;
   }
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(e.request).then(res => {
+      if (res.ok && new URL(e.request.url).origin === self.location.origin) putCache(e.request, res.clone());
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
