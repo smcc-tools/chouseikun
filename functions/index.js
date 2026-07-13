@@ -208,7 +208,7 @@ const { generateVenueBriefImpl } = require('./venueBrief');
 
 exports.generateVenueBrief = onCall({
   region: 'asia-northeast1',
-  timeoutSeconds: 60,  // Gemini 2.5 Pro は Flash より遅い（thinking + grounding）
+  timeoutSeconds: 90,  // Gemini 2.5 Pro は Flash より遅い（thinking + grounding）＋ 最大3回リトライの余裕
   memory: '256MiB',
   secrets: ['GEMINI_API_KEY'],
 }, async (request) => {

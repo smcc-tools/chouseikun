@@ -25,6 +25,17 @@ async function callGemini(body, geminiKey) {
   return res.json();
 }
 
+// Gemini 側で JSON 構造がまれに壊れる (Pro thinking mode で dishes 配列の [{ が抜ける等) 対策。
+// - Gemini HTTP 4xx/5xx は認可/クォータ/仕様上の非可逆エラーなので即失敗（再試行しない）
+// - SAFETY ブロックは同じプロンプトで再試行しても同じ結果になるので即失敗
+// - JSON parse 失敗・BRIEF_INVALID・empty candidates(SAFETY以外) は一時的エラーとして再試行対象
+function isRetryableError(err) {
+  const msg = String((err && err.message) || '');
+  if (/^Gemini \d+:/.test(msg)) return false;
+  if (/blockReason=SAFETY/.test(msg)) return false;
+  return true;
+}
+
 async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   if (!uid) throw new Error('UNAUTHENTICATED');
   if (!eventId || typeof eventId !== 'string') throw new Error('INVALID_ARG');
@@ -57,12 +68,26 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   // コース名が入力されていれば、おすすめメニューではなくコースの特徴を生成する
   const course = ((data.venue && data.venue.course) || '').trim();
 
-  // Gemini + grounding で1コール要約
+  // Gemini + grounding で要約（Pro の thinking mode で JSON 構造がまれに壊れるため最大3回試行）
   const geminiBody = buildGeminiRequestBody(shopName, shopUrl, preview, course);
-  const geminiJson = await callGemini(geminiBody, secrets.geminiKey);
-  const parsed = parseGeminiResponse(geminiJson);
-  const sourceUrls = extractSourceUrls(geminiJson);
-  if (!validateBrief(parsed)) throw new Error('BRIEF_INVALID');
+  const MAX_ATTEMPTS = 3;
+  let parsed = null;
+  let sourceUrls = [];
+  let lastErr = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const geminiJson = await callGemini(geminiBody, secrets.geminiKey);
+      const p = parseGeminiResponse(geminiJson);
+      if (!validateBrief(p)) throw new Error('BRIEF_INVALID');
+      parsed = p;
+      sourceUrls = extractSourceUrls(geminiJson);
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (!isRetryableError(e) || attempt === MAX_ATTEMPTS) throw e;
+      console.warn(JSON.stringify({ fn: 'generateVenueBrief', eventId, attempt, of: MAX_ATTEMPTS, retryable: true, error: String(e.message || e).slice(0, 300) }));
+    }
+  }
 
   // 全料理が「（情報不足）」= 実質情報無しならエラー扱い
   const allUnknown = parsed.dishes.every(d => /情報不足/.test(d.name) && /情報不足/.test(d.why));
@@ -97,4 +122,4 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   return { ok: true, brief };
 }
 
-module.exports = { generateVenueBriefImpl };
+module.exports = { generateVenueBriefImpl, isRetryableError };
