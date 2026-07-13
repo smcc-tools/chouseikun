@@ -11,13 +11,27 @@ const RATE_LIMIT_MS = 5000;
 // gemini-2.5-pro は "no longer available to new users" で 404 のため、Pro 相当のエイリアス gemini-pro-latest を使う
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent';
 
+// 1回の呼び出しに個別タイムアウトを設ける。これが無いと1回目の応答遅延だけで
+// 関数全体の timeoutSeconds(90s) を食い潰し、2回目以降のリトライが実行されない。
+// 25s × 3回 + Firestore往復 < 90s に収まる設計。
+const GEMINI_CALL_TIMEOUT_MS = 25000;
+
 async function callGemini(body, geminiKey) {
   const url = `${GEMINI_ENDPOINT}?key=${encodeURIComponent(geminiKey)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(GEMINI_CALL_TIMEOUT_MS),
+    });
+  } catch (e) {
+    if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      throw new Error(`GEMINI_TIMEOUT: no response in ${GEMINI_CALL_TIMEOUT_MS / 1000}s`); // 再試行対象
+    }
+    throw e;
+  }
   if (!res.ok) {
     const t = await res.text().catch(() => '');
     throw new Error(`Gemini ${res.status}: ${t.slice(0, 200)}`);
@@ -32,7 +46,10 @@ async function callGemini(body, geminiKey) {
 function isRetryableError(err) {
   const msg = String((err && err.message) || '');
   if (/^Gemini \d+:/.test(msg)) return false;
+  // SAFETY はプロンプトレベル(blockReason)・候補レベル(finishReason)のどちらも
+  // 同じ入力で再現するため再試行しない
   if (/blockReason=SAFETY/.test(msg)) return false;
+  if (/finishReason=SAFETY/.test(msg)) return false;
   return true;
 }
 
@@ -74,6 +91,16 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   let parsed = null;
   let sourceUrls = [];
   let lastErr = null;
+  // 生成の最終失敗を venue.brief.error に記録してから投げる。
+  // フロントのエラーボックス（#venueBriefError + 再試行ボタン）はこのフィールドで表示される。
+  const failWith = async (err) => {
+    await ref.update({
+      'venue.brief.error': String((err && err.message) || err).slice(0, 120),
+      'venue.brief.errorAt': now,
+    }).catch(() => {}); // 記録自体はベストエフォート（本エラーを優先して伝える）
+    throw err;
+  };
+
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const geminiJson = await callGemini(geminiBody, secrets.geminiKey);
@@ -84,7 +111,7 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
       break;
     } catch (e) {
       lastErr = e;
-      if (!isRetryableError(e) || attempt === MAX_ATTEMPTS) throw e;
+      if (!isRetryableError(e) || attempt === MAX_ATTEMPTS) await failWith(e);
       console.warn(JSON.stringify({ fn: 'generateVenueBrief', eventId, attempt, of: MAX_ATTEMPTS, retryable: true, error: String(e.message || e).slice(0, 300) }));
     }
   }
@@ -92,7 +119,7 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
   // 全料理が「（情報不足）」= 実質情報無しならエラー扱い
   const allUnknown = parsed.dishes.every(d => /情報不足/.test(d.name) && /情報不足/.test(d.why));
   if (allUnknown && !parsed.overview.replace(/[（）\s]/g, '').length) {
-    throw new Error('NO_RESULTS');
+    await failWith(new Error('NO_RESULTS'));
   }
 
   // Firestore に書込（既存 visible を保持）
@@ -108,6 +135,7 @@ async function generateVenueBriefImpl({ uid, eventId, secrets }) {
     'venue.brief.edited': false,
     'venue.brief.visible': priorVisible,
     'venue.brief.error': admin.firestore.FieldValue.delete(),
+    'venue.brief.errorAt': admin.firestore.FieldValue.delete(),
   });
 
   const brief = {

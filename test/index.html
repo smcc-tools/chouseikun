@@ -1710,6 +1710,13 @@ body.gourmet-open #gFrame {
     setTimeout(() => t.classList.remove('show'), 2500);
   }
 
+  // 安全網：try/catch から漏れた Promise の失敗を「無音」にせず汎用エラーとして可視化する。
+  // 個別ハンドラで捕捉済みのものはここには来ない。
+  window.addEventListener('unhandledrejection', e => {
+    console.error('unhandled rejection:', e.reason);
+    showToast('通信に失敗しました。もう一度お試しください');
+  });
+
   function debounce(fn, ms) {
     let timer;
     return (...args) => {
@@ -2175,7 +2182,18 @@ body.gourmet-open #gFrame {
       copyCodeTop.addEventListener('click', () => copyText(currentUser.uid, copyCodeTop, 'ホストコード'));
     }
 
-    const snap = await getDocs(userEventsRef(currentUser.uid));
+    let snap;
+    try {
+      snap = await getDocs(userEventsRef(currentUser.uid));
+    } catch (err) {
+      // 「読み込み中…」が永久表示にならないよう、失敗を明示して再試行できるようにする
+      console.error('マイイベント一覧の取得に失敗:', err);
+      list.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:0.85rem;">
+        読み込みに失敗しました。通信状態を確認してください。<br>
+        <button id="myEventsRetryBtn" class="btn btn-secondary" style="margin-top:10px;">再試行</button></div>`;
+      document.getElementById('myEventsRetryBtn')?.addEventListener('click', () => renderMyEvents());
+      return;
+    }
     const events = snap.docs.map(d => ({ eventId: d.id, ...d.data() }));
 
     if (events.length === 0) {
@@ -2186,41 +2204,50 @@ body.gourmet-open #gFrame {
     // 各イベントの確定日を取得（並び替え用）
     await Promise.all(events.map(async e => {
       e.confirmedTs = null;
-      e.type = 'schedule'; // 取得失敗時は日程調整扱い
+      e.dateSource = null;    // 'input'=お知らせ等の入力開催日 / 'confirmed'=日程調整の確定日
+      e.type = 'schedule';
       e.orphanChild = false;
+      e.fetchFailed = false;  // 読取失敗を「日程調整中」に化けさせず区別して表示する
+      e.notFound = false;     // イベント本体が削除済み等で存在しない
       try {
         const ev = await getDoc(doc(db, 'events', e.eventId));
-        if (ev.exists()) {
-          const data = ev.data();
-          // 旧イベントハブ方式の子レコード（parentEventId 付き）は現行では未使用。重複表示になるため一覧から除外。
-          e.orphanChild = !!data.parentEventId;
-          // ステータス＝現在参加者に見せている画面（activeView）。旧データはフラグから読み替え。
-          e.type = data.activeView
-            || (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
-          // 開催日: 単体お知らせ等の eventDate(YYYY-MM-DD) を優先し、無ければ日程調整の確定日
-          // （renderAnnounceView と同じ優先順位）。ステータスに関わらず取得して並び替えに使う。
-          const evDate = String(data.eventDate || '').trim();
-          const ci = data.confirmedDate;
-          if (/^\d{4}-\d{2}-\d{2}$/.test(evDate)) {
-            e.confirmedTs = new Date(evDate + 'T00:00:00').getTime();
-          } else if (ci != null && data.dates && data.dates[ci]) {
-            e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
-          }
-          // 旧イベント（ownerUids未設定）で自分が正当なホスト（hostKey一致）なら、
-          // 新方式(uid)へ自動移行。以降は ?event=<id> だけでホスト判定され、URLに host= が不要になる。
-          const owners = data.ownerUids || [];
-          const legacyKeys = data.hostKeys || (data.hostKey ? [data.hostKey] : []);
-          if (owners.length === 0 && e.hostKey && legacyKeys.includes(e.hostKey)) {
-            try { await updateDoc(doc(db, 'events', e.eventId), { ownerUids: [currentUser.uid] }); } catch (_) {}
-          }
+        if (!ev.exists()) { e.notFound = true; return; }
+        const data = ev.data();
+        // 旧イベントハブ方式の子レコード（parentEventId 付き）は現行では未使用。重複表示になるため一覧から除外。
+        e.orphanChild = !!data.parentEventId;
+        // ステータス＝現在参加者に見せている画面（activeView）。旧データはフラグから読み替え。
+        e.type = data.activeView
+          || (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
+        // 開催日: 単体お知らせ等の eventDate(YYYY-MM-DD) を優先し、無ければ日程調整の確定日
+        // （renderAnnounceView と同じ優先順位）。ステータスに関わらず取得して並び替えに使う。
+        const evDate = String(data.eventDate || '').trim();
+        const ci = data.confirmedDate;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(evDate)) {
+          e.confirmedTs = new Date(evDate + 'T00:00:00').getTime();
+          e.dateSource = 'input';
+        } else if (ci != null && data.dates && data.dates[ci]) {
+          e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
+          e.dateSource = 'confirmed';
         }
-      } catch (_) { /* 取得失敗時は日程調整・未確定扱い */ }
+        // 旧イベント（ownerUidsフィールドが存在しない）で自分が正当なホスト（hostKey一致）なら、
+        // 新方式(uid)へ自動移行。以降は ?event=<id> だけでホスト判定され、URLに host= が不要になる。
+        // 注: ルール(isLegacyClaim)は「フィールド不存在」のみ許可。空配列 [] は対象外なので試みない。
+        const legacyKeys = data.hostKeys || (data.hostKey ? [data.hostKey] : []);
+        if (data.ownerUids === undefined && e.hostKey && legacyKeys.includes(e.hostKey)) {
+          try { await updateDoc(doc(db, 'events', e.eventId), { ownerUids: [currentUser.uid] }); }
+          catch (err) { console.warn('旧イベントのホスト移行に失敗:', e.eventId, err); }
+        }
+      } catch (err) {
+        e.fetchFailed = true;
+        console.error('イベントの取得に失敗:', e.eventId, err);
+      }
     }));
 
-    // 並び替え：①日程調整中（日程調整ステータスで未確定）②日付あり＝今日に近い順 ③日付なし
+    // 並び替え：①日程調整中（日程調整ステータスで未確定）②日付あり＝今日に近い順 ③日付なし ④取得失敗/不存在
     const now = Date.now();
-    const isScheduling = e => (e.type === 'schedule' || e.type === 'scheduleCreate') && e.confirmedTs == null;
-    const sortRank = e => isScheduling(e) ? 0 : (e.confirmedTs != null ? 1 : 2);
+    const isScheduling = e => !e.fetchFailed && !e.notFound
+      && (e.type === 'schedule' || e.type === 'scheduleCreate') && e.confirmedTs == null;
+    const sortRank = e => (e.fetchFailed || e.notFound) ? 3 : (isScheduling(e) ? 0 : (e.confirmedTs != null ? 1 : 2));
     const sortFn = (a, b) => {
       const ra = sortRank(a), rb = sortRank(b);
       if (ra !== rb) return ra - rb;
@@ -2239,11 +2266,16 @@ body.gourmet-open #gFrame {
     // 現在参加者に見せている画面（activeView）をステータスチップで表示
     const STATUS_LABEL = { scheduleCreate:'準備中', schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘', settle:'精算' };
     const itemHtml = (e) => {
-      const statusChip = `<span class="my-event-status">${STATUS_LABEL[e.type] || '日程調整'}</span>`;
-      // 日付はステータスに関わらず表示（日程調整由来は「確定」、お知らせ等の入力日は「開催」）
+      // 取得失敗・不存在は正常ステータスを騙らず明示する
+      const chipLabel = e.fetchFailed ? '取得失敗'
+        : e.notFound ? '見つかりません'
+        : (STATUS_LABEL[e.type] || '日程調整');
+      const statusChip = `<span class="my-event-status">${chipLabel}</span>`;
+      // 日付はステータスに関わらず表示。ラベルは日付の「由来」で決める
+      // （日程調整の確定日=「確定」、お知らせ等の入力開催日=「開催」）
       const dateStr = e.confirmedTs != null
-        ? `${(e.type === 'schedule' || e.type === 'scheduleCreate') ? '確定' : '開催'} ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
-        : ((e.type === 'schedule' || e.type === 'scheduleCreate') ? '日程調整中' : '');
+        ? `${e.dateSource === 'confirmed' ? '確定' : '開催'} ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
+        : (isScheduling(e) ? '日程調整中' : '');
       // ホスト/参加タブは絞り込み済みなのでバッジ不要。両者が混在する「終了」タブのみ表示。
       const roleBadge = myEventsRole !== 'finished' ? '' : (e.host
         ? `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:#fff;background:var(--green);border-radius:4px;padding:1px 6px;margin-right:6px;">ホスト</span>`
@@ -2292,19 +2324,22 @@ body.gourmet-open #gFrame {
     list.querySelectorAll('.my-event-remove').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('この一覧から削除しますか？（イベント自体は削除されません）')) return;
-        await removeMyEvent(btn.dataset.id);
+        try { await removeMyEvent(btn.dataset.id); }
+        catch (e) { showToast('削除に失敗しました'); console.error(e); return; }
         renderMyEvents();
       });
     });
     list.querySelectorAll('.my-event-finish').forEach(btn => {
       btn.addEventListener('click', async () => {
-        await setMyEventFinished(btn.dataset.id, true);
+        try { await setMyEventFinished(btn.dataset.id, true); }
+        catch (e) { showToast('変更に失敗しました'); console.error(e); return; }
         renderMyEvents();
       });
     });
     list.querySelectorAll('.my-event-unfinish').forEach(btn => {
       btn.addEventListener('click', async () => {
-        await setMyEventFinished(btn.dataset.id, false);
+        try { await setMyEventFinished(btn.dataset.id, false); }
+        catch (e) { showToast('変更に失敗しました'); console.error(e); return; }
         renderMyEvents();
       });
     });
@@ -2359,7 +2394,10 @@ body.gourmet-open #gFrame {
   });
 
   // リダイレクト結果を受け取る（リダイレクト方式でログインした場合）
-  getRedirectResult(auth).catch(e => console.error('redirect result error:', e));
+  getRedirectResult(auth).catch(e => {
+    showToast('ログインに失敗しました。もう一度お試しください');
+    console.error('redirect result error:', e);
+  });
 
   // LINE等のアプリ内ブラウザ（WebView）検出。GoogleはWebView内のOAuthをブロックするため。
   function isInAppBrowser() {
@@ -2478,7 +2516,8 @@ body.gourmet-open #gFrame {
       participants[pName] = votes;
     });
     await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants, ownerUids: [currentUser.uid], confirmedDate: null, participantOrder: presetNames, activeView: 'scheduleCreate' });
-    addMyEvent(eventId, name, true);
+    // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
+    await addMyEvent(eventId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
     // 作成後は自動でイベントページ（候補日の回答/日程入力画面）へ遷移。
     // 共有用URLはその画面のホスト欄に表示される。
     location.href = `${location.origin}${location.pathname}?event=${eventId}`;
@@ -2518,7 +2557,8 @@ body.gourmet-open #gFrame {
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, settleOnly: true, activeView: 'settle',
       });
-      addMyEvent(evId, name, true);
+      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
+      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
       // 作成したイベントを開く（精算画面へ）
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
@@ -2541,7 +2581,8 @@ body.gourmet-open #gFrame {
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: [], activeView: 'announce',
       });
-      addMyEvent(evId, name, true);
+      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
+      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       btn.textContent = 'お知らせを作成'; btn.disabled = false;
@@ -2582,7 +2623,8 @@ body.gourmet-open #gFrame {
         ownerUids: [currentUser.uid], confirmedDate: null,
         participantOrder: members, walica: true, expenses: [], activeView: 'walica',
       });
-      addMyEvent(evId, name, true);
+      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
+      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       btn.textContent = '割り勘を作成'; btn.disabled = false;
@@ -2631,7 +2673,8 @@ body.gourmet-open #gFrame {
         participantOrder: members, seating: true, activeView: 'seating',
         seatTags: {}, seatParties,
       });
-      addMyEvent(evId, name, true);
+      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
+      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       btn.textContent = '座席決めを作成'; btn.disabled = false;
@@ -2644,6 +2687,10 @@ body.gourmet-open #gFrame {
       btnEl.textContent = 'コピー済み';
       showToast(`${label}をコピーしました`);
       setTimeout(() => btnEl.textContent = 'コピー', 2000);
+    }).catch(e => {
+      // 権限拒否・非対応環境で無音のままだと「コピーできたつもり」で共有してしまう
+      showToast('コピーできませんでした。URLを長押し（または選択）してコピーしてください');
+      console.error(e);
     });
   }
   document.getElementById('copyBtn').addEventListener('click', () => {
@@ -2671,9 +2718,10 @@ body.gourmet-open #gFrame {
     const isUidOwner = !!(currentUser && ownerUids.includes(currentUser.uid));
     const isLegacyHost = !!(hostParam && legacyKeys.includes(hostParam));
 
-    // 旧イベント（ownerUids未設定）をログイン中の正当な旧ホストがクレーム（移行）
+    // 旧イベント（ownerUidsフィールドが存在しない）をログイン中の正当な旧ホストがクレーム（移行）
     // クレーム完了を待ってからホスト操作を許可（先行操作がRulesで弾かれる窓を防ぐ）
-    if (currentUser && ownerUids.length === 0 && isLegacyHost) {
+    // 注: ルール(isLegacyClaim)は「フィールド不存在」のみ許可。空配列 [] は必ず拒否されるので試みない。
+    if (currentUser && data.ownerUids === undefined && isLegacyHost) {
       try {
         await updateDoc(doc(db, 'events', eventId), { ownerUids: [currentUser.uid] });
       } catch (e) { console.error('claim error:', e); }
@@ -2708,8 +2756,11 @@ body.gourmet-open #gFrame {
   function saveMyEvent(data) {
     if (!currentUser || !eventId) return;
     if (myEventSavedAsHost === isHost) return;
-    myEventSavedAsHost = isHost;
-    addMyEvent(eventId, data.name, isHost);
+    const role = isHost;
+    // フラグは書き込み成功後に確定する（失敗したら次の snapshot/再評価で自動的に再試行される）
+    addMyEvent(eventId, data.name, role)
+      .then(() => { myEventSavedAsHost = role; })
+      .catch(e => console.warn('マイイベントへの記録に失敗:', e));
   }
 
   if (eventId) {
@@ -2761,6 +2812,11 @@ body.gourmet-open #gFrame {
 
       evaluateHost(data);
       applyEventView();
+    }, (err) => {
+      // リスナーがエラーで停止すると、以降の更新（他人の投票・公開切替）が一切反映されず
+      // 画面が古いまま静かに凍結する。明示して再読み込みを促す。
+      console.error('イベント購読が停止しました:', err);
+      showToast('サーバーとの接続が切れました。ページを再読み込みしてください');
     });
 
     // latestEventData と isHost/hostView から表示を確定。onSnapshot とログイン後再評価の両方から呼ぶ。
@@ -3061,7 +3117,12 @@ body.gourmet-open #gFrame {
         span.id = 'viewTitle';
         span.textContent = val;
         input.replaceWith(span);
-        if (val !== current) { updateDoc(eventRef, { name: val }); showToast('タイトルを更新しました'); if (currentUser) addMyEvent(eventId, val, true); }
+        if (val !== current) {
+          // 書き込み結果を確認してから成功表示（失敗時に「更新しました」と偽らない）
+          updateDoc(eventRef, { name: val })
+            .then(() => { showToast('タイトルを更新しました'); if (currentUser) addMyEvent(eventId, val, true); })
+            .catch(e => { showToast('タイトルの更新に失敗しました'); console.error(e); });
+        }
       };
       input.addEventListener('blur', save);
       input.addEventListener('keydown', e => {
@@ -3088,7 +3149,11 @@ body.gourmet-open #gFrame {
         span.id = 'eventMemoView';
         span.textContent = val || current;
         ta.replaceWith(span);
-        if (val !== current) { updateDoc(eventRef, { memo: val }); showToast('メモを更新しました'); }
+        if (val !== current) {
+          updateDoc(eventRef, { memo: val })
+            .then(() => showToast('メモを更新しました'))
+            .catch(e => { showToast('メモの更新に失敗しました'); console.error(e); });
+        }
       };
       ta.addEventListener('blur', save);
       ta.addEventListener('keydown', e => {
@@ -3179,7 +3244,10 @@ body.gourmet-open #gFrame {
       loading.style.display = isFetching ? '' : 'none';
       preview.style.display = (hasBrief && !isFetching) ? '' : 'none';
       errBox.style.display = (hasErr && !isFetching) ? '' : 'none';
-      if (hasErr && errDetail) errDetail.textContent = String(brief.error || '').slice(0, 100);
+      if (hasErr && errDetail) {
+        const raw = String(brief.error || '').slice(0, 100);
+        errDetail.textContent = `${briefErrorToJa(raw)}（${raw}）`;
+      }
 
       if (hasBrief) {
         // モードに応じてラベルを切替（コース記載時は「コースの特徴」）
@@ -3201,6 +3269,22 @@ body.gourmet-open #gFrame {
         const tog = document.getElementById('briefVisibleToggle');
         if (tog) tog.checked = !!brief.visible;
       }
+    }
+
+    // venue-brief のエラーコードをユーザー向けの日本語に変換（生コードをそのまま見せない）
+    function briefErrorToJa(raw) {
+      const rules = [
+        [/RATE_LIMITED/, '連続で実行されています。数秒おいてからもう一度お試しください'],
+        [/SHOP_EMPTY/, 'お店の名前またはURLを入力してから実行してください'],
+        [/NO_RESULTS/, 'お店の情報が見つかりませんでした。店名や食べログURLを見直してください'],
+        [/PERMISSION_DENIED|permission-denied/i, 'この操作はホストのみ実行できます'],
+        [/UNAUTHENTICATED/, 'ログインが必要です'],
+        [/GEMINI_TIMEOUT|deadline/i, 'AIの応答が時間内に返りませんでした。しばらくしてから再試行してください'],
+        [/SAFETY/, 'AIが内容の生成を控えました。店名の表記を変えて試してください'],
+        [/Gemini 429|quota|resource-exhausted/i, 'AIの利用枠が一時的に上限に達しています。時間をおいて再試行してください'],
+      ];
+      for (const [re, msg] of rules) if (re.test(raw)) return msg;
+      return '取得に失敗しました。時間をおいてもう一度お試しください';
     }
 
     // 「店情報を取得」クリック
@@ -3238,7 +3322,8 @@ body.gourmet-open #gFrame {
         await generateVenueBriefCallable({ eventId });
         // 結果は onSnapshot で自動反映されるためここでは何もしない
       } catch (e) {
-        showToast('取得に失敗しました：' + (e.message || 'エラー'));
+        showToast(briefErrorToJa(String(e.message || '')));
+        console.error('venue-brief error:', e);
       } finally {
         document.body.dataset.briefFetching = '';
         applyVenueBriefState(latestEventData?.venue?.brief);
@@ -3316,10 +3401,22 @@ body.gourmet-open #gFrame {
       const toggle = e.target;
       if (!currentUser) { showToast('ログインが必要です'); toggle.checked = false; return; }
       if (toggle.checked) {
-        const token = await registerFcmToken();
+        let token = null;
+        try {
+          token = await registerFcmToken();
+        } catch (err) {
+          // getToken/Firestore 失敗でトグルがONのまま残らないよう必ず巻き戻す
+          toggle.checked = false;
+          showToast('通知の登録に失敗しました。通信状態を確認してもう一度お試しください');
+          console.error(err);
+          return;
+        }
         if (!token) {
           toggle.checked = false;
-          showToast('通知を有効にできませんでした（通知許可が必要です）');
+          // 原因別に案内（非対応ブラウザ／許可ブロック済み／許可ダイアログ拒否）
+          if (!messaging) showToast('このブラウザは通知に対応していません');
+          else if (Notification.permission === 'denied') showToast('通知がブロックされています。ブラウザの設定でこのサイトの通知を許可してください');
+          else showToast('通知を有効にできませんでした（通知許可が必要です）');
           return;
         }
         try {
@@ -3353,7 +3450,12 @@ body.gourmet-open #gFrame {
       ta.focus();
       const save = () => {
         const val = ta.value.trim();
-        if (val) { updateDoc(eventRef, { memo: val }); showToast('メモを追加しました'); }
+        if (val) {
+          // 失敗時は textarea が残る（入力を失わず再試行できる）
+          updateDoc(eventRef, { memo: val })
+            .then(() => showToast('メモを追加しました'))
+            .catch(e => { showToast('メモの追加に失敗しました'); console.error(e); });
+        }
         else { ta.replaceWith(addMemoWrap); }
       };
       ta.addEventListener('blur', save);
@@ -3552,7 +3654,14 @@ body.gourmet-open #gFrame {
           const noteInput = wrap.querySelector(`.note-input[data-name="${CSS.escape(name)}"]`);
           if (noteInput) updates[`participants.${name}._note`] = noteInput.value.trim();
           if (Object.keys(updates).length > 0) {
-            await updateDoc(doc(db, 'events', eventId), updates);
+            try {
+              await updateDoc(doc(db, 'events', eventId), updates);
+            } catch (e) {
+              // 失敗時は編集モードを維持（入力を失わず再試行できる）
+              showToast('保存に失敗しました。通信状態を確認してもう一度お試しください');
+              console.error(e);
+              return;
+            }
           }
           if (th) {
             const disp = th.querySelector('.pname-display');
@@ -4987,9 +5096,15 @@ body.gourmet-open #gFrame {
           const sel = wrap.querySelector(`.vote-btn[data-name="${CSS.escape(name)}"][data-idx="${i}"].selected`);
           updates[`participants.${name}.${i}`] = sel ? sel.dataset.key : '';
         });
-        await updateDoc(doc(db, 'events', eventId), updates);
-        showToast(`${name} さんの回答を登録しました`);
-        if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画（列がブランクにならないように）
+        try {
+          await updateDoc(doc(db, 'events', eventId), updates);
+          showToast(`${name} さんの回答を登録しました`);
+          if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画（列がブランクにならないように）
+        } catch (e) {
+          btn.disabled = false; // 失敗時はボタンを復帰させ、選択済みの回答から再登録できるようにする
+          showToast('登録に失敗しました。通信状態を確認してもう一度お試しください');
+          console.error(e);
+        }
       });
     });
 
@@ -5437,7 +5552,11 @@ body.gourmet-open #gFrame {
   async function saveHostBankInfo(bankInfo) {
     if (!currentUser) return;
     try { await setDoc(doc(db, 'users', currentUser.uid, 'settings', 'bank'), bankInfo, { merge: true }); }
-    catch (e) { console.error('bank save error:', e); }
+    catch (e) {
+      // 「次回から自動入力」を選んだのに保存失敗が無音だと、次回プリフィルされず混乱する
+      showToast('口座情報のアカウント保存に失敗しました（精算の公開自体は完了しています）');
+      console.error('bank save error:', e);
+    }
   }
   async function clearHostBankInfo() {
     if (!currentUser) return;
@@ -5649,12 +5768,18 @@ body.gourmet-open #gFrame {
       branch: document.getElementById('bankBranch')?.value.trim() || '',
       account: document.getElementById('bankAccount')?.value.trim() || '',
     };
-    await updateDoc(doc(db, 'events', eventId), {
-      settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
-                weights: settleWeights, organizer: settleOrganizer || '' },
-      settlePublished: true,
-      activeView: 'settle'  // 参加者の表示画面も精算に切り替える（統合公開）
-    });
+    try {
+      await updateDoc(doc(db, 'events', eventId), {
+        settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
+                  weights: settleWeights, organizer: settleOrganizer || '' },
+        settlePublished: true,
+        activeView: 'settle'  // 参加者の表示画面も精算に切り替える（統合公開）
+      });
+    } catch (e) {
+      showToast('保存に失敗しました。通信状態を確認してもう一度お試しください');
+      console.error(e);
+      return;   // 失敗時は成功表示（バッジ・toast）を出さない
+    }
     // 口座をアカウントに保存（次回から自動入力）
     const saveBank = document.getElementById('saveBankToProfile');
     if (saveBank?.checked && (bankInfo.name || bankInfo.branch || bankInfo.account)) {
@@ -5666,11 +5791,16 @@ body.gourmet-open #gFrame {
 
   // 非公開に戻す
   document.getElementById('unpublishBtn')?.addEventListener('click', async () => {
-    await updateDoc(doc(db, 'events', eventId), { settlePublished: false });
-    showToast('精算を非公開にしました');
-    // 精算ページをホスト編集可能な状態で再ロード
-    const snap = await getDoc(doc(db, 'events', eventId));
-    openSettlePage(snap.data(), false);
+    try {
+      await updateDoc(doc(db, 'events', eventId), { settlePublished: false });
+      showToast('精算を非公開にしました');
+      // 精算ページをホスト編集可能な状態で再ロード
+      const snap = await getDoc(doc(db, 'events', eventId));
+      openSettlePage(snap.data(), false);
+    } catch (e) {
+      showToast('非公開への切替に失敗しました');
+      console.error(e);
+    }
   });
 
   // ── 精算：何次会入力UI ────────────────────────────
