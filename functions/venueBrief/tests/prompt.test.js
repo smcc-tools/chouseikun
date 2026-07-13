@@ -50,16 +50,26 @@ test('buildGeminiRequestBody: preview が null なら「検証済み情報」ブ
   assert.ok(!body.contents[0].parts[0].text.includes('検証済み情報'));
 });
 
-test('systemInstruction: overview の書き方に 4〜7文と6つの要素を含む指示がある', () => {
+test('systemInstruction: overview はコンセプト・こだわり・看板料理を主役に 5〜7文で書く', () => {
   const body = buildGeminiRequestBody('X', '');
   const sys = body.systemInstruction.parts[0].text;
-  assert.ok(sys.includes('4〜7文'), 'overview の文数指定');
-  assert.ok(sys.includes('何屋か'), '要素1: ジャンル');
-  assert.ok(sys.includes('差別化'), '要素2: 特徴');
-  assert.ok(sys.includes('価格帯'), '要素3: 予算');
-  assert.ok(sys.includes('席の雰囲気'), '要素4: 席');
-  assert.ok(sys.includes('利用シーン'), '要素5: シーン');
-  assert.ok(sys.includes('予約'), '要素6: 予約');
+  assert.ok(sys.includes('5〜7文'), 'overview の文数指定');
+  assert.ok(sys.includes('何屋か'), '主役1: ジャンル');
+  assert.ok(sys.includes('コンセプト'), '主役2: コンセプト・こだわり');
+  assert.ok(sys.includes('看板料理'), '主役3: 看板料理・名物');
+  assert.ok(sys.includes('雰囲気'), '軽く: 席の種類に一言');
+  assert.ok(sys.includes('利用シーン'), '軽く: 利用シーン');
+});
+
+test('systemInstruction: overview から価格・予約情報を禁止する明示がある', () => {
+  const body = buildGeminiRequestBody('X', '');
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(/値段.*予算.*価格帯.*overview に一切書かない/s.test(sys)
+    || (sys.includes('値段・予算・価格帯') && sys.includes('overview に一切書かない')),
+    '価格関連の禁止');
+  assert.ok(/予約に関する情報.*overview に一切書かない/s.test(sys)
+    || (sys.includes('予約に関する情報') && sys.includes('overview に一切書かない')),
+    '予約関連の禁止');
 });
 
 test('systemInstruction: dishes の書き方に具体的な料理名の指示と根拠フレーズ禁止例がある', () => {
