@@ -2197,8 +2197,13 @@ body.gourmet-open #gFrame {
           // ステータス＝現在参加者に見せている画面（activeView）。旧データはフラグから読み替え。
           e.type = data.activeView
             || (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
+          // 開催日: 単体お知らせ等の eventDate(YYYY-MM-DD) を優先し、無ければ日程調整の確定日
+          // （renderAnnounceView と同じ優先順位）。ステータスに関わらず取得して並び替えに使う。
+          const evDate = String(data.eventDate || '').trim();
           const ci = data.confirmedDate;
-          if (ci != null && data.dates && data.dates[ci]) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(evDate)) {
+            e.confirmedTs = new Date(evDate + 'T00:00:00').getTime();
+          } else if (ci != null && data.dates && data.dates[ci]) {
             e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
           }
           // 旧イベント（ownerUids未設定）で自分が正当なホスト（hostKey一致）なら、
@@ -2212,14 +2217,15 @@ body.gourmet-open #gFrame {
       } catch (_) { /* 取得失敗時は日程調整・未確定扱い */ }
     }));
 
-    // 並び替え：未確定を最上位、確定済みは今日に近い順
+    // 並び替え：①日程調整中（日程調整ステータスで未確定）②日付あり＝今日に近い順 ③日付なし
     const now = Date.now();
+    const isScheduling = e => (e.type === 'schedule' || e.type === 'scheduleCreate') && e.confirmedTs == null;
+    const sortRank = e => isScheduling(e) ? 0 : (e.confirmedTs != null ? 1 : 2);
     const sortFn = (a, b) => {
-      const au = a.confirmedTs == null, bu = b.confirmedTs == null;
-      if (au && bu) return (b.createdAt || 0) - (a.createdAt || 0); // 未確定同士は新しい順
-      if (au) return -1;
-      if (bu) return 1;
-      return Math.abs(a.confirmedTs - now) - Math.abs(b.confirmedTs - now); // 確定日が今日に近い順
+      const ra = sortRank(a), rb = sortRank(b);
+      if (ra !== rb) return ra - rb;
+      if (ra === 1) return Math.abs(a.confirmedTs - now) - Math.abs(b.confirmedTs - now); // 日付が今日に近い順
+      return (b.createdAt || 0) - (a.createdAt || 0); // 日付なし同士は新しい順
     };
 
     const base = `${location.origin}${location.pathname}`;
@@ -2234,14 +2240,14 @@ body.gourmet-open #gFrame {
     const STATUS_LABEL = { scheduleCreate:'準備中', schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘', settle:'精算' };
     const itemHtml = (e) => {
       const statusChip = `<span class="my-event-status">${STATUS_LABEL[e.type] || '日程調整'}</span>`;
-      const dateStr = (e.type === 'schedule' || e.type === 'scheduleCreate')
-        ? (e.confirmedTs != null
-            ? `確定 ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
-            : '日程調整中')
-        : '';
-      const roleBadge = e.host
+      // 日付はステータスに関わらず表示（日程調整由来は「確定」、お知らせ等の入力日は「開催」）
+      const dateStr = e.confirmedTs != null
+        ? `${(e.type === 'schedule' || e.type === 'scheduleCreate') ? '確定' : '開催'} ${new Date(e.confirmedTs).getMonth()+1}/${new Date(e.confirmedTs).getDate()}`
+        : ((e.type === 'schedule' || e.type === 'scheduleCreate') ? '日程調整中' : '');
+      // ホスト/参加タブは絞り込み済みなのでバッジ不要。両者が混在する「終了」タブのみ表示。
+      const roleBadge = myEventsRole !== 'finished' ? '' : (e.host
         ? `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:#fff;background:var(--green);border-radius:4px;padding:1px 6px;margin-right:6px;">ホスト</span>`
-        : `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:var(--text-muted);background:#eee;border-radius:4px;padding:1px 6px;margin-right:6px;">参加</span>`;
+        : `<span style="display:inline-block;font-size:0.66rem;font-weight:700;color:var(--text-muted);background:#eee;border-radius:4px;padding:1px 6px;margin-right:6px;">参加</span>`);
       const toggleBtn = e.finished
         ? `<button class="my-event-unfinish" data-id="${escHtml(e.eventId)}">戻す</button>`
         : `<button class="my-event-finish" data-id="${escHtml(e.eventId)}">終了にする</button>`;
