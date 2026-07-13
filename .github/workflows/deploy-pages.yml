@@ -16,7 +16,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # テストが通らない限りデプロイしない
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: フロント特性化テスト（index.html から抽出）
+        run: node --test tests/frontend/*.test.js
+
+      - name: Functions テスト（venueBrief）
+        run: |
+          cd functions
+          npm ci
+          npm test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages

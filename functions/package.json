@@ -3,6 +3,9 @@
   "description": "参加登録時にホストへFCMプッシュ通知を送る",
   "engines": { "node": "22" },
   "main": "index.js",
+  "scripts": {
+    "test": "node --test venueBrief/tests/*.test.js"
+  },
   "dependencies": {
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^5.1.0"
