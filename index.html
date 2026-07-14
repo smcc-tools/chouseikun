@@ -1149,6 +1149,7 @@ body.gourmet-open #gFrame {
 <div class="card" id="gourmetCard" style="display:none;padding:0;overflow:hidden;">
   <div style="padding:14px 16px 8px;">
     <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+    <h2 class="card-title" id="gourmetTitle" style="display:none;margin:10px 0 0;">お店検索</h2>
   </div>
   <div id="gourmetVenueBar" style="display:none;padding:0 16px 8px;">
     <div style="display:flex;gap:8px;">
@@ -1467,7 +1468,7 @@ body.gourmet-open #gFrame {
 
 <!-- お知らせ（集合時間・お店） -->
 <div class="card" id="announceCard" style="display:none;">
-  <div class="card-title">集合時間・お店のお知らせ</div>
+  <div class="card-title" id="announceCardTitle">集合時間・お店のお知らせ</div>
   <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
 
   <!-- ホスト用：参加者用URL -->
@@ -1483,7 +1484,7 @@ body.gourmet-open #gFrame {
   <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
     <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
     <div id="venueMeetTimeRow" style="display:none;font-size:0.95rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">集合時間：</span><span id="venueMeetTimeText" style="font-weight:700;color:var(--green);"></span></div>
-    <div id="venueMeetPlaceRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">集合場所：</span><span id="venueMeetPlaceText"></span></div>
+    <div id="venueMeetPlaceRow" style="display:none;font-size:0.95rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">集合場所：</span><span id="venueMeetPlaceText" style="font-weight:700;color:var(--green);"></span></div>
     <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
     <!-- 食べログ等のリッチプレビューカード -->
     <a id="venuePreview" href="#" target="_blank" rel="noopener" style="display:none;text-decoration:none;margin-bottom:10px;">
@@ -1498,7 +1499,7 @@ body.gourmet-open #gFrame {
     </a>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;">現在地からのルート（Googleマップ）</a>
-      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">お店の地図</a>
+      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">Google店舗情報</a>
       <a id="venueShopUrlBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">食べログで見る</a>
     </div>
     <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
@@ -2948,7 +2949,12 @@ body.gourmet-open #gFrame {
         case 'seating':  renderSeatingBoard(data); break;
         case 'settle':   renderSettleView(data); break;
         case 'announce': renderAnnounceView(data); break;
-        case 'gourmet':  break; // Tabel iframe（ホスト作業のみ）
+        case 'gourmet': {
+          // Tabel iframe（ホスト作業のみ）。イベント名があれば見出しに表示（単体ツール時は非表示のまま）
+          const gt = document.getElementById('gourmetTitle');
+          if (gt) { gt.textContent = data.name || 'お店検索'; gt.style.display = data.name ? '' : 'none'; }
+          break;
+        }
         default:         renderScheduleView(data, 'schedule');
       }
     }
@@ -3023,6 +3029,9 @@ body.gourmet-open #gFrame {
 
     // お知らせページ：開催日＋集合・お店。参加者は閲覧、ホストは venueEdit で編集。
     function renderAnnounceView(data) {
+      // イベント名があれば見出しに表示（他機能のタイトル表示と同じ流儀）
+      const cardTitle = document.getElementById('announceCardTitle');
+      if (cardTitle) cardTitle.textContent = data.name || '集合時間・お店のお知らせ';
       const dt = document.getElementById('announceDateText');
       if (dt) {
         // confirmedDate は dates 配列のインデックス。単体お知らせ用に eventDate(YYYY-MM-DD) を優先。
