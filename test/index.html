@@ -5633,18 +5633,18 @@ body.gourmet-open #gFrame {
     const settleOnly = !!data.settleOnly;
     const backBtn = document.getElementById('backToEventBtn');
     const hostTools = document.getElementById('settleHostTools');
-    if (settleOnly) {
-      if (backBtn) backBtn.style.display = 'none'; // 「メンバー編集に戻る」は廃止
-      if (!readOnly) {
-        mountSettleHostTools();
-        renderSettleInlineMembers(data);
-        if (hostTools) hostTools.style.display = 'block';
-      } else if (hostTools) {
-        hostTools.style.display = 'none';
-      }
-    } else {
-      if (backBtn) backBtn.style.display = 'none'; // 統合ナビでは下部ナビで移動するため非表示
-      if (hostTools) hostTools.style.display = 'none';
+    if (backBtn) backBtn.style.display = 'none'; // 「戻る」は廃止（精算のみ・統合ナビ共通）
+    if (!readOnly) {
+      // メンバー編集はホストなら全イベント種別で表示する。
+      // 以前は settleOnly 限定だったため、統合イベント（日程調整→精算等）では
+      // 精算画面から参加者を追加する手段が無かった（旧「回答画面に戻る」廃止後の実装漏れ）。
+      // 通知/共同ホストの集約(mount)は DOM 移動を伴うため精算のみモード限定を維持
+      // （統合イベントでは各ビュー側の通知・共同ホストUIをそのまま使う）。
+      if (settleOnly) mountSettleHostTools();
+      renderSettleInlineMembers(data);
+      if (hostTools) hostTools.style.display = 'block';
+    } else if (hostTools) {
+      hostTools.style.display = 'none';
     }
 
     const settle = data.settle || {};
