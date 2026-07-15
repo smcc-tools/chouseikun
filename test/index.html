@@ -614,7 +614,10 @@ td.locked .note-input { pointer-events: none; color: #aaa; border-color: transpa
 .settle-summary-item { text-align: center; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 15px 12px; }
 .settle-summary-item .val { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; color: var(--green); }
 .settle-summary-item .lbl { font-size: 0.73rem; color: var(--text-muted); margin-top: 4px; }
-.settle-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+/* 次会数が多い場合でもカード外にはみ出さず、コンテナ内で横スクロールさせる */
+.settle-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
+.settle-table { width: 100%; border-collapse: collapse; }
+.settle-table-wrap .settle-table { margin-bottom: 0; }
 .settle-table th { background: #F4F2EA; color: #5A6B4E; padding: 12px 12px; font-size: 0.82rem; font-weight: 700; text-align: left; border-bottom: 1.5px solid var(--green-mid); }
 .settle-table td { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); font-size: 0.9rem; vertical-align: middle; }
 .settle-table tr:last-child td { border-bottom: none; }
@@ -827,6 +830,9 @@ body.gourmet-open #gFrame {
   #viewTitle { font-size: 1.18rem; }
   .settle-summary { gap: 8px; }
   .settle-summary-item .val { font-size: 1.15rem; }
+  /* 精算表：狭い画面では余白と入力幅を圧縮（インラインwidthより優先させるため!important） */
+  .settle-table th, .settle-table td { padding: 9px 6px; }
+  .settle-amount-input, select.settle-weight { width: 74px !important; }
   table { font-size: 0.82rem; }
   th, td { padding: 8px 5px; }
   .vote-btn { font-size: 0.95rem; padding: 4px 6px; }
@@ -1471,6 +1477,17 @@ body.gourmet-open #gFrame {
   <div class="card-title" id="announceCardTitle">集合時間・お店のお知らせ</div>
   <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
 
+  <!-- 開催日が決まっていればカレンダーに追加できる -->
+  <a id="announceCalendarBtn" href="#" target="_blank" rel="noopener" style="display:none;align-items:center;justify-content:center;gap:9px;width:100%;margin-bottom:14px;padding:12px;background:#fff;border:1.5px solid var(--green-mid);border-radius:10px;color:var(--green);font-weight:700;font-size:0.95rem;text-decoration:none;box-sizing:border-box;">
+    <svg width="19" height="19" viewBox="0 0 74 74" fill="none" style="flex-shrink:0;" aria-hidden="true">
+      <rect x="9" y="15" width="56" height="50" rx="12" stroke="currentColor" stroke-width="5.5"/>
+      <line x1="9" y1="30" x2="65" y2="30" stroke="currentColor" stroke-width="5.5"/>
+      <line x1="25" y1="9" x2="25" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+      <line x1="49" y1="9" x2="49" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+      <circle cx="37" cy="48" r="7.5" fill="#B0883A"/>
+    </svg>Googleカレンダーに追加
+  </a>
+
   <!-- ホスト用：参加者用URL -->
   <div id="announceShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:14px;">
     <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
@@ -1981,6 +1998,7 @@ body.gourmet-open #gFrame {
   const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','announceSetupCard','gourmetCard'];
   function goToMenu() {
     document.body.classList.remove('gourmet-open'); // お店検索の全画面表示を解除
+    warmUpTabel(); // お店検索に備えて Cloud Run を事前ウォームアップ
     const menu = document.getElementById('menuCard');
     if (menu) menu.style.display = 'block';
     SETUP_CARDS.forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
@@ -2076,6 +2094,18 @@ body.gourmet-open #gFrame {
     ? 'https://test---tabel-skmlfruxcq-an.a.run.app'
     : 'https://chouseikun-tabel.web.app';
   const GOURMET_URL = TABEL_ORIGIN + '/';
+
+  // Tabel(お店検索)は Firebase Hosting → Cloud Run 構成のため、初回アクセスは
+  // コールドスタートで検索バーが使えるまで数秒〜十数秒かかる。
+  // お店検索を開きそうな画面（メニュー・ホストのイベントページ）を表示した時点で
+  // 軽量ピングを送り、コンテナを事前に起こしておく。
+  let tabelWarmed = false;
+  function warmUpTabel() {
+    if (tabelWarmed) return;
+    tabelWarmed = true;
+    try { fetch(GOURMET_URL, { mode: 'no-cors', cache: 'no-store' }).catch(() => {}); } catch (_) {}
+  }
+
   function goToGourmet() {
     hideOtherSetupCards('gourmetCard');
     document.body.classList.add('gourmet-open'); // 調整くんヘッダーを隠しTabelを全画面表示
@@ -2730,6 +2760,7 @@ body.gourmet-open #gFrame {
 
     if (isUidOwner || isLegacyHost) {
       isHost = true;
+      warmUpTabel(); // ホストはお店検索を開く可能性が高いので Cloud Run を事前に起こす
       document.getElementById('hostBadge').style.display = 'inline-block';
       document.querySelectorAll('.host-only').forEach(el => el.style.display = 'inline-block');
       document.getElementById('hostNav').style.display = 'block';
@@ -3047,6 +3078,9 @@ body.gourmet-open #gFrame {
         }
         dt.textContent = evDisp || resolved || '未確定';
       }
+      // 開催日が決まっていれば「Googleカレンダーに追加」を表示
+      const annCalBtn = document.getElementById('announceCalendarBtn');
+      if (annCalBtn) annCalBtn.style.display = buildGoogleCalendarUrl(data) ? 'flex' : 'none';
       renderVenue(data.venue || {});
       const v = data.venue || {};
       const hasVenue = !!((v.shop||'').trim() || (v.note||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim());
@@ -3067,7 +3101,10 @@ body.gourmet-open #gFrame {
       set('venueCourseInput', v.course);
       set('venueNoteInput', v.note);
       applyVenueBriefState(data.venue && data.venue.brief);
-      set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : '');
+      // 開催日入力: eventDate 優先。未入力でも日程調整で日程が確定していれば自動で入れる（ホストの再入力を不要に）
+      const confirmedYmd = (data.confirmedDate != null && data.dates && data.dates[data.confirmedDate])
+        ? String(data.dates[data.confirmedDate]).split(' ')[0] : '';
+      set('announceEventDateInput', /^\d{4}-\d{2}-\d{2}$/.test(data.eventDate || '') ? data.eventDate : confirmedYmd);
       // dirty追跡：入力があった欄はdirty=1を立て、保存時にクリア（saveVenueBtnハンドラで解除）
       ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueCourseInput','venueNoteInput','announceEventDateInput'].forEach(id => {
         const el = document.getElementById(id);
@@ -4849,11 +4886,21 @@ body.gourmet-open #gFrame {
     } catch (e) { showToast('更新に失敗しました'); console.error(e); }
   });
 
-  // 確定日から Googleカレンダー テンプレートURL を作る（未確定なら null）
+  // 開催日から Googleカレンダー テンプレートURL を作る（日付が無ければ null）。
+  // 日付の解決は表示と同じ優先順位: eventDate（お知らせ等の入力開催日）> 日程調整の確定日。
+  // eventDate は日付のみなので、集合時間(venue.meetTime)が HH:MM 形式なら開始時刻に使う。
   function buildGoogleCalendarUrl(data) {
-    const ci = data.confirmedDate;
-    if (ci == null || !data.dates || !data.dates[ci]) return null;
-    const raw = String(data.dates[ci]);
+    let raw = null;
+    const ev = String(data.eventDate || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ev)) {
+      const mt = String((data.venue && data.venue.meetTime) || '').trim();
+      const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(mt);
+      raw = m ? `${ev} ${m[0]}` : ev;
+    } else {
+      const ci = data.confirmedDate;
+      if (ci != null && data.dates && data.dates[ci]) raw = String(data.dates[ci]);
+    }
+    if (!raw) return null;
     const [datePart, timePart] = raw.split(' ');
     const [y, mo, d] = datePart.split('-').map(n => parseInt(n));
     if (!y || !mo || !d) return null;
@@ -4890,6 +4937,12 @@ body.gourmet-open #gFrame {
     const url = latestEventData ? buildGoogleCalendarUrl(latestEventData) : null;
     if (url) window.open(url, '_blank', 'noopener');
     else showToast('日程が確定していません');
+  });
+  document.getElementById('announceCalendarBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const url = latestEventData ? buildGoogleCalendarUrl(latestEventData) : null;
+    if (url) window.open(url, '_blank', 'noopener');
+    else showToast('開催日が設定されていません');
   });
 
   function renderTable(dates, participants, confirmedDate, participantOrder) {
@@ -5493,6 +5546,18 @@ body.gourmet-open #gFrame {
   let settleReadOnly = false;
   let amountsCustomized = false; // 金額を手動変更したか
   let settleWeights = {};        // 名前 -> 次会別の割合(%)配列
+
+  // 傾斜(%)の正規化: セレクタの操作順によって配列に「穴」(undefined)ができるが、
+  // Firestore は undefined を含む配列を拒否して保存全体が失敗する。
+  // 書き込み前に、未設定の次会を 100%（均等）で埋めた密な配列へ揃える。
+  function sanitizeSettleWeights(weights, partyCount) {
+    const out = {};
+    Object.entries(weights || {}).forEach(([name, arr]) => {
+      if (!Array.isArray(arr)) return;
+      out[name] = Array.from({ length: partyCount }, (_, i) => (Number.isFinite(arr[i]) ? arr[i] : 100));
+    });
+    return out;
+  }
   let settleOrganizer = '';      // 幹事の名前（並び順の最下段・支払済チェック非表示）
 
   function getSortedNames(data) {
@@ -5780,7 +5845,7 @@ body.gourmet-open #gFrame {
     try {
       await updateDoc(doc(db, 'events', eventId), {
         settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
-                  weights: settleWeights, organizer: settleOrganizer || '' },
+                  weights: sanitizeSettleWeights(settleWeights, partyCount), organizer: settleOrganizer || '' },
         settlePublished: true,
         activeView: 'settle'  // 参加者の表示画面も精算に切り替える（統合公開）
       });
@@ -5946,14 +6011,14 @@ body.gourmet-open #gFrame {
       </tr>`;
     }).join('');
 
-    return `<table class="settle-table">
+    return `<div class="settle-table-wrap"><table class="settle-table">
       <thead><tr>
         <th>名前</th>${partyHeaders}<th>合計</th>
         ${readOnly ? '' : '<th>均等との差</th>'}
         <th>状態</th>
       </tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
   }
 
   function updateSettleBanner(banner, diff, total, collected) {
