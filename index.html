@@ -3039,11 +3039,17 @@ body.gourmet-open #gFrame {
         });
         if (isHost) renderSettleInlineMembers(data);
 
-        // 参加者の追加/削除/名前変更を即座に精算表へ反映する（リロード不要）
+        // 参加者の追加/削除/名前変更を即座に精算表・幹事セレクタへ反映する（リロード不要）。
+        // 注: 「0人で開いて精算画面から最初の1人を追加する」ケースを反映できるよう、
+        //     旧実装の settleNames.length > 0 ガードは置かない（0人→0人なら差分なしでどのみち走らない）
         const freshNames = getSortedNames(data);
-        if (settleNames.length > 0 &&
-            JSON.stringify(freshNames) !== JSON.stringify(settleNames)) {
+        if (JSON.stringify(freshNames) !== JSON.stringify(settleNames)) {
           settleNames = freshNames;
+          // 幹事が削除されていたら未設定に戻す
+          if (settleOrganizer && !freshNames.some(n => normalizeName(n) === normalizeName(settleOrganizer))) {
+            settleOrganizer = '';
+          }
+          populateOrganizerSelect();
           const partiesCountEl = document.getElementById('partiesCount');
           const partyCount = parseInt(partiesCountEl?.value) || 1;
           const partyAmountsArr = Array.from(document.querySelectorAll('.party-amount-input'))
@@ -5662,6 +5668,16 @@ body.gourmet-open #gFrame {
     showToast('保存済みの口座を削除しました');
   });
 
+  // 幹事セレクタの選択肢を最新メンバー(settleNames)で作り直す。
+  // openSettlePage の初期化と、精算画面でのメンバー追加/削除/改名のライブ反映の両方から呼ぶ。
+  function populateOrganizerSelect() {
+    const orgSel = document.getElementById('settleOrganizerSelect');
+    if (!orgSel || settleReadOnly) return;
+    if (document.activeElement === orgSel) return; // 選択操作中は上書きしない
+    orgSel.innerHTML = '<option value="">（未設定）</option>' +
+      settleNames.map(n => `<option value="${escHtml(n)}" ${normalizeName(n)===normalizeName(settleOrganizer)?'selected':''}>${escHtml(n)}</option>`).join('');
+  }
+
   function openSettlePage(data, readOnly) {
     settleNames = getSortedNames(data);
     settleReadOnly = readOnly;
@@ -5672,9 +5688,7 @@ body.gourmet-open #gFrame {
     const orgSel = document.getElementById('settleOrganizerSelect');
     if (orgWrap) orgWrap.style.display = readOnly ? 'none' : 'block';
     if (orgSel && !readOnly) {
-      const cur = settleOrganizer;
-      orgSel.innerHTML = '<option value="">（未設定）</option>' +
-        settleNames.map(n => `<option value="${escHtml(n)}" ${normalizeName(n)===normalizeName(cur)?'selected':''}>${escHtml(n)}</option>`).join('');
+      populateOrganizerSelect();
       if (!orgSel.dataset.bound) {
         orgSel.dataset.bound = '1';
         orgSel.addEventListener('change', () => {
