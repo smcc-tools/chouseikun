@@ -468,7 +468,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* ── トースト ── */
 .toast {
   position: fixed; bottom: 24px; left: 50%;
-  transform: translateX(-50%) translateY(80px);
+  /* 固定80pxだと2行以上の長文トーストは非表示後も上端が画面内に残るため、自身の高さ基準で確実に画面外へ */
+  transform: translateX(-50%) translateY(calc(100% + 48px));
   background: var(--forest); color: #EDF1E4; padding: 13px 22px;
   border-radius: 12px; font-size: 0.9rem; font-weight: 600;
   z-index: 1000; transition: transform 0.3s cubic-bezier(.2,.8,.2,1);
