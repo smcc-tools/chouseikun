@@ -206,6 +206,7 @@ async function fetchPreview(url) {
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { generateVenueBriefImpl } = require('./venueBrief');
 const { suggestOrderPlanImpl } = require('./orderPlan');
+const { claimHostByCodeImpl } = require('./hostCode');
 
 exports.generateVenueBrief = onCall({
   region: 'asia-northeast1',
@@ -255,6 +256,24 @@ exports.suggestOrderPlan = onCall({
       : e.message === 'INVALID_ARG' ? 'invalid-argument'
       : e.message === 'RATE_LIMITED' ? 'resource-exhausted'
       : e.message === 'NO_RESULTS' ? 'not-found'
+      : 'internal';
+    throw new HttpsError(code, e.message);
+  }
+});
+
+// ホスト専用URLの引き換え（Callable、匿名認証でも可）
+exports.claimHostByCode = onCall({
+  region: 'asia-northeast1',
+  memory: '256MiB',
+}, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  try {
+    return await claimHostByCodeImpl({ uid, data: request.data || {} });
+  } catch (e) {
+    const code = e.message === 'UNAUTHENTICATED' ? 'unauthenticated'
+      : e.message === 'INVALID_ARG' ? 'invalid-argument'
+      : e.message === 'RATE_LIMITED' ? 'resource-exhausted'
+      : e.message === 'INVALID_CODE' ? 'permission-denied'
       : 'internal';
     throw new HttpsError(code, e.message);
   }
