@@ -2298,11 +2298,20 @@ body.gourmet-open #gFrame {
   document.getElementById('menuSeatingBtn')?.addEventListener('click', goToSeatingSetup);
   document.getElementById('menuGourmetBtn')?.addEventListener('click', goToGourmet);
   document.getElementById('menuAnnounceBtn')?.addEventListener('click', goToAnnounceSetup);
-  // 「← メニューに戻る」ボタン：history.back() を使うことでスマホの戻るボタンと挙動を統一する
+  // 「← メニューに戻る」ボタン：history.back() を使うことでスマホの戻るボタンと挙動を統一する。
+  // ただしお店検索(gourmetCard)は例外：Tabel iframe 内の遷移（検索等）がブラウザの共有履歴に
+  // 積まれるため、back() は iframe の履歴を1つ戻すだけでトップ画面が変わらないことがある。
+  // → gourmet だけは直接メニューへ遷移し、現在エントリの状態をメニュー扱いに書き換える。
   document.querySelectorAll('.js-back-to-menu').forEach(b => b.addEventListener('click', () => {
     const s = history.state;
-    if (s && s.chouseikun_screen) history.back();
-    else goToMenu();
+    if (s && s.chouseikun_screen === 'gourmetCard') {
+      try { history.replaceState(null, ''); } catch (_) {}
+      goToMenu();
+    } else if (s && s.chouseikun_screen) {
+      history.back();
+    } else {
+      goToMenu();
+    }
   }));
 
   // ── マイイベント管理（Firestore アカウントベース） ──────
