@@ -839,6 +839,21 @@ body.gourmet-open #gFrame {
   .vote-btn { font-size: 0.95rem; padding: 4px 6px; }
   .toast { bottom: 16px; font-size: 0.85rem; padding: 11px 16px; }
 }
+  /* ── AI注文提案：お品書き（木札メニュー表） ── */
+  .op-paper { background: var(--wood); border: 1.5px solid var(--wood-border); border-radius: 14px; padding: 18px 16px; }
+  .op-head { text-align: center; font-weight: 800; letter-spacing: .35em; color: var(--wood-text); font-size: .8rem; margin-bottom: 8px; }
+  .op-cat { text-align: center; font-size: .78rem; font-weight: 800; color: var(--green-dark); letter-spacing: .25em; margin: 12px 0 6px; }
+  .op-cat::before, .op-cat::after { content: "—"; color: var(--wood-border); margin: 0 8px; }
+  .op-line { display: flex; align-items: baseline; font-size: .9rem; padding: 5px 0 2px; }
+  .op-name { font-weight: 600; }
+  .op-qty { color: var(--text-muted); font-weight: 400; font-size: .8rem; margin-left: 4px; }
+  .op-dots { flex: 1; border-bottom: 1.5px dotted var(--wood-border); margin: 0 8px; min-width: 24px; }
+  .op-price { color: var(--wood-text); font-size: .8rem; white-space: nowrap; }
+  .op-why { font-size: .72rem; color: var(--text-muted); padding-bottom: 3px; }
+  .op-total { text-align: center; margin-top: 14px; padding-top: 10px; border-top: 1.5px solid var(--wood-border); font-weight: 800; color: var(--green-dark); }
+  .op-notes { font-size: .78rem; color: var(--text-muted); margin-top: 8px; text-align: center; }
+  .op-links { font-size: .72rem; color: var(--text-muted); margin-top: 8px; text-align: center; }
+
   /* ── お店検索（食べログ連携） ── */
   .g-suggest { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--surface);
     border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow);
@@ -1140,7 +1155,7 @@ body.gourmet-open #gFrame {
   </div>
   <label class="ve-lbl">好み・気分（任意）</label>
   <input type="text" id="orderMoodInput" placeholder="例: 肉多め・お酒に合う・さっぱりめ" style="margin-bottom:14px;">
-  <button class="btn btn-primary btn-full" id="orderSuggestBtn">注文プランを提案してもらう</button>
+  <button class="btn btn-primary btn-full" id="orderSuggestBtn">お品書きを作ってもらう</button>
   <div id="orderPlanLoading" style="display:none;text-align:center;padding:14px;color:var(--text-muted);">メニューを調べています…（20〜40秒）</div>
   <div id="orderPlanError" style="display:none;margin-top:10px;padding:10px;background:#FDF2E9;border:1px solid #F0B090;border-radius:6px;">
     <div id="orderPlanErrorText" style="font-size:0.85rem;color:var(--text);"></div>
@@ -1789,23 +1804,22 @@ body.gourmet-open #gFrame {
 
   // 注文プランの描画（純関数・テスト対象）。ユーザー入力由来は全て escHtml を通す
   function buildOrderPlanHtml(plan, totalEstimate, notes, sourceUrls) {
-    const cats = (plan || []).map(c => `
-      <div style="margin-bottom:12px;">
-        <div style="font-weight:700;color:var(--green);font-size:0.9rem;margin-bottom:4px;">${escHtml(c.category)}</div>
-        ${(c.items || []).map(it => `
-          <div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-soft);">
-            <div style="min-width:0;">
-              <div style="font-weight:600;">${escHtml(it.name)} <span style="color:var(--text-muted);font-weight:400;">× ${parseInt(it.qty) || 1}</span></div>
-              <div style="font-size:0.78rem;color:var(--text-muted);">${escHtml(it.why)}</div>
-            </div>
-            <div style="white-space:nowrap;font-size:0.82rem;">${escHtml(it.price || '')}</div>
-          </div>`).join('')}
-      </div>`).join('');
-    const totalRow = totalEstimate ? `<div style="font-weight:700;margin-top:6px;">合計目安: ${escHtml(totalEstimate)}</div>` : '';
-    const notesRow = notes ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;">${escHtml(notes)}</div>` : '';
+    // お品書き（木札メニュー表）スタイル。AI出力由来の文字列は全て escHtml を通す
+    if (!plan || !plan.length) return '';
+    const cats = plan.map(c => `
+      <div class="op-cat">${escHtml(c.category)}</div>
+      ${(c.items || []).map(it => `
+        <div class="op-line">
+          <span class="op-name">${escHtml(it.name)}<span class="op-qty">×${parseInt(it.qty) || 1}</span></span>
+          <span class="op-dots"></span>
+          <span class="op-price">${escHtml(it.price || '')}</span>
+        </div>
+        <div class="op-why">${escHtml(it.why)}</div>`).join('')}`).join('');
+    const totalRow = totalEstimate ? `<div class="op-total">目安 ${escHtml(totalEstimate)}</div>` : '';
+    const notesRow = notes ? `<div class="op-notes">${escHtml(notes)}</div>` : '';
     const links = (sourceUrls && sourceUrls.length)
-      ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;">参考: ${sourceUrls.map((u, i) => `<a href="${escHtml(u)}" target="_blank" rel="noopener">[${i + 1}]</a>`).join(' ')}</div>` : '';
-    return cats + totalRow + notesRow + links;
+      ? `<div class="op-links">参考: ${sourceUrls.map((u, i) => `<a href="${escHtml(u)}" target="_blank" rel="noopener">[${i + 1}]</a>`).join(' ')}</div>` : '';
+    return `<div class="op-paper"><div class="op-head">本日のおすすめお品書き</div>${cats}${totalRow}${notesRow}${links}</div>`;
   }
 
   // 安全網：try/catch から漏れた Promise の失敗を「無音」にせず汎用エラーとして可視化する。
