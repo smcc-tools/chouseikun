@@ -2253,7 +2253,8 @@ body.gourmet-open #gFrame {
     loading.style.display = 'block'; errBox.style.display = 'none';
     try {
       const payload = { shop, partySize };
-      if (budgetRaw) payload.budget = parseInt(budgetRaw) || 0;
+      const budgetVal = parseInt(budgetRaw);
+      if (budgetVal > 0) payload.budget = budgetVal;
       if (mood) payload.mood = mood;
       if (excludeDishes && excludeDishes.length) payload.excludeDishes = excludeDishes;
       const res = await suggestOrderPlanCallable(payload);

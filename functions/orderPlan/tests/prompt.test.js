@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildOrderPlanRequestBody, parseOrderPlanResponse, validateOrderPlan } = require('../prompt');
+const { buildOrderPlanRequestBody, parseOrderPlanResponse, validateOrderPlan, extractSourceUrls } = require('../prompt');
 
 // ── buildOrderPlanRequestBody ──
 
@@ -97,4 +97,13 @@ test('検証: totalEstimate 空・shopFound false は false', () => {
   assert.equal(validateOrderPlan({ ...VALID, totalEstimate: '' }), false);
   assert.equal(validateOrderPlan({ ...VALID, shopFound: false }), false);
   assert.equal(validateOrderPlan(null), false);
+});
+
+// ── extractSourceUrls ──
+
+test('extractSourceUrls: http(s)以外のスキームは除外し、重複除去・最大5件', () => {
+  const { extractSourceUrls } = require('../prompt');
+  const mk = uris => ({ candidates: [{ groundingMetadata: { groundingChunks: uris.map(u => ({ web: { uri: u } })) } }] });
+  const urls = extractSourceUrls(mk(['https://a.com', 'javascript:alert(1)', 'https://a.com', 'http://b.com', 'https://c.com', 'https://d.com', 'https://e.com', 'https://f.com']));
+  assert.deepEqual(urls, ['https://a.com', 'http://b.com', 'https://c.com', 'https://d.com', 'https://e.com']);
 });

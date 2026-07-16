@@ -107,6 +107,7 @@ function extractSourceUrls(apiJson) {
   for (const c of chunks) {
     const uri = c && c.web && c.web.uri;
     if (!uri || seen.has(uri)) continue;
+    if (!/^https?:\/\//i.test(uri)) continue; // href に挿入されるため http(s) 以外は捨てる
     seen.add(uri);
     urls.push(uri);
     if (urls.length >= 5) break;
