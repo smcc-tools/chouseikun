@@ -205,6 +205,7 @@ async function fetchPreview(url) {
 // 店の概要・おすすめメニュー生成（Callable、ホスト認証必須）
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { generateVenueBriefImpl } = require('./venueBrief');
+const { suggestOrderPlanImpl } = require('./orderPlan');
 
 exports.generateVenueBrief = onCall({
   region: 'asia-northeast1',
@@ -229,6 +230,30 @@ exports.generateVenueBrief = onCall({
       : e.message === 'PERMISSION_DENIED' ? 'permission-denied'
       : e.message === 'RATE_LIMITED' ? 'resource-exhausted'
       : e.message === 'SHOP_EMPTY' ? 'failed-precondition'
+      : e.message === 'NO_RESULTS' ? 'not-found'
+      : 'internal';
+    throw new HttpsError(code, e.message);
+  }
+});
+
+// AI注文提案（Callable、ログイン必須・Firestore 書き込みなし）
+exports.suggestOrderPlan = onCall({
+  region: 'asia-northeast1',
+  timeoutSeconds: 90,   // 25s×3回リトライ + 前後処理
+  memory: '256MiB',
+  secrets: ['GEMINI_API_KEY'],
+}, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  try {
+    return await suggestOrderPlanImpl({
+      uid,
+      data: request.data || {},
+      secrets: { geminiKey: process.env.GEMINI_API_KEY },
+    });
+  } catch (e) {
+    const code = e.message === 'UNAUTHENTICATED' ? 'unauthenticated'
+      : e.message === 'INVALID_ARG' ? 'invalid-argument'
+      : e.message === 'RATE_LIMITED' ? 'resource-exhausted'
       : e.message === 'NO_RESULTS' ? 'not-found'
       : 'internal';
     throw new HttpsError(code, e.message);
