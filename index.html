@@ -751,7 +751,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-tools-title { font-size:0.95rem !important; margin-bottom:4px !important; }
 .menu-tools-sub { font-size:0.76rem; color:var(--text-muted); margin-bottom:14px; }
 /* 単体ツールの並び順：お店検索→お知らせ→座席決め→割り勘→精算 */
-#menuGourmetBtn { order:1; } #menuAnnounceBtn { order:2; } #menuSeatingBtn { order:3; } #menuWalicaBtn { order:4; } #menuSettleBtn { order:5; }
+#menuGourmetBtn { order:1; } #menuAnnounceBtn { order:2; } #menuSeatingBtn { order:3; } #menuOrderAiBtn { order:4; } #menuWalicaBtn { order:5; } #menuSettleBtn { order:6; }
 .menu-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px; text-align: center;
   padding: 26px 16px; border: 1.5px solid var(--green-mid); border-radius: 16px; background: var(--surface-2);
@@ -980,6 +980,19 @@ body.gourmet-open #gFrame {
       <div class="mt-title">お知らせ</div>
       <div class="mt-desc">集合時間・場所・お店を参加者に知らせる</div>
     </div>
+    <div class="menu-tile" id="menuOrderAiBtn" role="button" tabindex="0">
+      <div class="mt-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="5" y="3" width="14" height="18" rx="2.5" stroke="#EDF1E4" stroke-width="2"/>
+          <line x1="9" y1="8" x2="15" y2="8" stroke="#EDF1E4" stroke-width="2" stroke-linecap="round"/>
+          <line x1="9" y1="12" x2="15" y2="12" stroke="#EDF1E4" stroke-width="2" stroke-linecap="round"/>
+          <line x1="9" y1="16" x2="12" y2="16" stroke="#EDF1E4" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="15.8" cy="16" r="1.3" fill="#D9A73E"/>
+        </svg>
+      </div>
+      <div class="mt-title">注文提案</div>
+      <div class="mt-desc">お店で迷ったらAIが注文プランを提案</div>
+    </div>
   </div>
 </div>
 
@@ -1108,6 +1121,36 @@ body.gourmet-open #gFrame {
   </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
   <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">※ 開催日・集合時間・お店は、作成後の「お知らせ」画面で入力します。</p>
+</div>
+
+<!-- AI注文提案（単体ツール） -->
+<div class="card" id="orderAiCard" style="display:none;">
+  <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
+  <h2 class="card-title">注文提案（AI）</h2>
+  <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;line-height:1.7;font-weight:400;">お店の実在メニューを調べて、人数・予算に合わせた注文プランをAIが提案します。</p>
+  <label class="ve-lbl">お店（店名 or 食べログURL）</label>
+  <input type="text" id="orderShopInput" placeholder="店名／食べログURL" style="margin-bottom:8px;">
+  <div style="display:flex;gap:8px;margin-bottom:8px;">
+    <div style="flex:1;">
+      <label class="ve-lbl">人数</label>
+      <input type="number" id="orderPartySizeInput" min="1" max="50" value="2" style="width:100%;margin-bottom:0;">
+    </div>
+    <div style="flex:1;">
+      <label class="ve-lbl">予算/人（円・任意）</label>
+      <input type="number" id="orderBudgetInput" min="0" placeholder="例: 4000" style="width:100%;margin-bottom:0;">
+    </div>
+  </div>
+  <label class="ve-lbl">好み・気分（任意）</label>
+  <input type="text" id="orderMoodInput" placeholder="例: 肉多め・お酒に合う・さっぱりめ" style="margin-bottom:14px;">
+  <button class="btn btn-primary btn-full" id="orderSuggestBtn">注文プランを提案してもらう</button>
+  <div id="orderPlanLoading" style="display:none;text-align:center;padding:14px;color:var(--text-muted);">メニューを調べています…（20〜40秒）</div>
+  <div id="orderPlanError" style="display:none;margin-top:10px;padding:10px;background:#FDF2E9;border:1px solid #F0B090;border-radius:6px;">
+    <div id="orderPlanErrorText" style="font-size:0.85rem;color:var(--text);"></div>
+    <button class="btn btn-secondary" id="orderRetryBtn" style="margin-top:8px;">再試行</button>
+  </div>
+  <div id="orderPlanResult" style="display:none;margin-top:14px;"></div>
+  <button class="btn btn-secondary btn-full" id="orderAnotherBtn" style="display:none;margin-top:10px;">別の案を出す</button>
+  <p style="font-size:0.72rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">ネット上の情報に基づく提案です。価格・提供状況は変わることがあります。アレルギー等の除外は「好み・気分」欄に書けば考慮されますが、保証はされません。必ずお店でご確認ください。</p>
 </div>
 
 <!-- 立替・割り勘 作成カード -->
@@ -1676,6 +1719,7 @@ body.gourmet-open #gFrame {
   const db = getFirestore(app);
   const functions = getFunctions(app, 'asia-northeast1');
   const generateVenueBriefCallable = httpsCallable(functions, 'generateVenueBrief');
+  const suggestOrderPlanCallable = httpsCallable(functions, 'suggestOrderPlan');
   const auth = getAuth(app);
   let currentUser = null;
 
@@ -1727,6 +1771,56 @@ body.gourmet-open #gFrame {
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // AI機能（venue-brief / 注文提案）のエラーコードをユーザー向けの日本語に変換
+  function aiErrorToJa(raw) {
+    const rules = [
+      [/RATE_LIMITED|resource-exhausted/i, '連続で実行されています。数秒おいてからもう一度お試しください'],
+      [/SHOP_EMPTY|INVALID_ARG|invalid-argument/i, '入力内容を確認してください（お店の名前またはURLは必須です）'],
+      [/NO_RESULTS/, 'このお店のメニュー情報が見つかりませんでした。店名や食べログURLを見直してください'],
+      [/PERMISSION_DENIED|permission-denied/i, 'この操作はホストのみ実行できます'],
+      [/UNAUTHENTICATED|unauthenticated/i, 'Googleログインが必要です'],
+      [/GEMINI_TIMEOUT|deadline/i, 'AIの応答が時間内に返りませんでした。しばらくしてから再試行してください'],
+      [/SAFETY/, 'AIが内容の生成を控えました。店名の表記を変えて試してください'],
+      [/Gemini 429|quota/i, 'AIの利用枠が一時的に上限に達しています。時間をおいて再試行してください'],
+    ];
+    for (const [re, msg] of rules) if (re.test(raw)) return msg;
+    return '取得に失敗しました。時間をおいてもう一度お試しください';
+  }
+
+  // 注文プランの描画（純関数・テスト対象）。ユーザー入力由来は全て escHtml を通す
+  function buildOrderPlanHtml(plan, totalEstimate, notes, sourceUrls, extras) {
+    const cats = (plan || []).map(c => `
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:700;color:var(--green);font-size:0.9rem;margin-bottom:4px;">${escHtml(c.category)}</div>
+        ${(c.items || []).map(it => `
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-soft);">
+            <div style="min-width:0;">
+              <div style="font-weight:600;">${escHtml(it.name)} <span style="color:var(--text-muted);font-weight:400;">× ${parseInt(it.qty) || 1}</span></div>
+              <div style="font-size:0.78rem;color:var(--text-muted);">${escHtml(it.why)}</div>
+            </div>
+            <div style="white-space:nowrap;font-size:0.82rem;">${escHtml(it.price || '')}</div>
+          </div>`).join('')}
+      </div>`).join('');
+    const totalRow = totalEstimate ? `<div style="font-weight:700;margin-top:6px;">合計目安: ${escHtml(totalEstimate)}</div>` : '';
+    // プラン外の「＋追加のおすすめ」（合計目安には含まれない）
+    const extrasRow = (extras && extras.length) ? `
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line-soft);">
+        <div style="font-weight:700;color:var(--gold);font-size:0.85rem;margin-bottom:4px;">＋ 追加のおすすめ</div>
+        ${extras.map(e => `
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;">
+            <div style="min-width:0;">
+              <div style="font-weight:600;font-size:0.88rem;">${escHtml(e.name)}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);">${escHtml(e.why)}</div>
+            </div>
+            <div style="white-space:nowrap;font-size:0.8rem;">${escHtml(e.price || '')}</div>
+          </div>`).join('')}
+      </div>` : '';
+    const notesRow = notes ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;">${escHtml(notes)}</div>` : '';
+    const links = (sourceUrls && sourceUrls.length)
+      ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;">参考: ${sourceUrls.map((u, i) => `<a href="${escHtml(u)}" target="_blank" rel="noopener">[${i + 1}]</a>`).join(' ')}</div>` : '';
+    return cats + totalRow + extrasRow + notesRow + links;
   }
 
   // 安全網：try/catch から漏れた Promise の失敗を「無音」にせず汎用エラーとして可視化する。
@@ -1996,7 +2090,7 @@ body.gourmet-open #gFrame {
   }
 
   // ── トップのメニュー遷移 ──
-  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','announceSetupCard','gourmetCard'];
+  const SETUP_CARDS = ['setupCard','settleSetupCard','walicaSetupCard','seatingSetupCard','announceSetupCard','gourmetCard','orderAiCard'];
   function goToMenu() {
     document.body.classList.remove('gourmet-open'); // お店検索の全画面表示を解除
     warmUpTabel(); // お店検索に備えて Cloud Run を事前ウォームアップ
@@ -2034,6 +2128,7 @@ body.gourmet-open #gFrame {
     switch (s.chouseikun_screen) {
       case 'setupCard': goToSchedule(); break;
       case 'settleSetupCard': goToSettleSetup(); break;
+      case 'orderAiCard': goToOrderAi(); break;
       case 'walicaSetupCard': goToWalicaSetup(); break;
       case 'seatingSetupCard': goToSeatingSetup(); break;
       case 'announceSetupCard': goToAnnounceSetup(); break;
@@ -2062,6 +2157,12 @@ body.gourmet-open #gFrame {
     renderSettleDraft();
     window.scrollTo(0, 0);
     pushNav('settleSetupCard');
+  }
+  function goToOrderAi() {
+    hideOtherSetupCards('orderAiCard');
+    document.getElementById('orderAiCard').style.display = 'block';
+    window.scrollTo(0, 0);
+    pushNav('orderAiCard');
   }
   function goToWalicaSetup() {
     hideOtherSetupCards('walicaSetupCard');
@@ -2147,6 +2248,52 @@ body.gourmet-open #gFrame {
 
   document.getElementById('menuScheduleBtn')?.addEventListener('click', goToSchedule);
   document.getElementById('menuSettleBtn')?.addEventListener('click', goToSettleSetup);
+  document.getElementById('menuOrderAiBtn')?.addEventListener('click', goToOrderAi);
+
+  // ── AI注文提案 ──
+  let lastOrderPlanDishes = [];   // 「別の案」用: 直前プランの品名
+  async function invokeSuggestOrderPlan(excludeDishes) {
+    if (!currentUser) { showToast('Googleログインが必要です'); await signIn(); return; }
+    const shop = (document.getElementById('orderShopInput')?.value || '').trim();
+    if (!shop) { showToast('お店の名前またはURLを入力してください'); return; }
+    const partySize = parseInt(document.getElementById('orderPartySizeInput')?.value) || 2;
+    const budgetRaw = (document.getElementById('orderBudgetInput')?.value || '').trim();
+    const mood = (document.getElementById('orderMoodInput')?.value || '').trim();
+    const btn = document.getElementById('orderSuggestBtn');
+    const loading = document.getElementById('orderPlanLoading');
+    const errBox = document.getElementById('orderPlanError');
+    const result = document.getElementById('orderPlanResult');
+    const another = document.getElementById('orderAnotherBtn');
+    btn.disabled = true; another.disabled = true;
+    loading.style.display = 'block'; errBox.style.display = 'none';
+    try {
+      const payload = { shop, partySize };
+      const budgetVal = parseInt(budgetRaw);
+      if (budgetVal > 0) payload.budget = budgetVal;
+      if (mood) payload.mood = mood;
+      if (excludeDishes && excludeDishes.length) payload.excludeDishes = excludeDishes;
+      const res = await suggestOrderPlanCallable(payload);
+      const d = res.data || {};
+      // 「別の案」の除外リストには追加のおすすめ(extras)も含める（同じ品の再提案を防ぐ）
+      lastOrderPlanDishes = [
+        ...(d.plan || []).flatMap(c => (c.items || []).map(it => it.name)),
+        ...(d.extras || []).map(e => e.name),
+      ].filter(Boolean).slice(0, 20);
+      result.innerHTML = buildOrderPlanHtml(d.plan, d.totalEstimate, d.notes, d.sourceUrls, d.extras);
+      result.style.display = 'block';
+      another.style.display = 'block';
+    } catch (e) {
+      document.getElementById('orderPlanErrorText').textContent = aiErrorToJa(String(e.message || ''));
+      errBox.style.display = 'block';
+      console.error('order-plan error:', e);
+    } finally {
+      btn.disabled = false; another.disabled = false;
+      loading.style.display = 'none';
+    }
+  }
+  document.getElementById('orderSuggestBtn')?.addEventListener('click', () => invokeSuggestOrderPlan());
+  document.getElementById('orderAnotherBtn')?.addEventListener('click', () => invokeSuggestOrderPlan(lastOrderPlanDishes));
+  document.getElementById('orderRetryBtn')?.addEventListener('click', () => invokeSuggestOrderPlan());
   document.getElementById('menuWalicaBtn')?.addEventListener('click', goToWalicaSetup);
   document.getElementById('menuSeatingBtn')?.addEventListener('click', goToSeatingSetup);
   document.getElementById('menuGourmetBtn')?.addEventListener('click', goToGourmet);
@@ -3299,7 +3446,7 @@ body.gourmet-open #gFrame {
       errBox.style.display = (hasErr && !isFetching) ? '' : 'none';
       if (hasErr && errDetail) {
         const raw = String(brief.error || '').slice(0, 100);
-        errDetail.textContent = `${briefErrorToJa(raw)}（${raw}）`;
+        errDetail.textContent = `${aiErrorToJa(raw)}（${raw}）`;
       }
 
       if (hasBrief) {
@@ -3322,22 +3469,6 @@ body.gourmet-open #gFrame {
         const tog = document.getElementById('briefVisibleToggle');
         if (tog) tog.checked = !!brief.visible;
       }
-    }
-
-    // venue-brief のエラーコードをユーザー向けの日本語に変換（生コードをそのまま見せない）
-    function briefErrorToJa(raw) {
-      const rules = [
-        [/RATE_LIMITED/, '連続で実行されています。数秒おいてからもう一度お試しください'],
-        [/SHOP_EMPTY/, 'お店の名前またはURLを入力してから実行してください'],
-        [/NO_RESULTS/, 'お店の情報が見つかりませんでした。店名や食べログURLを見直してください'],
-        [/PERMISSION_DENIED|permission-denied/i, 'この操作はホストのみ実行できます'],
-        [/UNAUTHENTICATED/, 'ログインが必要です'],
-        [/GEMINI_TIMEOUT|deadline/i, 'AIの応答が時間内に返りませんでした。しばらくしてから再試行してください'],
-        [/SAFETY/, 'AIが内容の生成を控えました。店名の表記を変えて試してください'],
-        [/Gemini 429|quota|resource-exhausted/i, 'AIの利用枠が一時的に上限に達しています。時間をおいて再試行してください'],
-      ];
-      for (const [re, msg] of rules) if (re.test(raw)) return msg;
-      return '取得に失敗しました。時間をおいてもう一度お試しください';
     }
 
     // 「店情報を取得」クリック
@@ -3375,7 +3506,7 @@ body.gourmet-open #gFrame {
         await generateVenueBriefCallable({ eventId });
         // 結果は onSnapshot で自動反映されるためここでは何もしない
       } catch (e) {
-        showToast(briefErrorToJa(String(e.message || '')));
+        showToast(aiErrorToJa(String(e.message || '')));
         console.error('venue-brief error:', e);
       } finally {
         document.body.dataset.briefFetching = '';
