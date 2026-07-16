@@ -51,6 +51,7 @@ async function suggestOrderPlanImpl({ uid, data, secrets }) {
         plan: parsed.plan,
         totalEstimate: parsed.totalEstimate,
         notes: parsed.notes,
+        extras: parsed.extras,
         sourceUrls: extractSourceUrls(apiJson),
       };
     } catch (e) {

@@ -107,3 +107,32 @@ test('extractSourceUrls: http(s)以外のスキームは除外し、重複除去
   const urls = extractSourceUrls(mk(['https://a.com', 'javascript:alert(1)', 'https://a.com', 'http://b.com', 'https://c.com', 'https://d.com', 'https://e.com', 'https://f.com']));
   assert.deepEqual(urls, ['https://a.com', 'http://b.com', 'https://c.com', 'https://d.com', 'https://e.com']);
 });
+
+// ── extras（追加のおすすめ2品程度） ──
+
+test('systemInstruction: extras（追加のおすすめ）の指示と出力形式を含む', () => {
+  const body = buildOrderPlanRequestBody({ shop: 'X', partySize: 2, budget: null, mood: '', excludeDishes: [] });
+  const sys = body.systemInstruction.parts[0].text;
+  assert.ok(sys.includes('extras'), 'extras フィールドの言及');
+  assert.ok(sys.includes('2品程度'), '品数の目安');
+});
+
+test('パース: extras は最大3件に切詰め・name無しは除外・qty不要', () => {
+  const j = JSON.parse(JSON.stringify(VALID));
+  j.extras = [
+    { name: '追加A', price: '¥600前後', why: '余裕があれば' },
+    { name: '', price: '¥1', why: 'name無し' },
+    { name: '追加B', why: '' },
+    { name: '追加C', price: '', why: 'w' },
+    { name: '追加D', price: '', why: 'w' },
+  ];
+  const p = parseOrderPlanResponse(wrap(JSON.stringify(j)));
+  assert.deepEqual(p.extras.map(e => e.name), ['追加A', '追加B', '追加C']);
+  assert.equal(p.extras[0].price, '¥600前後');
+});
+
+test('パース: extras が無い応答でも空配列で壊れない・validateも通る', () => {
+  const p = parseOrderPlanResponse(wrap(JSON.stringify(VALID)));
+  assert.deepEqual(p.extras, []);
+  assert.equal(validateOrderPlan(p), true);
+});

@@ -1790,7 +1790,7 @@ body.gourmet-open #gFrame {
   }
 
   // 注文プランの描画（純関数・テスト対象）。ユーザー入力由来は全て escHtml を通す
-  function buildOrderPlanHtml(plan, totalEstimate, notes, sourceUrls) {
+  function buildOrderPlanHtml(plan, totalEstimate, notes, sourceUrls, extras) {
     const cats = (plan || []).map(c => `
       <div style="margin-bottom:12px;">
         <div style="font-weight:700;color:var(--green);font-size:0.9rem;margin-bottom:4px;">${escHtml(c.category)}</div>
@@ -1804,10 +1804,23 @@ body.gourmet-open #gFrame {
           </div>`).join('')}
       </div>`).join('');
     const totalRow = totalEstimate ? `<div style="font-weight:700;margin-top:6px;">合計目安: ${escHtml(totalEstimate)}</div>` : '';
+    // プラン外の「＋追加のおすすめ」（合計目安には含まれない）
+    const extrasRow = (extras && extras.length) ? `
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line-soft);">
+        <div style="font-weight:700;color:var(--gold);font-size:0.85rem;margin-bottom:4px;">＋ 追加のおすすめ</div>
+        ${extras.map(e => `
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;">
+            <div style="min-width:0;">
+              <div style="font-weight:600;font-size:0.88rem;">${escHtml(e.name)}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);">${escHtml(e.why)}</div>
+            </div>
+            <div style="white-space:nowrap;font-size:0.8rem;">${escHtml(e.price || '')}</div>
+          </div>`).join('')}
+      </div>` : '';
     const notesRow = notes ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;">${escHtml(notes)}</div>` : '';
     const links = (sourceUrls && sourceUrls.length)
       ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;">参考: ${sourceUrls.map((u, i) => `<a href="${escHtml(u)}" target="_blank" rel="noopener">[${i + 1}]</a>`).join(' ')}</div>` : '';
-    return cats + totalRow + notesRow + links;
+    return cats + totalRow + extrasRow + notesRow + links;
   }
 
   // 安全網：try/catch から漏れた Promise の失敗を「無音」にせず汎用エラーとして可視化する。
@@ -2261,8 +2274,12 @@ body.gourmet-open #gFrame {
       if (excludeDishes && excludeDishes.length) payload.excludeDishes = excludeDishes;
       const res = await suggestOrderPlanCallable(payload);
       const d = res.data || {};
-      lastOrderPlanDishes = (d.plan || []).flatMap(c => (c.items || []).map(it => it.name)).filter(Boolean).slice(0, 20);
-      result.innerHTML = buildOrderPlanHtml(d.plan, d.totalEstimate, d.notes, d.sourceUrls);
+      // 「別の案」の除外リストには追加のおすすめ(extras)も含める（同じ品の再提案を防ぐ）
+      lastOrderPlanDishes = [
+        ...(d.plan || []).flatMap(c => (c.items || []).map(it => it.name)),
+        ...(d.extras || []).map(e => e.name),
+      ].filter(Boolean).slice(0, 20);
+      result.innerHTML = buildOrderPlanHtml(d.plan, d.totalEstimate, d.notes, d.sourceUrls, d.extras);
       result.style.display = 'block';
       another.style.display = 'block';
     } catch (e) {

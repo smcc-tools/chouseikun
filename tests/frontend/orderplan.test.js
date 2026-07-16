@@ -37,3 +37,22 @@ test('空プラン・空引数でも例外を投げず空文字系を返す', ()
   assert.equal(buildOrderPlanHtml([], '', '', []), '');
   assert.equal(buildOrderPlanHtml(null, '', '', null), '');
 });
+
+test('extras（追加のおすすめ）があれば見出し付きで描画され、無ければ出ない', () => {
+  const extras = [
+    { name: 'とり福プリン', price: '¥450前後', why: 'デザートの隠れ名物' },
+    { name: '梅きゅう', price: '', why: '箸休めに' },
+  ];
+  const withExtras = buildOrderPlanHtml(PLAN, '¥3,000/人 前後', '', [], extras);
+  for (const s of ['追加のおすすめ', 'とり福プリン', '¥450前後', '梅きゅう']) {
+    assert.ok(withExtras.includes(s), `欠落: ${s}`);
+  }
+  const without = buildOrderPlanHtml(PLAN, '¥3,000/人 前後', '', [], []);
+  assert.ok(!without.includes('追加のおすすめ'));
+});
+
+test('extras の特殊文字もエスケープされる', () => {
+  const html = buildOrderPlanHtml(PLAN, 't', '', [], [{ name: '<i>x</i>', price: '', why: '<u>y</u>' }]);
+  assert.ok(!html.includes('<i>x</i>'));
+  assert.ok(html.includes('&lt;i&gt;'));
+});
