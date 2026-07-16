@@ -4,7 +4,7 @@
   "engines": { "node": "22" },
   "main": "index.js",
   "scripts": {
-    "test": "node --test venueBrief/tests/*.test.js"
+    "test": "node --test venueBrief/tests/*.test.js orderPlan/tests/*.test.js"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",
