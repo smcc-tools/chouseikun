@@ -1729,6 +1729,22 @@ body.gourmet-open #gFrame {
     setTimeout(() => t.classList.remove('show'), 2500);
   }
 
+  // AI機能（venue-brief / 注文提案）のエラーコードをユーザー向けの日本語に変換
+  function aiErrorToJa(raw) {
+    const rules = [
+      [/RATE_LIMITED|resource-exhausted/i, '連続で実行されています。数秒おいてからもう一度お試しください'],
+      [/SHOP_EMPTY|INVALID_ARG|invalid-argument/i, '入力内容を確認してください（お店の名前またはURLは必須です）'],
+      [/NO_RESULTS/, 'このお店のメニュー情報が見つかりませんでした。店名や食べログURLを見直してください'],
+      [/PERMISSION_DENIED|permission-denied/i, 'この操作はホストのみ実行できます'],
+      [/UNAUTHENTICATED|unauthenticated/i, 'Googleログインが必要です'],
+      [/GEMINI_TIMEOUT|deadline/i, 'AIの応答が時間内に返りませんでした。しばらくしてから再試行してください'],
+      [/SAFETY/, 'AIが内容の生成を控えました。店名の表記を変えて試してください'],
+      [/Gemini 429|quota/i, 'AIの利用枠が一時的に上限に達しています。時間をおいて再試行してください'],
+    ];
+    for (const [re, msg] of rules) if (re.test(raw)) return msg;
+    return '取得に失敗しました。時間をおいてもう一度お試しください';
+  }
+
   // 安全網：try/catch から漏れた Promise の失敗を「無音」にせず汎用エラーとして可視化する。
   // 個別ハンドラで捕捉済みのものはここには来ない。
   window.addEventListener('unhandledrejection', e => {
@@ -3299,7 +3315,7 @@ body.gourmet-open #gFrame {
       errBox.style.display = (hasErr && !isFetching) ? '' : 'none';
       if (hasErr && errDetail) {
         const raw = String(brief.error || '').slice(0, 100);
-        errDetail.textContent = `${briefErrorToJa(raw)}（${raw}）`;
+        errDetail.textContent = `${aiErrorToJa(raw)}（${raw}）`;
       }
 
       if (hasBrief) {
@@ -3322,22 +3338,6 @@ body.gourmet-open #gFrame {
         const tog = document.getElementById('briefVisibleToggle');
         if (tog) tog.checked = !!brief.visible;
       }
-    }
-
-    // venue-brief のエラーコードをユーザー向けの日本語に変換（生コードをそのまま見せない）
-    function briefErrorToJa(raw) {
-      const rules = [
-        [/RATE_LIMITED/, '連続で実行されています。数秒おいてからもう一度お試しください'],
-        [/SHOP_EMPTY/, 'お店の名前またはURLを入力してから実行してください'],
-        [/NO_RESULTS/, 'お店の情報が見つかりませんでした。店名や食べログURLを見直してください'],
-        [/PERMISSION_DENIED|permission-denied/i, 'この操作はホストのみ実行できます'],
-        [/UNAUTHENTICATED/, 'ログインが必要です'],
-        [/GEMINI_TIMEOUT|deadline/i, 'AIの応答が時間内に返りませんでした。しばらくしてから再試行してください'],
-        [/SAFETY/, 'AIが内容の生成を控えました。店名の表記を変えて試してください'],
-        [/Gemini 429|quota|resource-exhausted/i, 'AIの利用枠が一時的に上限に達しています。時間をおいて再試行してください'],
-      ];
-      for (const [re, msg] of rules) if (re.test(raw)) return msg;
-      return '取得に失敗しました。時間をおいてもう一度お試しください';
     }
 
     // 「店情報を取得」クリック
@@ -3375,7 +3375,7 @@ body.gourmet-open #gFrame {
         await generateVenueBriefCallable({ eventId });
         // 結果は onSnapshot で自動反映されるためここでは何もしない
       } catch (e) {
-        showToast(briefErrorToJa(String(e.message || '')));
+        showToast(aiErrorToJa(String(e.message || '')));
         console.error('venue-brief error:', e);
       } finally {
         document.body.dataset.briefFetching = '';
