@@ -2272,7 +2272,7 @@ body.gourmet-open #gFrame {
   // ── AI注文提案 ──
   let lastOrderPlanDishes = [];   // 「別の案」用: 直前プランの品名
   async function invokeSuggestOrderPlan(excludeDishes) {
-    if (!currentUser) { showToast('Googleログインが必要です'); await signIn(); return; }
+    if (!currentUser || currentUser.isAnonymous) { showToast('Googleログインが必要です'); await signIn(); return; }
     const shop = (document.getElementById('orderShopInput')?.value || '').trim();
     if (!shop) { showToast('お店の名前またはURLを入力してください'); return; }
     const partySize = parseInt(document.getElementById('orderPartySizeInput')?.value) || 2;

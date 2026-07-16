@@ -245,6 +245,10 @@ exports.suggestOrderPlan = onCall({
   secrets: ['GEMINI_API_KEY'],
 }, async (request) => {
   const uid = request.auth && request.auth.uid;
+  // 匿名認証はホスト専用URL引き換え用。コスト保護のため注文提案はGoogleログイン限定を維持
+  const provider = request.auth && request.auth.token && request.auth.token.firebase
+    && request.auth.token.firebase.sign_in_provider;
+  if (provider === 'anonymous') throw new HttpsError('unauthenticated', 'UNAUTHENTICATED');
   try {
     return await suggestOrderPlanImpl({
       uid,

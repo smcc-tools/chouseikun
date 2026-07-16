@@ -25,8 +25,9 @@ service cloud.firestore {
       // 閲覧は誰でも可（参加者がリアルタイム購読するため必須）
       allow read: if true;
 
-      // 作成：ログイン必須。自分自身を唯一のownerとして登録すること。
+      // 作成：ログイン必須（匿名不可）。自分自身を唯一のownerとして登録すること。
       allow create: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
         && request.resource.data.ownerUids is list
         && request.resource.data.ownerUids.size() == 1
         && request.auth.uid in request.resource.data.ownerUids
@@ -76,9 +77,10 @@ service cloud.firestore {
              .affectedKeys().hasOnly(['participants', 'participantOrder', 'expenses']);
     }
 
-    // 旧イベント（ownerUids未設定）をログインユーザーがクレーム（移行用・ownerUidsの新規付与のみ）
+    // 旧イベント（ownerUids未設定）をログインユーザーがクレーム（移行用・ownerUidsの新規付与のみ・匿名不可）
     function isLegacyClaim() {
       return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
         && !('ownerUids' in resource.data)
         && request.resource.data.ownerUids == [request.auth.uid]
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerUids']);
