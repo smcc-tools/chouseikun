@@ -40,6 +40,12 @@ service cloud.firestore {
       allow update: if isOwner() || isParticipantWrite() || isPaidToggle() || isWalicaWrite() || isLegacyClaim();
     }
 
+    // ホストコード等の非公開データ：イベントのホストのみ読み書き可（参加者からは読めない）
+    match /events/{eventId}/private/{docId} {
+      allow read, write: if request.auth != null
+        && get(/databases/$(database)/documents/events/$(eventId)).data.ownerUids.hasAny([request.auth.uid]);
+    }
+
     // ホスト本人（ownerUidsに含まれるログインユーザー）
     function isOwner() {
       return request.auth != null
