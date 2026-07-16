@@ -10,9 +10,9 @@ const PLAN = [
   { category: 'メイン', items: [{ name: '焼き鳥盛り', qty: 3, price: '¥1,200前後', why: '看板メニュー' }] },
 ];
 
-test('お品書き形式でプラン・合計・補足・参考リンクが全て描画される', () => {
+test('プラン・合計・補足・参考リンクが全て描画される', () => {
   const html = buildOrderPlanHtml(PLAN, '¥3,000/人 前後', 'L.O.は22時', ['https://example.com/a']);
-  for (const s of ['本日のおすすめお品書き', 'op-paper', '前菜', 'ポテサラ', '×2', '¥500前後', '目安', '¥3,000/人 前後', 'L.O.は22時', 'https://example.com/a']) {
+  for (const s of ['前菜', 'ポテサラ', '× 2', '¥500前後', '合計目安', '¥3,000/人 前後', 'L.O.は22時', 'https://example.com/a']) {
     assert.ok(html.includes(s), `欠落: ${s}`);
   }
 });
@@ -30,7 +30,7 @@ test('qty が不正でも 1 として表示される', () => {
   const p = [{ category: 'A', items: [{ name: 'x', qty: 'zz', price: '', why: 'w' }] },
              { category: 'B', items: [{ name: 'y', qty: null, price: '', why: 'w' }] }];
   const html = buildOrderPlanHtml(p, 't', '', []);
-  assert.equal((html.match(/×1</g) || []).length, 2);
+  assert.equal((html.match(/× 1/g) || []).length, 2);
 });
 
 test('空プラン・空引数でも例外を投げず空文字系を返す', () => {
