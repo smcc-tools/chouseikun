@@ -1521,17 +1521,6 @@ body.gourmet-open #gFrame {
   <div class="card-title" id="announceCardTitle">集合時間・お店のお知らせ</div>
   <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
 
-  <!-- 開催日が決まっていればカレンダーに追加できる -->
-  <a id="announceCalendarBtn" href="#" target="_blank" rel="noopener" style="display:none;align-items:center;justify-content:center;gap:9px;width:100%;margin-bottom:14px;padding:12px;background:#fff;border:1.5px solid var(--green-mid);border-radius:10px;color:var(--green);font-weight:700;font-size:0.95rem;text-decoration:none;box-sizing:border-box;">
-    <svg width="19" height="19" viewBox="0 0 74 74" fill="none" style="flex-shrink:0;" aria-hidden="true">
-      <rect x="9" y="15" width="56" height="50" rx="12" stroke="currentColor" stroke-width="5.5"/>
-      <line x1="9" y1="30" x2="65" y2="30" stroke="currentColor" stroke-width="5.5"/>
-      <line x1="25" y1="9" x2="25" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
-      <line x1="49" y1="9" x2="49" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
-      <circle cx="37" cy="48" r="7.5" fill="#B0883A"/>
-    </svg>Googleカレンダーに追加
-  </a>
-
   <!-- ホスト用：参加者用URL -->
   <div id="announceShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:14px;">
     <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
@@ -1647,6 +1636,17 @@ body.gourmet-open #gFrame {
     </div>
     <button class="btn btn-primary" id="saveVenueBtn" style="width:100%;">保存</button>
   </div>
+
+  <!-- 開催日が決まっていればカレンダーに追加できる（画面の最下部に配置） -->
+  <a id="announceCalendarBtn" href="#" target="_blank" rel="noopener" style="display:none;align-items:center;justify-content:center;gap:9px;width:100%;margin-top:4px;padding:12px;background:#fff;border:1.5px solid var(--green-mid);border-radius:10px;color:var(--green);font-weight:700;font-size:0.95rem;text-decoration:none;box-sizing:border-box;">
+    <svg width="19" height="19" viewBox="0 0 74 74" fill="none" style="flex-shrink:0;" aria-hidden="true">
+      <rect x="9" y="15" width="56" height="50" rx="12" stroke="currentColor" stroke-width="5.5"/>
+      <line x1="9" y1="30" x2="65" y2="30" stroke="currentColor" stroke-width="5.5"/>
+      <line x1="25" y1="9" x2="25" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+      <line x1="49" y1="9" x2="49" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
+      <circle cx="37" cy="48" r="7.5" fill="#B0883A"/>
+    </svg>Googleカレンダーに追加
+  </a>
 </div>
 
 <div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:74px;z-index:49;pointer-events:none;">
