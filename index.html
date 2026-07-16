@@ -1265,6 +1265,16 @@ body.gourmet-open #gFrame {
       <code id="myHostCode" style="font-size:0.72rem;background:#fff;padding:2px 6px;border:1px solid #eee;border-radius:4px;word-break:break-all;">—</code>
       <button class="btn btn-secondary" id="copyMyCodeBtn" style="font-size:0.74rem;padding:3px 8px;margin-left:4px;border-color:#f5d5a0;color:#b8860b;background:#fff8f0;">コピー</button>
     </div>
+    <div style="margin-top:12px;border-top:1px solid var(--line-soft);padding-top:10px;">
+      <button class="btn btn-secondary" id="issueHostCodeBtn" style="font-size:0.82rem;">ホスト専用URLを発行</button>
+      <div id="hostCodeUrlWrap" style="display:none;margin-top:8px;">
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="hostCodeUrlInput" readonly style="flex:1;font-size:0.78rem;margin-bottom:0;">
+          <button class="btn btn-secondary" id="copyHostCodeUrlBtn" style="white-space:nowrap;">コピー</button>
+        </div>
+        <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">このURLを開いた人は<strong>Googleログイン不要でホスト</strong>になれます。取り扱いにご注意ください（URLは固定で、後から無効化できません）。</p>
+      </div>
+    </div>
   </div>
 
   <div id="tableWrap"><p class="loading">読み込み中</p></div>
@@ -1673,7 +1683,7 @@ body.gourmet-open #gFrame {
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
   import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-functions.js";
 
@@ -1720,6 +1730,7 @@ body.gourmet-open #gFrame {
   const functions = getFunctions(app, 'asia-northeast1');
   const generateVenueBriefCallable = httpsCallable(functions, 'generateVenueBrief');
   const suggestOrderPlanCallable = httpsCallable(functions, 'suggestOrderPlan');
+  const claimHostByCodeCallable = httpsCallable(functions, 'claimHostByCode');
   const auth = getAuth(app);
   let currentUser = null;
 
@@ -1787,6 +1798,14 @@ body.gourmet-open #gFrame {
     ];
     for (const [re, msg] of rules) if (re.test(raw)) return msg;
     return '取得に失敗しました。時間をおいてもう一度お試しください';
+  }
+
+  // ホスト専用URLの hostcode をアドレスバーから除去した search 文字列を返す（履歴・共有時の漏えい防止）
+  function stripHostCodeFromUrl(search) {
+    const p = new URLSearchParams(search || '');
+    p.delete('hostcode');
+    const s = p.toString();
+    return s ? '?' + s : '';
   }
 
   // 注文プランの描画（純関数・テスト対象）。ユーザー入力由来は全て escHtml を通す
@@ -2253,7 +2272,7 @@ body.gourmet-open #gFrame {
   // ── AI注文提案 ──
   let lastOrderPlanDishes = [];   // 「別の案」用: 直前プランの品名
   async function invokeSuggestOrderPlan(excludeDishes) {
-    if (!currentUser) { showToast('Googleログインが必要です'); await signIn(); return; }
+    if (!currentUser || currentUser.isAnonymous) { showToast('Googleログインが必要です'); await signIn(); return; }
     const shop = (document.getElementById('orderShopInput')?.value || '').trim();
     if (!shop) { showToast('お店の名前またはURLを入力してください'); return; }
     const partySize = parseInt(document.getElementById('orderPartySizeInput')?.value) || 2;
@@ -2535,13 +2554,37 @@ body.gourmet-open #gFrame {
 
   // ── Firebase Auth ───────────────────────────────
 
+  // ── ホスト専用URLの引き換え ──
+  let _hostCodeClaimTried = false;
+  async function claimHostByUrlCode() {
+    if (_hostCodeClaimTried) return;
+    const params = new URLSearchParams(location.search);
+    const evId = params.get('event');
+    const code = params.get('hostcode');
+    if (!evId || !code) return;
+    _hostCodeClaimTried = true;
+    try {
+      if (!auth.currentUser) await signInAnonymously(auth); // 未ログインなら匿名で自動サインイン
+      await claimHostByCodeCallable({ eventId: evId, code });
+      showToast('ホストとして参加しました');
+    } catch (e) {
+      showToast('ホスト用URLが無効です');
+      console.error('host-code claim error:', e);
+    } finally {
+      // 成否に関わらず URL からコードを除去（履歴・共有・リロード時の漏えい/再実行防止）
+      try { history.replaceState(history.state, '', location.pathname + stripHostCodeFromUrl(location.search)); } catch (_) {}
+    }
+  }
+
   onAuthStateChanged(auth, async user => {
     currentUser = user;
+    // ホスト専用URL（?hostcode=）の引き換え。認証状態が確定してから1回だけ実行
+    claimHostByUrlCode();
     const signInBtn  = document.getElementById('signInBtn');
     const signOutBtn = document.getElementById('signOutBtn');
     const authUser   = document.getElementById('authUser');
 
-    if (user) {
+    if (user && !user.isAnonymous) {
       // ログイン済み
       signInBtn.style.display  = 'none';
       authUser.style.display   = 'flex';
@@ -2550,6 +2593,10 @@ body.gourmet-open #gFrame {
       document.getElementById('authAvatar').style.display = user.photoURL ? 'block' : 'none';
       // Tabel iframe が既に開いていれば、この時点でログイン情報を引き継ぐ
       pushAuthToTabel();
+    } else if (user) {
+      // 匿名ユーザー：ログインボタンは出したまま。ホストUI・マイイベントはそのまま動かす
+      signInBtn.style.display = 'flex';
+      authUser.style.display = 'none';
     } else {
       // 未ログイン：ホストUIをクリア（サインアウト時に .host-only や #hostNav が表示されたままにならないよう明示リセット）
       signInBtn.style.display  = 'flex';
@@ -3408,6 +3455,35 @@ body.gourmet-open #gFrame {
     document.getElementById('copyMyCodeBtn')?.addEventListener('click', () => {
       if (!currentUser) { showToast('ログインが必要です'); return; }
       copyText(currentUser.uid, document.getElementById('copyMyCodeBtn'), 'ホストコード');
+    });
+
+    // ホスト専用URLの発行(1イベント1コード・固定)。コードは非公開サブコレクションに保存
+    document.getElementById('issueHostCodeBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('issueHostCodeBtn');
+      const wrap = document.getElementById('hostCodeUrlWrap');
+      const inp = document.getElementById('hostCodeUrlInput');
+      if (!btn || !wrap || !inp || !eventId) return;
+      btn.disabled = true;
+      try {
+        const ref = doc(db, 'events', eventId, 'private', 'host');
+        const snap = await getDoc(ref);
+        let code = snap.exists() ? String(snap.data().code || '') : '';
+        if (!code) {
+          code = randomId(20);
+          await setDoc(ref, { code, createdAt: Date.now() });
+        }
+        inp.value = `${location.origin}${location.pathname}?event=${encodeURIComponent(eventId)}&hostcode=${code}`;
+        wrap.style.display = 'block';
+      } catch (e) {
+        showToast('ホスト専用URLの発行に失敗しました');
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    document.getElementById('copyHostCodeUrlBtn')?.addEventListener('click', () => {
+      const inp = document.getElementById('hostCodeUrlInput');
+      if (inp && inp.value) copyText(inp.value, document.getElementById('copyHostCodeUrlBtn'), 'ホスト専用URL');
     });
 
     // お店・行き方の保存（ホスト）
