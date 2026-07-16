@@ -1000,11 +1000,6 @@ body.gourmet-open #gFrame {
 <div class="card" id="myEventsCard" style="display:none;">
   <h2 class="card-title">マイイベント</h2>
   <div id="myEventsList"></div>
-  <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);font-size:0.74rem;color:var(--text-muted);line-height:1.6;">
-    共同ホストに招待してもらう場合は、このホストコードを幹事に伝えてください：<br>
-    <code id="myHostCodeTop" style="font-size:0.72rem;background:#f5f5f5;padding:2px 6px;border:1px solid #eee;border-radius:4px;word-break:break-all;">—</code>
-    <button class="btn btn-secondary" id="copyMyCodeTopBtn" style="font-size:0.74rem;padding:3px 8px;margin-left:4px;">コピー</button>
-  </div>
 </div>
 
 <!-- イベント作成カード -->
@@ -1241,6 +1236,13 @@ body.gourmet-open #gFrame {
       <input type="text" id="participantUrlView" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
       <button class="btn btn-secondary" id="copyParticipantUrlBtn" style="white-space:nowrap;">コピー</button>
     </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
+    </div>
   </div>
   <!-- ホスト専用：参加登録のプッシュ通知設定 -->
   <div id="notifyWrap" class="host-only" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-bottom:16px;">
@@ -1254,26 +1256,14 @@ body.gourmet-open #gFrame {
   <!-- ホスト専用：共同ホスト管理（アカウントコード方式） -->
   <div id="coHostWrap" class="host-only" style="display:none;background:#fff8f0;border:1px solid #f5d5a0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:600;color:#b8860b;margin-bottom:8px;">共同ホスト管理</div>
-    <div style="font-size:0.75rem;color:#8a6d3b;margin-bottom:8px;line-height:1.5;">共同ホストにしたい人に、その人の「ホストコード」を聞いて下記に貼り付けてください。相手はログイン後、画面下部に表示される自分のホストコードをコピーできます。</div>
+    <div style="font-size:0.75rem;color:#8a6d3b;margin-bottom:8px;line-height:1.5;">共同ホストにしたい人には下の「ホスト専用URL」を共有してください。開いた人がホストになります（Googleログイン不要）。</div>
     <div id="coHostUrlList"></div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <input type="text" id="coHostCodeInput" placeholder="共同ホストのホストコードを貼り付け" style="flex:1;font-size:0.78rem;padding:6px 8px;border:1px solid #ddd;border-radius:4px;margin-bottom:0;">
-      <button class="btn btn-secondary" id="addCoHostBtn" style="font-size:0.82rem;white-space:nowrap;border-color:#f5d5a0;color:#b8860b;background:#fff8f0;">＋ 追加</button>
-    </div>
-    <div style="margin-top:10px;padding-top:8px;border-top:1px dashed #f0dca8;font-size:0.75rem;color:#8a6d3b;">
-      あなたのホストコード：
-      <code id="myHostCode" style="font-size:0.72rem;background:#fff;padding:2px 6px;border:1px solid #eee;border-radius:4px;word-break:break-all;">—</code>
-      <button class="btn btn-secondary" id="copyMyCodeBtn" style="font-size:0.74rem;padding:3px 8px;margin-left:4px;border-color:#f5d5a0;color:#b8860b;background:#fff8f0;">コピー</button>
-    </div>
-    <div style="margin-top:12px;border-top:1px solid var(--line-soft);padding-top:10px;">
-      <button class="btn btn-secondary" id="issueHostCodeBtn" style="font-size:0.82rem;">ホスト専用URLを発行</button>
-      <div id="hostCodeUrlWrap" style="display:none;margin-top:8px;">
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="hostCodeUrlInput" readonly style="flex:1;font-size:0.78rem;margin-bottom:0;">
-          <button class="btn btn-secondary" id="copyHostCodeUrlBtn" style="white-space:nowrap;">コピー</button>
-        </div>
-        <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">このURLを開いた人は<strong>Googleログイン不要でホスト</strong>になれます。取り扱いにご注意ください（URLは固定で、後から無効化できません）。</p>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.78rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
       </div>
+      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">このURLを開いた人は<strong>Googleログイン不要でホスト</strong>になれます。取り扱いにご注意ください（URLは固定で、後から無効化できません）。</p>
     </div>
   </div>
 
@@ -1420,6 +1410,13 @@ body.gourmet-open #gFrame {
         <input type="text" id="settleShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
         <button class="btn btn-secondary" id="copySettleUrlBtn" style="white-space:nowrap;">コピー</button>
       </div>
+      <div class="host-url-row" style="display:none;margin-top:10px;">
+        <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+          <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1459,6 +1456,13 @@ body.gourmet-open #gFrame {
     <div style="display:flex;gap:8px;">
       <input type="text" id="walicaShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
       <button class="btn btn-secondary" id="copyWalicaUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1523,6 +1527,13 @@ body.gourmet-open #gFrame {
       <input type="text" id="seatingShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
       <button class="btn btn-secondary" id="copySeatingUrlBtn" style="white-space:nowrap;">コピー</button>
     </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1537,6 +1548,13 @@ body.gourmet-open #gFrame {
     <div style="display:flex;gap:8px;">
       <input type="text" id="announceShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
       <button class="btn btn-secondary" id="copyAnnounceUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
     </div>
   </div>
 
@@ -2380,15 +2398,6 @@ body.gourmet-open #gFrame {
     list.innerHTML = '<div style="text-align:center;color:#bbb;padding:16px;font-size:0.85rem;">読み込み中…</div>';
     card.style.display = 'block';
 
-    // 自分のホストコード（共同ホスト招待用）を表示
-    const codeTop = document.getElementById('myHostCodeTop');
-    if (codeTop) codeTop.textContent = currentUser.uid;
-    const copyCodeTop = document.getElementById('copyMyCodeTopBtn');
-    if (copyCodeTop && !copyCodeTop.dataset.bound) {
-      copyCodeTop.dataset.bound = '1';
-      copyCodeTop.addEventListener('click', () => copyText(currentUser.uid, copyCodeTop, 'ホストコード'));
-    }
-
     let snap;
     try {
       snap = await getDocs(userEventsRef(currentUser.uid));
@@ -2946,6 +2955,41 @@ body.gourmet-open #gFrame {
   let myEventSavedAsHost = null;   // マイイベント保存済みのロール（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
 
+  // ── ホスト専用URL：参加者用URLのある各画面へ自動表示 ──
+  // コードは非公開サブコレクション(events/{id}/private/host)に保存。1イベント1コード・固定。
+  let _hostUrlPromise = null;
+  function ensureHostCodeUrl() {
+    if (!_hostUrlPromise) {
+      _hostUrlPromise = (async () => {
+        const ref = doc(db, 'events', eventId, 'private', 'host');
+        const snap = await getDoc(ref);
+        let code = snap.exists() ? String(snap.data().code || '') : '';
+        if (!code) {
+          code = randomId(20);
+          await setDoc(ref, { code, createdAt: Date.now() });
+        }
+        return `${location.origin}${location.pathname}?event=${encodeURIComponent(eventId)}&hostcode=${code}`;
+      })().catch(e => { _hostUrlPromise = null; throw e; }); // 失敗時は次回リトライできるように破棄
+    }
+    return _hostUrlPromise;
+  }
+  async function fillHostUrlRows() {
+    if (!isHost || !eventId) return;
+    const rows = document.querySelectorAll('.host-url-row');
+    if (!rows.length) return;
+    try {
+      const url = await ensureHostCodeUrl();
+      rows.forEach(r => {
+        r.style.display = 'block';
+        const inp = r.querySelector('.host-url-input');
+        if (inp) inp.value = url;
+      });
+    } catch (e) {
+      // 旧イベント(ownerUids未設定)等でルールに弾かれた場合は表示しない（他のホストUIには影響させない）
+      console.error('host url issue error:', e);
+    }
+  }
+
   // ホスト判定（アカウントuidベース。旧hostKey方式は互換のため残す）
   async function evaluateHost(data) {
     const ownerUids = data.ownerUids || [];
@@ -2972,6 +3016,7 @@ body.gourmet-open #gFrame {
       const base = `${location.origin}${location.pathname}`;
       document.getElementById('participantUrlView').value = `${base}?event=${eventId}`;
       renderCoHostList(ownerUids, base, eventId);
+      fillHostUrlRows(); // ホスト専用URLを各画面の共有欄に自動表示（非同期・失敗時は非表示のまま）
       // 通知トグルの状態を反映
       const notifyToggle = document.getElementById('notifyToggle');
       if (notifyToggle && currentUser) {
@@ -3425,66 +3470,11 @@ body.gourmet-open #gFrame {
       copyText(document.getElementById('settleShareUrl').value, document.getElementById('copySettleUrlBtn'), '参加者表示用URL');
     });
 
-    // 共同ホスト追加（相手のホストコード=uidを指定）
-    document.getElementById('addCoHostBtn')?.addEventListener('click', async () => {
-      const input = document.getElementById('coHostCodeInput');
-      const code = (input?.value || '').trim();
-      if (!code) { showToast('ホストコードを貼り付けてください'); return; }
-      let updated;
-      try {
-        updated = await runTransaction(db, async (tx) => {
-          const ref = doc(db, 'events', eventId);
-          const owners = (await tx.get(ref)).data().ownerUids || [];
-          if (owners.includes(code)) throw new Error('DUP');
-          const next = [...owners, code];
-          tx.update(ref, { ownerUids: next });
-          return next;
-        });
-      } catch (e) {
-        if (e.message === 'DUP') showToast('すでに共同ホストです');
-        else { showToast('追加に失敗しました'); console.error(e); }
-        return;
-      }
-      if (input) input.value = '';
-      const base = `${location.origin}${location.pathname}`;
-      renderCoHostList(updated, base, eventId);
-      showToast('共同ホストを追加しました');
-    });
-
-    // 自分のホストコードを表示・コピー
-    document.getElementById('copyMyCodeBtn')?.addEventListener('click', () => {
-      if (!currentUser) { showToast('ログインが必要です'); return; }
-      copyText(currentUser.uid, document.getElementById('copyMyCodeBtn'), 'ホストコード');
-    });
-
-    // ホスト専用URLの発行(1イベント1コード・固定)。コードは非公開サブコレクションに保存
-    document.getElementById('issueHostCodeBtn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('issueHostCodeBtn');
-      const wrap = document.getElementById('hostCodeUrlWrap');
-      const inp = document.getElementById('hostCodeUrlInput');
-      if (!btn || !wrap || !inp || !eventId) return;
-      btn.disabled = true;
-      try {
-        const ref = doc(db, 'events', eventId, 'private', 'host');
-        const snap = await getDoc(ref);
-        let code = snap.exists() ? String(snap.data().code || '') : '';
-        if (!code) {
-          code = randomId(20);
-          await setDoc(ref, { code, createdAt: Date.now() });
-        }
-        inp.value = `${location.origin}${location.pathname}?event=${encodeURIComponent(eventId)}&hostcode=${code}`;
-        wrap.style.display = 'block';
-      } catch (e) {
-        showToast('ホスト専用URLの発行に失敗しました');
-        console.error(e);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-    document.getElementById('copyHostCodeUrlBtn')?.addEventListener('click', () => {
-      const inp = document.getElementById('hostCodeUrlInput');
-      if (inp && inp.value) copyText(inp.value, document.getElementById('copyHostCodeUrlBtn'), 'ホスト専用URL');
-    });
+    // ホスト専用URLのコピー（各画面の .host-url-row 内の共通ボタン）
+    document.querySelectorAll('.host-url-copy').forEach(b => b.addEventListener('click', () => {
+      const inp = b.closest('.host-url-row')?.querySelector('.host-url-input');
+      if (inp && inp.value) copyText(inp.value, b, 'ホスト専用URL');
+    }));
 
     // お店・行き方の保存（ホスト）
     document.getElementById('saveVenueBtn')?.addEventListener('click', async () => {
@@ -5567,10 +5557,6 @@ body.gourmet-open #gFrame {
   // ── 共同ホスト管理（アカウントuidベース）──────────────
 
   function renderCoHostList(ownerUids, base, eventId) {
-    // 自分のホストコードを表示
-    const myCodeEl = document.getElementById('myHostCode');
-    if (myCodeEl) myCodeEl.textContent = currentUser ? currentUser.uid : '（ログインで表示）';
-
     const list = document.getElementById('coHostUrlList');
     if (!list) return;
     // 自分以外の所有者を共同ホストとして表示
