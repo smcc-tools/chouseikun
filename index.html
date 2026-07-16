@@ -2616,6 +2616,8 @@ body.gourmet-open #gFrame {
         myEventSavedAsHost = null;
         const hostBadge = document.getElementById('hostBadge'); if (hostBadge) hostBadge.style.display = 'none';
         document.querySelectorAll('.host-only').forEach(el => el.style.display = 'none');
+        // ホスト専用URLの行は host-only の外（割り勘の共有欄等）にもあるため明示的に隠して値も消す
+        hideHostUrlRows();
         const nav = document.getElementById('hostNav'); if (nav) nav.style.display = 'none';
         document.body.classList.remove('has-hostnav');
         const bar = document.getElementById('publishBar'); if (bar) bar.style.display = 'none';
@@ -2958,23 +2960,28 @@ body.gourmet-open #gFrame {
   // ── ホスト専用URL：参加者用URLのある各画面へ自動表示 ──
   // コードは非公開サブコレクション(events/{id}/private/host)に保存。1イベント1コード・固定。
   let _hostUrlPromise = null;
+  let _hostUrlDenied = false; // 旧イベント等でルールに拒否されたら以後は試みない（毎snapshotの無駄読み・ログノイズ防止）
   function ensureHostCodeUrl() {
     if (!_hostUrlPromise) {
       _hostUrlPromise = (async () => {
+        // 初回発行はトランザクションで行う（2端末が同時に開いても1コードに収束させる。
+        // 後勝ち setDoc だと片方の表示URLが「固定」のまま永久に無効になるため）
         const ref = doc(db, 'events', eventId, 'private', 'host');
-        const snap = await getDoc(ref);
-        let code = snap.exists() ? String(snap.data().code || '') : '';
-        if (!code) {
-          code = randomId(20);
-          await setDoc(ref, { code, createdAt: Date.now() });
-        }
+        const code = await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          const existing = snap.exists() ? String(snap.data().code || '') : '';
+          if (existing) return existing;
+          const fresh = randomId(20);
+          tx.set(ref, { code: fresh, createdAt: Date.now() });
+          return fresh;
+        });
         return `${location.origin}${location.pathname}?event=${encodeURIComponent(eventId)}&hostcode=${code}`;
-      })().catch(e => { _hostUrlPromise = null; throw e; }); // 失敗時は次回リトライできるように破棄
+      })().catch(e => { _hostUrlPromise = null; throw e; }); // 一時エラーは次回リトライできるように破棄
     }
     return _hostUrlPromise;
   }
   async function fillHostUrlRows() {
-    if (!isHost || !eventId) return;
+    if (!isHost || !eventId || _hostUrlDenied) return;
     const rows = document.querySelectorAll('.host-url-row');
     if (!rows.length) return;
     try {
@@ -2985,9 +2992,21 @@ body.gourmet-open #gFrame {
         if (inp) inp.value = url;
       });
     } catch (e) {
-      // 旧イベント(ownerUids未設定)等でルールに弾かれた場合は表示しない（他のホストUIには影響させない）
+      // 旧イベント(ownerUids未設定)等でルールに弾かれた場合は表示せず、以後の再試行もしない
+      if (e && (e.code === 'permission-denied' || /permission/i.test(String(e.message || '')))) {
+        _hostUrlDenied = true;
+      }
       console.error('host url issue error:', e);
     }
+  }
+  // ホスト権限の無い状態では行を隠し、URLの値も消す
+  // （ログアウト後の共有端末で「ホスト専用URL」が画面に残らないように）
+  function hideHostUrlRows() {
+    document.querySelectorAll('.host-url-row').forEach(r => {
+      r.style.display = 'none';
+      const inp = r.querySelector('.host-url-input');
+      if (inp) inp.value = '';
+    });
   }
 
   // ホスト判定（アカウントuidベース。旧hostKey方式は互換のため残す）
