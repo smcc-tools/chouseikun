@@ -1841,10 +1841,8 @@ body.gourmet-open #gFrame {
   }
 
   // XSS対策：HTML本文・属性値に埋め込むユーザー入力は必ずこれを通す
-  const escHtml = s => {
-    const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
-    return String(s ?? '').split('').map(c => map[c] || c).join('');
-  };
+  const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 
   // 暗号学的乱数でID生成（推測・総当たり対策）
   function randomId(len) {

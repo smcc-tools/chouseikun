@@ -17,6 +17,28 @@ function scanBalanced(src, start, stop) {
     const next = src[i + 1];
     if (ch === '/' && next === '/') { i = src.indexOf('\n', i); if (i < 0) break; continue; }
     if (ch === '/' && next === '*') { i = src.indexOf('*/', i) + 1; continue; }
+    if (ch === '/') {
+      // 除算演算子か正規表現リテラルかを直前の非空白文字から判定する。
+      // escHtml の /[&<>"']/g のような正規表現を含む関数を正しく抽出するために必要
+      // （中の ' が文字列スキャナを、[ ] が括弧深度カウントを狂わせるため事前にスキップする）。
+      let j = i - 1;
+      while (j >= 0 && /\s/.test(src[j])) j--;
+      const prev = j >= 0 ? src[j] : '';
+      const isDivision = prev === ')' || prev === ']' || prev === "'" || prev === '"' || prev === '`' || /[A-Za-z0-9_$]/.test(prev);
+      if (!isDivision) {
+        let k = i + 1;
+        let inClass = false;
+        for (; k < src.length; k++) {
+          if (src[k] === '\\') { k++; continue; }
+          if (src[k] === '[') inClass = true;
+          else if (src[k] === ']') inClass = false;
+          else if (src[k] === '/' && !inClass) break;
+        }
+        while (k + 1 < src.length && /[a-zA-Z]/.test(src[k + 1])) k++;
+        i = k;
+        continue;
+      }
+    }
     if (ch === "'" || ch === '"') {
       for (i++; i < src.length && src[i] !== ch; i++) if (src[i] === '\\') i++;
       continue;
