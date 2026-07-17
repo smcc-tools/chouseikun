@@ -456,14 +456,6 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 
 /* ── 共有ボックス ── */
-.share-box {
-  background: var(--green-light);
-  border: 1px solid var(--green-mid); border-radius: 14px;
-  padding: 18px; margin-top: 20px; display: none; animation: fadeUp 0.3s ease;
-}
-.share-label { font-size: 0.85rem; font-weight: 700; color: var(--green); margin-bottom: 11px; display: flex; align-items: center; gap: 6px; }
-.share-url { display: flex; gap: 8px; }
-.share-url input { flex: 1; font-size: 0.82rem; background: white; color: #333; }
 
 /* ── トースト ── */
 .toast {
@@ -1070,19 +1062,6 @@ body.gourmet-open #gFrame {
     イベントを作成してリンクを発行
   </button>
 
-  <div class="share-box" id="shareBox">
-    <div class="share-label">作成完了！それぞれのリンクを共有してください</div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:0.8rem;font-weight:600;color:var(--green);margin-bottom:4px;">参加者用URL</div>
-      <div class="share-url">
-        <input type="text" id="shareUrl" readonly>
-        <button class="btn btn-primary" id="copyBtn">コピー</button>
-      </div>
-    </div>
-    <div style="font-size:0.78rem;color:var(--text-muted);background:#f4f8e8;border:1px solid var(--green-mid);border-radius:6px;padding:10px 12px;line-height:1.6;">
-      このイベントの<strong>幹事はあなたのアカウント</strong>に紐づきました。管理はログイン後、トップページの「マイイベント」から行えます。
-    </div>
-  </div>
 </div>
 
 <!-- 精算のみ作成カード -->
@@ -1253,7 +1232,7 @@ body.gourmet-open #gFrame {
     <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が回答を登録したとき、および<strong>精算を「支払済み」にしたとき</strong>に通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
   </div>
 
-  <!-- ホスト専用：共同ホスト管理（アカウントコード方式） -->
+  <!-- ホスト専用：共同ホスト管理（ホスト専用URL方式） -->
   <div id="coHostWrap" class="host-only" style="display:none;background:#fff8f0;border:1px solid #f5d5a0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:600;color:#b8860b;margin-bottom:8px;">共同ホスト管理</div>
     <div style="font-size:0.75rem;color:#8a6d3b;margin-bottom:8px;line-height:1.5;">共同ホストにしたい人には下の「ホスト専用URL」を共有してください。開いた人がホストになります（Googleログイン不要）。</div>
@@ -2939,9 +2918,6 @@ body.gourmet-open #gFrame {
       console.error(e);
     });
   }
-  document.getElementById('copyBtn').addEventListener('click', () => {
-    copyText(document.getElementById('shareUrl').value, document.getElementById('copyBtn'), '参加者用URL');
-  });
 
   // ── 回答画面 ──────────────────────────────────
 
