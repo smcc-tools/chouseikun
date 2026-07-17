@@ -3117,6 +3117,15 @@ body.gourmet-open #gFrame {
       }
       showEventPage(view);
       renderEventView(view, data);
+      // スケジュール作成が済んで日程調整以降へ進んだイベントでは「作成」ナビを隠す
+      // （候補日の編集は日程調整画面内で行えるため重複。お知らせ等の単体ツール起点イベントも対象外）
+      const createNavBtn = document.querySelector('#hostNav .hostnav-btn[data-view="scheduleCreate"]');
+      if (createNavBtn) {
+        const showCreate = participantView === 'scheduleCreate';
+        createNavBtn.style.display = showCreate ? '' : 'none';
+        const navInner = document.querySelector('#hostNav .hostnav-inner');
+        if (navInner) navInner.style.gridTemplateColumns = `repeat(${showCreate ? 7 : 6}, 1fr)`;
+      }
       syncHostNav(view);
       updatePublishBar(view, data);
     }
