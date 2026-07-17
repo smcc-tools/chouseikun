@@ -5560,10 +5560,10 @@ body.gourmet-open #gFrame {
       list.innerHTML = '<div style="font-size:0.8rem;color:#aaa;">まだ共同ホストはいません</div>';
       return;
     }
+    // uid(匿名IDを含む)は無意味な文字列なので画面には出さない。解除用に data 属性でのみ保持する
     list.innerHTML = others.map((uid, i) =>
       `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-        <span style="font-size:0.78rem;color:#888;min-width:64px;">共同ホスト${i+1}</span>
-        <code style="flex:1;font-size:0.72rem;background:white;color:#333;padding:5px 8px;border:1px solid #ddd;border-radius:4px;word-break:break-all;">${escHtml(uid)}</code>
+        <span style="flex:1;font-size:0.82rem;color:var(--text);">共同ホスト${i+1}</span>
         <button class="revoke-btn btn" data-uid="${escHtml(uid)}" style="font-size:0.78rem;padding:5px 8px;background:none;border:1px solid #E2BFB6;color:#C0705A;">削除</button>
       </div>`
     ).join('');
