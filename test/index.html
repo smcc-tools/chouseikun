@@ -4579,7 +4579,12 @@ body.gourmet-open #gFrame {
 
     const colorKeys = new Set();
     members.forEach(m => { const c = seatColorOf(data, m); if (c) colorKeys.add(c); });
-    const avoid = buildAvoidance(data, parties.slice(0, pIdx)); // 前回まで
+    // 回避対象 = 前の次会すべて + 「現在の配置」。
+    // 現在の配置も含めることで、同じ次会内の再シャッフルが席替えとして機能する
+    // （同卓・隣/対面だった人と再び一緒になりにくい）。初回シャッフル（配置なし）は従来通り。
+    const avoidParties = parties.slice(0, pIdx);
+    if (party.assignment) avoidParties.push(party);
+    const avoid = buildAvoidance(data, avoidParties);
 
     let clusters = members.map(m => [m]);
     function attempt() {

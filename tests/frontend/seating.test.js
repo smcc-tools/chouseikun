@@ -172,3 +172,29 @@ test('欠席者(absent)は着席しない', () => {
   const seated = Object.values(r.assignment).flat().filter(Boolean);
   assert.deepEqual([...seated].sort(), ['A', 'B', 'C']);
 });
+
+test('席替え: 同じ次会内の再シャッフルは現在の同卓ペアを避ける', () => {
+  // 2人×2卓。現在 A-B / C-D の組で座っている状態から再シャッフルすると、
+  // 完全回避解（A-C/A-D 系の組み替え）が存在するため毎回そちらが選ばれるはず
+  const data = {
+    participants: { A: {}, B: {}, C: {}, D: {} },
+    participantOrder: ['A', 'B', 'C', 'D'],
+    seatParties: [{
+      id: 'p1', name: '1次会',
+      tables: [
+        { id: 't1', name: '卓1', capacity: 2, shape: 'rect' },
+        { id: 't2', name: '卓2', capacity: 2, shape: 'rect' },
+      ],
+      assignment: { t1: ['A', 'B'], t2: ['C', 'D'] },
+      locks: [], absent: [],
+    }],
+  };
+  for (let i = 0; i < 6; i++) {
+    const r = computeSeating(data);
+    assert.ok(!r.error, r.error);
+    const tableOf = {};
+    Object.entries(r.assignment).forEach(([tid, arr]) => arr.forEach(n => { if (n) tableOf[n] = tid; }));
+    assert.notEqual(tableOf.A, tableOf.B, `席替え${i}: A と B が同卓のまま`);
+    assert.notEqual(tableOf.C, tableOf.D, `席替え${i}: C と D が同卓のまま`);
+  }
+});
