@@ -1424,7 +1424,6 @@ body.gourmet-open #gFrame {
     <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
       保存
     </button>
-    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に表示中</div>
     <!-- ホスト専用：精算のプッシュ通知設定（参加者表示用URLの直上に配置） -->
     <div id="notifySettleWrap" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-top:14px;">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
@@ -6265,12 +6264,7 @@ body.gourmet-open #gFrame {
     }
 
     const settle = data.settle || {};
-    const published = data.settlePublished || false;
     const bankInfo = settle.bankInfo || {};
-
-    // 公開済みバッジ
-    const badge = document.getElementById('publishedBadge');
-    if (badge) badge.style.display = published ? 'block' : 'none';
 
     // 何次会・金額入力UI
     const partiesCountRow = document.getElementById('partiesCountRow');
@@ -6406,7 +6400,6 @@ body.gourmet-open #gFrame {
     if (saveBank?.checked && (bankInfo.name || bankInfo.branch || bankInfo.account)) {
       saveHostBankInfo(bankInfo);
     }
-    if (publish) document.getElementById('publishedBadge').style.display = 'block';
     return true;
   }
 
