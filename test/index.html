@@ -1587,9 +1587,9 @@ body.gourmet-open #gFrame {
       </div>
     </a>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;">現在地からのルート（Googleマップ）</a>
-      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">Google店舗情報</a>
-      <a id="venueShopUrlBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">食べログで見る</a>
+      <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;flex:1;justify-content:center;text-align:center;">現在地からのルート（Googleマップ）</a>
+      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;flex:1;justify-content:center;text-align:center;">Google店舗情報</a>
+      <a id="venueShopUrlBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;flex:1;justify-content:center;text-align:center;">食べログで見る</a>
     </div>
     <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
   </div>
@@ -4152,7 +4152,9 @@ body.gourmet-open #gFrame {
       }
       const mapBtn = document.getElementById('venueShopMapBtn');
       if (placeQuery) {
-        mapBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
+        // Google検索に飛ばす：店名で検索すると店舗情報（ナレッジパネル）が表示される
+        // （旧: マップ検索だと候補一覧どまりで店舗情報に届かないことがあった）
+        mapBtn.href = `https://www.google.com/search?q=${encodeURIComponent(placeQuery)}`;
         mapBtn.style.display = 'inline-flex';
       } else {
         mapBtn.style.display = 'none';
