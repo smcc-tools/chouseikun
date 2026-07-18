@@ -385,8 +385,11 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-lock-btn:hover { border-color: var(--green); background: var(--green-light); }
 .seat-lock-btn:active { transform: scale(0.9); }
 .seat-chip.locked .seat-lock-btn { background: var(--gold); border-color: var(--gold); }
+/* 座席表の席チップは名前の長さに関わらず長さを統一（凸凹しないように） */
+#seatingResult .seat-chip { width: 106px; }
 @media (max-width: 480px) {
   .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 122px; }
+  #seatingResult .seat-chip { width: 92px; }
   .seat-lock-btn { width: 24px; height: 24px; }
 }
 @keyframes seatFlicker { 0%,100% { transform: translateY(0) scale(0.96); } 50% { transform: translateY(-3px) scale(1.07); } }
