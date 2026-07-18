@@ -4823,7 +4823,8 @@ body.gourmet-open #gFrame {
       const pos = `${tid}:${idx}`;
       const locked = !!name && lockSet.has(pos);
       const sel = seatSel && seatSel.t === tid && seatSel.i === idx;
-      const colKey = name ? seatColorOf(data, name) : null;
+      // 色タグはホストのグループ分け用の内部情報。参加者用画面にはドットも色名も出さない
+      const colKey = (isHost && name) ? seatColorOf(data, name) : null;
       const colHex = seatColorHex(colKey);
       const colName = colKey ? (SEAT_TAG_COLORS.find(c => c.key === colKey) || {}).name : '';
       const title = `席${idx + 1}${colName ? '｜' + colName : ''}${locked ? '｜固定中' : ''}`;
