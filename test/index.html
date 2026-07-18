@@ -3870,6 +3870,12 @@ body.gourmet-open #gFrame {
     // 保存は完了ボタン押下時にまとめて行う
   }
 
+  // 保存処理中の行名。保存の書き込みは自分の onSnapshot 再描画を即座に発火させるが、
+  // その時点ではまだ .editing クラスが残っているため、再描画の「編集状態復元」が
+  // 編集モードを復活させてしまう（登録するを押しても編集中に戻って見えるバグ）。
+  // ここに入っている行は復元対象から除外する。
+  const _savingEditRows = new Set();
+
   function attachDeleteHandlers(wrap, dates) {
     // 変更・削除ボタン：編集モードのトグル
     wrap.querySelectorAll('.edit-btn').forEach(btn => {
@@ -3929,6 +3935,7 @@ body.gourmet-open #gFrame {
           const noteInput = wrap.querySelector(`.note-input[data-name="${CSS.escape(name)}"]`);
           if (noteInput) updates[`participants.${name}._note`] = noteInput.value.trim();
           if (Object.keys(updates).length > 0) {
+            _savingEditRows.add(name); // 保存中の再描画で編集モードが復元されないように
             try {
               await updateDoc(doc(db, 'events', eventId), updates);
             } catch (e) {
@@ -3936,6 +3943,8 @@ body.gourmet-open #gFrame {
               showToast('保存に失敗しました。通信状態を確認してもう一度お試しください');
               console.error(e);
               return;
+            } finally {
+              _savingEditRows.delete(name);
             }
           }
           if (th) {
@@ -5268,7 +5277,7 @@ body.gourmet-open #gFrame {
     allEntries.forEach(([name, votes]) => {
       // 編集モード中の行は全セルの選択状態を保持（回答済みセルも変更中の可能性あり）
       const inEditMode = !!wrap.querySelector(`.edit-btn[data-name="${CSS.escape(name)}"].editing`);
-      if (inEditMode) savedInput.editingRows.push(name);
+      if (inEditMode && !_savingEditRows.has(name)) savedInput.editingRows.push(name);
       const hasUnAnswered = dates.some((_, di) => !votes[di]);
       if (!inEditMode && !hasUnAnswered) return;
       dates.forEach((_, i) => {
