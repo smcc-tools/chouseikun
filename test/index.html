@@ -402,6 +402,21 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   100% { transform: scale(1); box-shadow: 0 2px 8px rgba(61,90,58,0.12); }
 }
 .seat-chip.seat-settled { animation: seatSettle 0.5s cubic-bezier(.2,1.5,.4,1); border-color: var(--green); background: #eef4e4; }
+/* 店の入り口：座席表の四方に配置（ホスト=選択ボタン、参加者=選択済み表示のみ） */
+.seat-entrance-grid { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto 1fr auto; gap: 6px; align-items: stretch; }
+.se-top    { grid-column: 2; grid-row: 1; display: flex; justify-content: center; }
+.se-left   { grid-column: 1; grid-row: 2; display: flex; align-items: center; }
+.se-main   { grid-column: 2; grid-row: 2; min-width: 0; }
+.se-right  { grid-column: 3; grid-row: 2; display: flex; align-items: center; }
+.se-bottom { grid-column: 2; grid-row: 3; display: flex; justify-content: center; }
+.seat-entrance-btn { border: 1.5px dashed var(--border); background: #fafaf6; color: var(--text-muted);
+  border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; cursor: pointer; white-space: nowrap; }
+.seat-entrance-btn:hover { border-color: var(--green); color: var(--green); }
+.seat-entrance-btn.vert { writing-mode: vertical-rl; padding: 10px 3px; }
+.seat-entrance-btn.selected { border-style: solid; border-color: var(--green); background: var(--green-light); color: var(--green); font-weight: 700; }
+.seat-entrance-label { border: 1.5px solid var(--green); background: var(--green-light); color: var(--green);
+  border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.seat-entrance-label.vert { writing-mode: vertical-rl; padding: 10px 3px; }
 /* シャッフル中バナー（グラデのきらめき＋波打つドット） */
 .seat-shuffle-banner {
   position: relative; overflow: hidden; text-align: center;
@@ -4838,30 +4853,49 @@ body.gourmet-open #gFrame {
     let html = isPreview
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
       : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の丸い<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
+    let tablesHtml = '';
     tables.forEach(t => {
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
       const filled = arr.filter(Boolean).length;
-      html += `<div class="seat-table-block"><div class="stb-name" style="justify-content:flex-end;"><span class="stc-count">${filled}/${cap}</span></div>`;
+      tablesHtml += `<div class="seat-table-block"><div class="stb-name" style="justify-content:flex-end;"><span class="stc-count">${filled}/${cap}</span></div>`;
       if ((t.shape || 'rect') === 'round') {
         const R = 44;
-        html += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
+        tablesHtml += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
         arr.forEach((n, i) => {
           const ang = (-90 + i * 360 / Math.max(cap, 1)) * Math.PI / 180;
           const x = 50 + R * Math.cos(ang), y = 50 + R * Math.sin(ang);
-          html += `<div style="position:absolute;left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;transform:translate(-50%,-50%);">${chip(n, t.id, i)}</div>`;
+          tablesHtml += `<div style="position:absolute;left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;transform:translate(-50%,-50%);">${chip(n, t.id, i)}</div>`;
         });
-        html += `</div>`;
+        tablesHtml += `</div>`;
       } else {
         const half = Math.ceil(cap / 2);
-        html += `<div class="seat-longtable"><div class="seat-longtable-inner">
+        tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner">
           <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, t.id, i)).join('')}</div>
           <div class="seat-table-bar">TABLE</div>
           <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, t.id, half + i)).join('')}</div>
         </div></div>`;
       }
-      html += `</div>`;
+      tablesHtml += `</div>`;
     });
+    // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
+    const entrance = party.entrance || null;
+    if (isHost || entrance) {
+      const entCell = (side, vert) => {
+        const sel = entrance === side;
+        if (isHost) return `<button type="button" class="seat-entrance-btn${vert ? ' vert' : ''}${sel ? ' selected' : ''}" data-ent="${side}" title="${sel ? '入り口の選択を解除' : 'この側を店の入り口にする'}">${sel ? '🚪 店の入り口' : '入り口'}</button>`;
+        return sel ? `<div class="seat-entrance-label${vert ? ' vert' : ''}">🚪 店の入り口</div>` : '';
+      };
+      html += `<div class="seat-entrance-grid">
+        <div class="se-top">${entCell('top', false)}</div>
+        <div class="se-left">${entCell('left', true)}</div>
+        <div class="se-main">${tablesHtml}</div>
+        <div class="se-right">${entCell('right', true)}</div>
+        <div class="se-bottom">${entCell('bottom', false)}</div>
+      </div>`;
+    } else {
+      html += tablesHtml;
+    }
     // プレビュー時は未割当ゾーン・クリックハンドラ不要（配置ロジック未確定のため）
     if (!isPreview && (unassigned.length || (isHost && seatSel && seatSel.t))) {
       html += `<div class="seat-unassigned seat-unassigned-zone"><b>未割当：</b><div class="seat-row" style="justify-content:flex-start;">${
@@ -4872,6 +4906,13 @@ body.gourmet-open #gFrame {
       }${isHost && seatSel && seatSel.t ? `<div class="seat-chip empty clickable" data-uzone="1">ここへ外す</div>` : ''}</div></div>`;
     }
     el.innerHTML = html;
+
+    // 入り口の選択はプレビュー中（席決め前）でも可能。同じ辺をもう一度押すと解除
+    el.querySelectorAll('.seat-entrance-btn').forEach(btn => btn.addEventListener('click', () => {
+      const cur = activeParty(latestEventData).entrance || null;
+      const side = btn.dataset.ent;
+      updateActiveParty({ entrance: cur === side ? null : side });
+    }));
 
     if (!isHost || isPreview) return;
     el.querySelectorAll('.seat-chip[data-t], .seat-chip[data-u], .seat-chip[data-uzone]').forEach(c => c.addEventListener('click', () => onSeatChipClick(c)));
