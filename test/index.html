@@ -4539,6 +4539,24 @@ body.gourmet-open #gFrame {
     return (t && t.split === 'bottom') ? Math.floor(cap / 2) : Math.ceil(cap / 2);
   }
 
+  // 上下の振り分け(split)変更時：配置済みの参加者を「行ごと・並びそのまま」入れ替えるパッチを作る。
+  // 旧上段(oldTopCount人)が新しい下段に、旧下段が新しい上段になる。🔒ロック位置も同じ席の人に追従する。
+  function flipTableRowsPatch(party, tid, oldTopCount) {
+    const arr = (((party && party.assignment) || {})[tid] || []).slice();
+    if (!arr.length) return null;
+    const h = Math.max(0, Math.min(parseInt(oldTopCount) || 0, arr.length));
+    const assignment = { ...(party.assignment || {}), [tid]: [...arr.slice(h), ...arr.slice(0, h)] };
+    const hNew = arr.length - h;
+    const locks = ((party && party.locks) || []).map(pos => {
+      const sep = String(pos).lastIndexOf(':');
+      const ptid = String(pos).slice(0, sep);
+      const idx = parseInt(String(pos).slice(sep + 1));
+      if (ptid !== tid || !Number.isInteger(idx) || idx < 0 || idx >= arr.length) return pos;
+      return `${ptid}:${idx < h ? hNew + idx : idx - h}`;
+    });
+    return { assignment, locks };
+  }
+
   function seatNeighborPairs(cap, shape, topCount) {
     const pairs = [];
     if (cap <= 1) return pairs;
@@ -5188,10 +5206,22 @@ body.gourmet-open #gFrame {
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
         const shape = row.querySelector('.stshape').value === 'round' ? 'round' : 'rect';
         const splitEl = row.querySelector('.stsplit');
-        const next = (activeParty(latestEventData).tables || []).map(t => t.id === id
+        const party = activeParty(latestEventData);
+        const prevT = (party.tables || []).find(t => t.id === id);
+        const next = (party.tables || []).map(t => t.id === id
           ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
           : t);
-        updateActiveParty({ tables: next });
+        const patch = { tables: next };
+        // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
+        if (splitEl && prevT && (prevT.shape || 'rect') === 'rect') {
+          const oldSplit = prevT.split === 'bottom' ? 'bottom' : 'top';
+          const newSplit = splitEl.value === 'bottom' ? 'bottom' : 'top';
+          if (oldSplit !== newSplit) {
+            const flip = flipTableRowsPatch(party, id, tableTopCount(prevT));
+            if (flip) Object.assign(patch, flip);
+          }
+        }
+        updateActiveParty(patch);
       };
       row.querySelector('.stn').addEventListener('blur', save);
       row.querySelector('.stcap').addEventListener('blur', save);

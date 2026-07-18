@@ -220,6 +220,28 @@ test('上3・下4の7人卓: 隣接・対面ペアがsplitに追従する', () =
   assert.deepEqual(seatNeighborPairs(5, 'rect'), seatNeighborPairs(5, 'rect', 3));
 });
 
+// ── flipTableRowsPatch（上下振り分け変更時の行入れ替え） ──
+
+test('split変更: 配置済みの行を並びそのまま上下入れ替える（7人 上4下3→上3下4）', () => {
+  const { flipTableRowsPatch } = loadFunctions(['flipTableRowsPatch']);
+  const party = {
+    assignment: { t1: ['A', 'B', 'C', 'D', 'E', 'F', 'G'], t2: ['X'] },
+    locks: ['t1:0', 't1:5', 't2:0'],
+  };
+  const r = flipTableRowsPatch(party, 't1', 4); // 旧上段4人(A-D)
+  // 旧下段(E,F,G)が新上段に、旧上段(A,B,C,D)が新下段に。各行の並びは維持
+  assert.deepEqual(r.assignment.t1, ['E', 'F', 'G', 'A', 'B', 'C', 'D']);
+  assert.deepEqual(r.assignment.t2, ['X']); // 他卓は不変
+  // ロックは同じ人に追従: A(旧0)→新3、F(旧5)→新1。他卓のロックは不変
+  assert.deepEqual(r.locks.sort(), ['t1:1', 't1:3', 't2:0'].sort());
+});
+
+test('split変更: 配置が無い卓は null（何もしない）', () => {
+  const { flipTableRowsPatch } = loadFunctions(['flipTableRowsPatch']);
+  assert.equal(flipTableRowsPatch({ assignment: {} }, 't1', 4), null);
+  assert.equal(flipTableRowsPatch({}, 't1', 4), null);
+});
+
 // ── normalizeTableSlots（卓のグリッド位置の正規化） ──
 
 test('卓slot: 未設定なら卓順に詰め、列数の倍数まで空き(null)で埋める', () => {
