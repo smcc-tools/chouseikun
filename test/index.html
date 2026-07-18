@@ -4533,16 +4533,22 @@ body.gourmet-open #gFrame {
   }
 
   // 卓レイアウトに応じた「隣り合う席」ペア（長机=左右＋対面／円卓=円周）
-  function seatNeighborPairs(cap, shape) {
+  // 長机の上段人数。奇数定員はホストがどちら側を多くするか選べる（t.split: 'top'=上が多い(既定)/'bottom'=下が多い）
+  function tableTopCount(t) {
+    const cap = parseInt(t && t.capacity) || 0;
+    return (t && t.split === 'bottom') ? Math.floor(cap / 2) : Math.ceil(cap / 2);
+  }
+
+  function seatNeighborPairs(cap, shape, topCount) {
     const pairs = [];
     if (cap <= 1) return pairs;
     if ((shape || 'rect') === 'round') {
       for (let i = 0; i < cap; i++) { const j = (i + 1) % cap; if (i !== j) pairs.push([i, j]); }
     } else {
-      const half = Math.ceil(cap / 2);
+      const half = Number.isInteger(topCount) ? Math.max(0, Math.min(topCount, cap)) : Math.ceil(cap / 2);
       for (let i = 0; i < half - 1; i++) pairs.push([i, i + 1]);
       for (let i = half; i < cap - 1; i++) pairs.push([i, i + 1]);
-      for (let i = 0; i < cap - half; i++) pairs.push([i, half + i]);
+      for (let i = 0; i < cap - half && i < half; i++) pairs.push([i, half + i]);
     }
     return pairs;
   }
@@ -4550,8 +4556,8 @@ body.gourmet-open #gFrame {
   const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
 
   // 卓内の席順を、隣接・対面とも「同色」「前回の隣/対面」が並びにくいよう最適化
-  function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf, prevAdj) {
-    const neighbors = seatNeighborPairs(cap, shape);
+  function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf, prevAdj, topCount) {
+    const neighbors = seatNeighborPairs(cap, shape, topCount);
     const freeIdx = []; for (let i = 0; i < cap; i++) if (!(i in lockedSeat)) freeIdx.push(i);
     const conflicts = arr => {
       let s = 0;
@@ -4637,7 +4643,7 @@ body.gourmet-open #gFrame {
           const arr = norm[t.id] || [];
           const present = arr.filter(Boolean);
           for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) bump(coTable, present[i], present[j]);
-          for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape)) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
+          for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape, tableTopCount(t))) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
         });
       });
     });
@@ -4732,7 +4738,7 @@ body.gourmet-open #gFrame {
         if (nm != null && idx >= 0 && idx < cap) lockedSeat[idx] = nm;
       });
       const people = best[i].filter(n => !lockedNames.has(n));
-      assignment[t.id] = arrangeTableSeats(cap, t.shape, lockedSeat, people, n => seatColorOf(data, n), avoid.adj);
+      assignment[t.id] = arrangeTableSeats(cap, t.shape, lockedSeat, people, n => seatColorOf(data, n), avoid.adj, tableTopCount(t));
     });
     return { assignment };
   }
@@ -4928,7 +4934,7 @@ body.gourmet-open #gFrame {
         });
         tablesHtml += `</div>`;
       } else {
-        const half = Math.ceil(cap / 2);
+        const half = tableTopCount(t); // 奇数定員はホスト設定(split)で上下どちらを多くするか決まる
         tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner">
           <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, t.id, i)).join('')}</div>
           <div class="seat-table-bar">TABLE</div>
@@ -5145,15 +5151,25 @@ body.gourmet-open #gFrame {
     if (!box) return;
     const party = activeParty(data);
     const tables = party.tables || [];
-    box.innerHTML = tables.map(t => `<div class="seat-table-row" data-id="${escHtml(t.id)}">
+    box.innerHTML = tables.map(t => {
+      const cap = parseInt(t.capacity) || 0;
+      // 長机×奇数定員のときだけ、上下どちらを多くするか選べる（例：7人→上4・下3 / 上3・下4）
+      const oddSplit = ((t.shape || 'rect') === 'rect' && cap % 2 === 1 && cap > 1)
+        ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の上下の振り分け">
+            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>上${Math.ceil(cap / 2)}・下${Math.floor(cap / 2)}</option>
+            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>上${Math.floor(cap / 2)}・下${Math.ceil(cap / 2)}</option>
+          </select>` : '';
+      return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
         <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
-        <input type="number" class="stcap" min="0" value="${parseInt(t.capacity) || 0}" placeholder="定員">
+        <input type="number" class="stcap" min="0" value="${cap}" placeholder="定員">
         <select class="stshape" style="width:auto;margin-bottom:0;padding:8px 8px;">
           <option value="rect" ${(t.shape || 'rect') === 'rect' ? 'selected' : ''}>長机</option>
           <option value="round" ${t.shape === 'round' ? 'selected' : ''}>円卓</option>
         </select>
+        ${oddSplit}
         <button type="button" class="btn-remove st-del" data-id="${escHtml(t.id)}" aria-label="卓を削除">✕</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     const members = roundMembers(data, party);
     const totalCap = tables.reduce((s, t) => s + (parseInt(t.capacity) || 0), 0);
     const hint = document.getElementById('seatingCapacityHint');
@@ -5167,12 +5183,16 @@ body.gourmet-open #gFrame {
         const name = row.querySelector('.stn').value.trim() || '卓';
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
         const shape = row.querySelector('.stshape').value === 'round' ? 'round' : 'rect';
-        const next = (activeParty(latestEventData).tables || []).map(t => t.id === id ? { ...t, name, capacity, shape } : t);
+        const splitEl = row.querySelector('.stsplit');
+        const next = (activeParty(latestEventData).tables || []).map(t => t.id === id
+          ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
+          : t);
         updateActiveParty({ tables: next });
       };
       row.querySelector('.stn').addEventListener('blur', save);
       row.querySelector('.stcap').addEventListener('blur', save);
       row.querySelector('.stshape').addEventListener('change', save);
+      row.querySelector('.stsplit')?.addEventListener('change', save);
     });
     box.querySelectorAll('.st-del').forEach(b => b.addEventListener('click', () => {
       const id = b.dataset.id;

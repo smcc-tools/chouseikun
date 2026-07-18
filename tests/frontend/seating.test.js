@@ -199,6 +199,26 @@ test('席替え: 同じ次会内の再シャッフルは現在の同卓ペアを
   }
 });
 
+// ── tableTopCount / seatNeighborPairs の split 対応（奇数定員の上下振り分け） ──
+
+test('奇数定員: splitで上段人数が変わる（7人→上4/下3 か 上3/下4）', () => {
+  const { tableTopCount } = loadFunctions(['tableTopCount']);
+  assert.equal(tableTopCount({ capacity: 7 }), 4);                  // 既定は上が多い
+  assert.equal(tableTopCount({ capacity: 7, split: 'top' }), 4);
+  assert.equal(tableTopCount({ capacity: 7, split: 'bottom' }), 3); // 下が多い
+  assert.equal(tableTopCount({ capacity: 6, split: 'bottom' }), 3); // 偶数は同数のまま
+});
+
+test('上3・下4の7人卓: 隣接・対面ペアがsplitに追従する', () => {
+  assert.deepEqual(seatNeighborPairs(7, 'rect', 3), [
+    [0, 1], [1, 2],           // 上段の隣
+    [3, 4], [4, 5], [5, 6],   // 下段の隣
+    [0, 3], [1, 4], [2, 5],   // 対面（上段3人分）
+  ]);
+  // topCount省略時は従来通り上が多い分割
+  assert.deepEqual(seatNeighborPairs(5, 'rect'), seatNeighborPairs(5, 'rect', 3));
+});
+
 // ── normalizeTableSlots（卓のグリッド位置の正規化） ──
 
 test('卓slot: 未設定なら卓順に詰め、列数の倍数まで空き(null)で埋める', () => {
