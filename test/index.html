@@ -3092,6 +3092,7 @@ body.gourmet-open #gFrame {
 
       evaluateHost(data);
       applyEventView();
+      pushVenueStateToTabel(); // 会場変更をお店検索カードの「✓ 設定しました」表示に反映
     }, (err) => {
       // リスナーがエラーで停止すると、以降の更新（他人の投票・公開切替）が一切反映されず
       // 画面が古いまま静かに凍結する。明示して再読み込みを促す。
@@ -3218,16 +3219,38 @@ body.gourmet-open #gFrame {
     });
 
     // お店検索ページ：店カードの「会場に設定する」（Tabel埋込からのpostMessage）を受けて
-    // お知らせの会場(venue.shop)へ「店名 食べログURL」を自動保存。Function が venue.preview を補完。
+    // お知らせの会場(venue.shop)へ「店名 食べログURL」を自動保存。もう一度押すと解除(unset)。
+    // Function が venue.preview を補完。現在の会場URLは venue-state で iframe に同期し、
+    // 該当カードの「✓ 設定しました」表示を維持させる。
+    function pushVenueStateToTabel() {
+      const f = document.getElementById('gFrame');
+      if (!f || !f.contentWindow || !f.getAttribute('src')) return;
+      const shop = String((latestEventData && latestEventData.venue && latestEventData.venue.shop) || '');
+      const m = shop.match(/https?:\/\/[^\s]+/);
+      try { f.contentWindow.postMessage({ type: 'chouseikun-venue-state', url: m ? m[0] : '' }, TABEL_ORIGIN); } catch (_) {}
+    }
     window.addEventListener('message', async (e) => {
       if (e.origin !== TABEL_ORIGIN) return;
       const d = e.data || {};
+      if (d.type === 'tabel-ready') { pushVenueStateToTabel(); return; }
       if (d.type !== 'tabel-shop-selected' || !d.url) return;
       if (!/^https?:\/\//.test(String(d.url))) return;
-      if (!isHost) { showToast('会場を設定できるのはホストのみです'); return; }
-      const val = [String(d.name || '').trim(), String(d.url).trim()].filter(Boolean).join(' ');
-      try { await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val }); showToast('🏠 お知らせの会場に設定しました'); }
-      catch (err) { console.error('venue set from tabel error:', err); showToast('会場の設定に失敗しました'); }
+      if (!isHost) { showToast('会場を設定できるのはホストのみです'); pushVenueStateToTabel(); return; }
+      try {
+        if (d.unset) {
+          // 解除は「今の会場がこの店のURL」のときだけ（別の店に変更済みの会場を誤って消さない）
+          const cur = String((latestEventData && latestEventData.venue && latestEventData.venue.shop) || '');
+          if (cur.includes(String(d.url).trim())) {
+            await updateDoc(doc(db, 'events', eventId), { 'venue.shop': '' });
+            showToast('会場の設定を解除しました');
+          }
+        } else {
+          const val = [String(d.name || '').trim(), String(d.url).trim()].filter(Boolean).join(' ');
+          await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val });
+          showToast('🏠 お知らせの会場に設定しました');
+        }
+      } catch (err) { console.error('venue set from tabel error:', err); showToast('会場の設定に失敗しました'); }
+      pushVenueStateToTabel();
     });
 
     // view ごとに描画を振り分ける
