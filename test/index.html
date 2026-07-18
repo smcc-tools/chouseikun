@@ -382,6 +382,9 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   content: ''; position: absolute; left: -5px; top: 3px; bottom: 3px;
   width: 1px; background: var(--line-soft);
 }
+.seat-lock-btn::after {  /* タップ判定を「仕切り線から席チップの右端まで」に拡大（丸ボタン自体は見た目のまま） */
+  content: ''; position: absolute; left: -6px; right: -13px; top: -9px; bottom: -9px;
+}
 .seat-lock-btn:hover { border-color: var(--green); background: var(--green-light); }
 .seat-lock-btn:active { transform: scale(0.9); }
 .seat-chip.locked .seat-lock-btn { background: var(--gold); border-color: var(--gold); }
@@ -391,6 +394,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 122px; }
   #seatingResult .seat-chip { width: 92px; }
   .seat-lock-btn { width: 24px; height: 24px; }
+  .seat-lock-btn::after { left: -6px; right: -11px; top: -8px; bottom: -8px; }
 }
 @keyframes seatFlicker { 0%,100% { transform: translateY(0) scale(0.96); } 50% { transform: translateY(-3px) scale(1.07); } }
 .seat-chip.flicker {
