@@ -4880,7 +4880,7 @@ body.gourmet-open #gFrame {
       const filled = arr.filter(Boolean).length;
       // 参加者には満席数カウント（4/4等）もヘッダバーも出さない。ホストは卓名＋移動＋カウント
       const moveBtn = (isHost && tables.length > 1)
-        ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">${tableMoveSel === t.id ? '移動先の卓をタップ' : '⇄ 移動'}</button>` : '';
+        ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
       const headBar = isHost
         ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${moveBtn}<span class="stc-count">${filled}/${cap}</span></span></div>`
         : '';
