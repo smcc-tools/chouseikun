@@ -1422,9 +1422,8 @@ body.gourmet-open #gFrame {
   <!-- ホスト用：保存＋参加者表示用URL -->
   <div id="publishSettleWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
     <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
-      保存して参加者に表示
+      保存
     </button>
-    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に表示中</div>
     <!-- ホスト専用：精算のプッシュ通知設定（参加者表示用URLの直上に配置） -->
     <div id="notifySettleWrap" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-top:14px;">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
@@ -1588,9 +1587,9 @@ body.gourmet-open #gFrame {
       </div>
     </a>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;">現在地からのルート（Googleマップ）</a>
-      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">Google店舗情報</a>
-      <a id="venueShopUrlBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;">食べログで見る</a>
+      <a id="venueRouteBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:none;font-size:0.82rem;padding:8px 16px;flex:1;justify-content:center;text-align:center;">現在地からのルート（Googleマップ）</a>
+      <a id="venueShopMapBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;flex:1;justify-content:center;text-align:center;">Google店舗情報</a>
+      <a id="venueShopUrlBtn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="display:none;font-size:0.82rem;padding:8px 16px;flex:1;justify-content:center;text-align:center;">食べログで見る</a>
     </div>
     <div id="venueNoteRow" style="display:none;font-size:0.85rem;color:var(--text-muted);margin-top:10px;line-height:1.6;white-space:pre-wrap;"></div>
   </div>
@@ -3227,8 +3226,8 @@ body.gourmet-open #gFrame {
     });
 
     // 「参加者に表示」＝ activeView を公開。scheduleCreate/gourmet は公開しない。
-    // 精算は settle カード内の「保存して参加者に表示」ボタンが公開を担う（activeView＋settlePublished）ため除外。
-    const PUBLISHABLE = ['schedule','announce','seating','walica'];
+    // 精算も他機能と同じ公開バーに統一（保存＋settlePublished＋activeView をまとめて実行）。
+    const PUBLISHABLE = ['schedule','announce','seating','walica','settle'];
     // その画面に参加者へ見せる中身があるか（誤って空の画面を公開しないための判定）
     function viewHasContent(view, data) {
       const v = data.venue || {};
@@ -3237,15 +3236,21 @@ body.gourmet-open #gFrame {
         case 'announce':  return !!((v.shop||'').trim() || (v.meetTime||'').trim() || (v.meetPlace||'').trim() || (v.note||'').trim() || (data.eventDate||'').trim() || data.confirmedDate != null);
         case 'walica':    return Array.isArray(data.expenses) && data.expenses.length > 0;
         case 'seating':   return Array.isArray(data.seatParties) && data.seatParties.some(p => Array.isArray(p.tables) && p.tables.length > 0);
+        case 'settle':    return Array.from(document.querySelectorAll('.party-amount-input')).some(el => (parseInt(el.value) || 0) > 0);
         default:          return true;
       }
     }
-    const VIEW_LABEL = { schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘' };
+    const VIEW_LABEL = { schedule:'日程調整', announce:'お知らせ', seating:'座席決め', walica:'割り勘', settle:'精算' };
     async function publishView(view) {
       if (!isHost || !PUBLISHABLE.includes(view)) return;
       // 中身が無い画面をうっかり公開しないよう確認
       if (!viewHasContent(view, latestEventData || {})) {
         if (!confirm(`「${VIEW_LABEL[view] || 'この画面'}」はまだ内容が入力されていません。このまま参加者に表示しますか？`)) return;
+      }
+      // 精算はフォーム内容の保存＋公開フラグ(settlePublished)も必要なため専用の保存経路を通す
+      if (view === 'settle') {
+        if (await saveSettleData(true)) showToast('参加者に表示しました');
+        return;
       }
       try {
         await updateDoc(doc(db, 'events', eventId), { activeView: view });
@@ -3259,7 +3264,8 @@ body.gourmet-open #gFrame {
       if (!bar || !btn) return;
       if (!isHost || !PUBLISHABLE.includes(view)) { bar.style.display = 'none'; return; }
       bar.style.display = 'block';
-      const isLive = deriveView(data || {}) === view;
+      // 精算は activeView に加えて settlePublished も立っていて初めて参加者に見える
+      const isLive = deriveView(data || {}) === view && (view !== 'settle' || !!(data && data.settlePublished));
       btn.textContent = isLive ? '参加者に表示中' : 'この画面を参加者に表示';
       btn.disabled = isLive;
       btn.dataset.view = view;
@@ -4108,6 +4114,18 @@ body.gourmet-open #gFrame {
   }
 
   // お店・行き方の表示（参加者には内容があるときだけ表示）
+  // Google店舗概要（マップのplaceページ）へ直接飛ばすための検索クエリを組み立てる。
+  // 店名だけだと同名店の候補一覧どまりになりやすいので、
+  // 食べログOGPタイトル「店名 (駅/ジャンル)」から駅名を補って一意に解決させる（括弧は半角・全角の両対応）
+  function buildPlaceQuery(shopName, previewTitle) {
+    const title = String(previewTitle || '');
+    const base = String(shopName || '').trim()
+      || title.replace(/\s*-\s*食べログ.*$/, '').replace(/[（(][^）)]*[）)]/g, '').trim();
+    const m = title.match(/[（(]([^）)／\/]+)[／\/]?[^）)]*[）)]/);
+    const station = m ? m[1].trim() : '';
+    return (station && !base.includes(station)) ? `${base} ${station}` : base;
+  }
+
   function renderVenue(venue) {
     const shop = (venue.shop || '').trim();
     const note = (venue.note || '').trim();
@@ -4146,7 +4164,9 @@ body.gourmet-open #gFrame {
       }
       const mapBtn = document.getElementById('venueShopMapBtn');
       if (placeQuery) {
-        mapBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`;
+        // 店名＋駅名でマップのplace検索 → 一意に解決するとその店のGoogle店舗概要ページに直行する
+        const pq = buildPlaceQuery(shopName, previewTitle);
+        mapBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pq || placeQuery)}`;
         mapBtn.style.display = 'inline-flex';
       } else {
         mapBtn.style.display = 'none';
@@ -6258,12 +6278,7 @@ body.gourmet-open #gFrame {
     }
 
     const settle = data.settle || {};
-    const published = data.settlePublished || false;
     const bankInfo = settle.bankInfo || {};
-
-    // 公開済みバッジ
-    const badge = document.getElementById('publishedBadge');
-    if (badge) badge.style.display = published ? 'block' : 'none';
 
     // 何次会・金額入力UI
     const partiesCountRow = document.getElementById('partiesCountRow');
@@ -6360,8 +6375,9 @@ body.gourmet-open #gFrame {
     return paid;
   }
 
-  // 参加者に公開
-  document.getElementById('publishSettleBtn')?.addEventListener('click', async () => {
+  // 精算フォームの内容を保存。publish=true なら参加者への公開（settlePublished＋activeView）も行う。
+  // 公開は他機能と同じ「この画面を参加者に表示」バー(publishView)から呼ばれる
+  async function saveSettleData(publish) {
     const partyCount = parseInt(document.getElementById('partiesCount')?.value) || 1;
     const partyAmounts = Array.from(document.querySelectorAll('.party-amount-input'))
       .sort((a, b) => parseInt(a.dataset.idx) - parseInt(b.dataset.idx))
@@ -6379,24 +6395,31 @@ body.gourmet-open #gFrame {
       account: document.getElementById('bankAccount')?.value.trim() || '',
     };
     try {
-      await updateDoc(doc(db, 'events', eventId), {
+      const patch = {
         settle: { partyCount, partyAmounts, partyNames, partyPersonAmounts, total, paid, bankInfo,
                   weights: sanitizeSettleWeights(settleWeights, partyCount), organizer: settleOrganizer || '' },
-        settlePublished: true,
-        activeView: 'settle'  // 参加者の表示画面も精算に切り替える（統合公開）
-      });
+      };
+      if (publish) {
+        patch.settlePublished = true;
+        patch.activeView = 'settle';  // 参加者の表示画面も精算に切り替える（統合公開）
+      }
+      await updateDoc(doc(db, 'events', eventId), patch);
     } catch (e) {
       showToast('保存に失敗しました。通信状態を確認してもう一度お試しください');
       console.error(e);
-      return;   // 失敗時は成功表示（バッジ・toast）を出さない
+      return false;   // 失敗時は成功表示（バッジ・toast）を出さない
     }
     // 口座をアカウントに保存（次回から自動入力）
     const saveBank = document.getElementById('saveBankToProfile');
     if (saveBank?.checked && (bankInfo.name || bankInfo.branch || bankInfo.account)) {
       saveHostBankInfo(bankInfo);
     }
-    document.getElementById('publishedBadge').style.display = 'block';
-    showToast('保存しました（URLを共有すると参加者が確認できます）');
+    return true;
+  }
+
+  // 保存（公開状態は変えない。公開は下部の「この画面を参加者に表示」バーで統一）
+  document.getElementById('publishSettleBtn')?.addEventListener('click', async () => {
+    if (await saveSettleData(false)) showToast('保存しました');
   });
 
   // 非公開に戻す
