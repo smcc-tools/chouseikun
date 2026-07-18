@@ -3225,9 +3225,19 @@ body.gourmet-open #gFrame {
     function pushVenueStateToTabel() {
       const f = document.getElementById('gFrame');
       if (!f || !f.contentWindow || !f.getAttribute('src')) return;
-      const shop = String((latestEventData && latestEventData.venue && latestEventData.venue.shop) || '');
+      const venue = (latestEventData && latestEventData.venue) || {};
+      const shop = String(venue.shop || '');
       const m = shop.match(/https?:\/\/[^\s]+/);
-      try { f.contentWindow.postMessage({ type: 'chouseikun-venue-state', url: m ? m[0] : '' }, TABEL_ORIGIN); } catch (_) {}
+      // 店名とプレビュー情報も渡す：検索結果に会場店が含まれないときの先頭固定カード描画に使われる
+      const p = venue.preview || {};
+      try {
+        f.contentWindow.postMessage({
+          type: 'chouseikun-venue-state',
+          url: m ? m[0] : '',
+          name: shop.replace(m ? m[0] : '', '').trim(),
+          preview: { title: p.title || '', image: p.image || '', rating: p.rating || '', reviews: p.reviews || '', price: p.price || '', genre: p.genre || '' },
+        }, TABEL_ORIGIN);
+      } catch (_) {}
     }
     window.addEventListener('message', async (e) => {
       if (e.origin !== TABEL_ORIGIN) return;
