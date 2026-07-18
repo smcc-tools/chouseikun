@@ -581,7 +581,7 @@ tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important;
 .del-btn.visible { display: inline-block; }
 .del-btn:hover { background: #F7EAE6; }
 .vote-btns { display: flex; gap: 4px; justify-content: center; align-items: center; }
-td.locked .vote-btn { pointer-events: none; }
+td.locked .vote-btn { pointer-events: none; opacity: 0.4; }
 td.locked .note-input { pointer-events: none; color: #aaa; border-color: transparent; }
 .note-row td { background: #FAFBF4; padding: 9px 10px; }
 .note-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 700; }
@@ -3817,9 +3817,9 @@ body.gourmet-open #gFrame {
     if (isPreset) {
       return `<td data-col="${en}" data-preset="1"><div class="vote-btns">${btns}</div></td>`;
     }
-    // 登録済み参加者の未回答セル：直接タップ不可のロック表示（「変更」で編集モードに入ったときだけ入力可能）
+    // 登録済み参加者の未回答セル：◯△✕は見せたまま選択不可（「変更」で編集モードに入ったときだけ入力可能）
     if (!current) {
-      return `<td class="locked" data-col="${en}"><span class="vote-display-empty">-</span><div class="vote-btns" style="display:none;">${btns}</div></td>`;
+      return `<td class="locked" data-col="${en}"><div class="vote-btns">${btns}</div></td>`;
     }
     // 回答済み：ロック表示
     const display = `<span class="vote-display vote-display-${current}">${labelMap[current]}</span>`;
