@@ -4422,12 +4422,14 @@ body.gourmet-open #gFrame {
   let seatingActiveParty = 0;      // 表示中の次会インデックス
 
   // 座席タグ：Olive Lounge に馴染む5色
+  // Olive Lounge のブランドトークンに揃えた色タグ（key は保存データ互換のため不変）。
+  // c0/c1/c2 は --green/--gold/--clay の実トークン値、c3/c4 はパレットに馴染むくすみ色
   const SEAT_TAG_COLORS = [
-    { key: 'c0', color: '#6E8B4F', name: 'オリーブ' },
-    { key: 'c1', color: '#B78A3C', name: 'ブラス' },
-    { key: 'c2', color: '#BC6B50', name: 'テラコッタ' },
-    { key: 'c3', color: '#6E8B96', name: 'セージブルー' },
-    { key: 'c4', color: '#8A5E70', name: 'プラム' },
+    { key: 'c0', color: '#3D5A3A', name: 'オリーブ' },
+    { key: 'c1', color: '#B0883A', name: 'ブラス' },
+    { key: 'c2', color: '#B65F45', name: 'テラコッタ' },
+    { key: 'c3', color: '#5C6F80', name: 'ブルーグレー' },
+    { key: 'c4', color: '#7A5260', name: 'プラム' },
   ];
   const seatColorOf = (data, name) => {
     const v = (data.seatTags || {})[name];
