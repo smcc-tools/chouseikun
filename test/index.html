@@ -3842,6 +3842,8 @@ body.gourmet-open #gFrame {
     // 既存参加者：編集モード中のみUI上の選択状態を変更（同じ記号を2回タップでクリア）
     wrap.querySelectorAll('.vote-btn[data-name]').forEach(btn => {
       btn.addEventListener('click', () => {
+        // ロック中（編集モード外）はキーボード操作(Tab→Enter)でも選択させない
+        if (btn.closest('td')?.classList.contains('locked')) return;
         const wasSelected = btn.classList.contains('selected');
         const name = btn.dataset.name;
         const idx = btn.dataset.idx;
