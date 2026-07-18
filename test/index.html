@@ -345,7 +345,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-longtable { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
 .seat-longtable-inner { width: fit-content; margin: 0 auto; }
 .seat-longtable-inner .seat-row { flex-wrap: nowrap; justify-content: flex-start; }
-.seat-longtable-inner .seat-table-bar { display: block; }
+/* display:block化でflex中央寄せが失われるため、TABLEの文字はテキスト＋行高で天地左右中央に置く */
+.seat-longtable-inner .seat-table-bar { display: block; text-align: center; line-height: 35px; }
 .seat-table-bar {
   height: 38px; background: var(--green-light); border: 1.5px solid var(--green-mid);
   border-radius: 10px; display: flex; align-items: center; justify-content: center;
