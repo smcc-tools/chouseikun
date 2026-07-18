@@ -4941,7 +4941,7 @@ body.gourmet-open #gFrame {
 
     let html = isPreview
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
-      : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の丸い<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
+      : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
     // 卓の並び（列数）。ホストが設定し、参加者も同じ位置関係で見る
     const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, 3, tables.length || 1));
     if (isHost && tables.length > 1) {
