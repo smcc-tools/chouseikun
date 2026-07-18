@@ -1520,11 +1520,6 @@ body.gourmet-open #gFrame {
       <button class="btn btn-primary" id="seatingShuffleBtn" style="flex:1;">席を決める（シャッフル）</button>
       <button class="btn btn-secondary" id="seatingReshuffleBtn" style="display:none;">もう一度</button>
     </div>
-    <div class="seating-host" style="display:none;font-size:0.74rem;color:var(--text-muted);margin-top:8px;line-height:1.7;">
-      <span style="display:inline-block;padding:1px 8px;border:1.5px solid var(--gold);background:#FBF4E2;border-radius:6px;">🔒 金色 = 固定席</span>（シャッフルしても動きません）
-      <span style="display:inline-block;padding:1px 8px;border:1.5px solid var(--green);background:var(--green-light);border-radius:6px;margin-left:6px;">緑 = 選択中</span>（名前をタップ → 移動先をタップで入替え）
-    </div>
-
     <!-- この次会の参加者 -->
     <div class="field" style="margin-top:20px;margin-bottom:18px;">
       <label>この次会の参加者</label>
@@ -5073,7 +5068,13 @@ body.gourmet-open #gFrame {
 
     if (!isHost || isPreview) return;
     el.querySelectorAll('.seat-chip[data-t], .seat-chip[data-u], .seat-chip[data-uzone]').forEach(c => c.addEventListener('click', () => onSeatChipClick(c)));
-    el.querySelectorAll('.seat-lock-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleSeatLock(b.dataset.lock); }));
+    el.querySelectorAll('.seat-lock-btn').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      // 入れ替え選択中に「他の」チップの🔒部分をタップした場合は、ロックではなく入れ替え先の指定として扱う
+      const chip = b.closest('.seat-chip');
+      if (seatSel && chip && !chip.classList.contains('selected')) { onSeatChipClick(chip); return; }
+      toggleSeatLock(b.dataset.lock);
+    }));
   }
 
   function toggleSeatLock(pos) {
