@@ -1178,12 +1178,6 @@ body.gourmet-open #gFrame {
     <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
     <h2 class="card-title" id="gourmetTitle" style="display:none;margin:10px 0 0;">お店検索</h2>
   </div>
-  <div id="gourmetVenueBar" style="display:none;padding:0 16px 8px;">
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="gourmetShopInput" placeholder="お店の名前や食べログURLを貼り付け" style="flex:1;margin-bottom:0;">
-      <button class="btn btn-primary" id="gourmetSaveVenueBtn" style="white-space:nowrap;">会場に設定</button>
-    </div>
-  </div>
   <iframe id="gFrame" title="お店検索（食べログ）" allow="geolocation; clipboard-write"
           style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:#FDFBF6;"></iframe>
 </div>
@@ -3078,9 +3072,7 @@ body.gourmet-open #gFrame {
         const el = document.getElementById(id);
         if (el) el.style.display = (id === keep) ? 'block' : 'none';
       });
-      // お店検索：iframe を初回ロードし、ホストには会場保存バーを表示
-      const gvb = document.getElementById('gourmetVenueBar');
-      if (gvb) gvb.style.display = (keep === 'gourmetCard' && isHost) ? 'block' : 'none';
+      // お店検索：iframe を初回ロード
       if (keep === 'gourmetCard') {
         const f = document.getElementById('gFrame');
         if (f && !f.getAttribute('src')) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
@@ -3225,13 +3217,17 @@ body.gourmet-open #gFrame {
       if (btn && btn.dataset.view) publishView(btn.dataset.view);
     });
 
-    // お店検索ページ：選んだ店（名前/URL）を会場(venue.shop)に保存。Function が venue.preview を補完。
-    document.getElementById('gourmetSaveVenueBtn')?.addEventListener('click', async () => {
-      if (!isHost) return;
-      const val = (document.getElementById('gourmetShopInput')?.value || '').trim();
-      if (!val) { showToast('お店の名前かURLを入力してください'); return; }
-      try { await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val }); showToast('🏠 会場を保存しました'); }
-      catch (e) { console.error('gourmet venue save error:', e); showToast('保存に失敗しました'); }
+    // お店検索ページ：店カードの「会場に設定する」（Tabel埋込からのpostMessage）を受けて
+    // お知らせの会場(venue.shop)へ「店名 食べログURL」を自動保存。Function が venue.preview を補完。
+    window.addEventListener('message', async (e) => {
+      if (e.origin !== TABEL_ORIGIN) return;
+      const d = e.data || {};
+      if (d.type !== 'tabel-shop-selected' || !d.url) return;
+      if (!/^https?:\/\//.test(String(d.url))) return;
+      if (!isHost) { showToast('会場を設定できるのはホストのみです'); return; }
+      const val = [String(d.name || '').trim(), String(d.url).trim()].filter(Boolean).join(' ');
+      try { await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val }); showToast('🏠 お知らせの会場に設定しました'); }
+      catch (err) { console.error('venue set from tabel error:', err); showToast('会場の設定に失敗しました'); }
     });
 
     // view ごとに描画を振り分ける
