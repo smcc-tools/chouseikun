@@ -1248,15 +1248,6 @@ body.gourmet-open #gFrame {
   </div>
 
 
-  <!-- ホスト専用：日程調整のプッシュ通知設定（精算の通知は精算ページで別途設定） -->
-  <div id="notifyWrap" class="host-only" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-bottom:16px;">
-    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
-      <input type="checkbox" id="notifyToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
-      <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が回答を登録したらプッシュ通知を受け取る</span>
-    </label>
-    <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が回答を登録したときに通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。精算の「支払済み」通知は精算ページで設定できます。</div>
-  </div>
-
   <!-- ホスト専用：共同ホスト管理（ホスト専用URL方式） -->
   <!-- 共同ホスト管理パネルは非表示（ユーザー要望 2026-07-17）。招待はホスト専用URL（各共有欄に表示）で行う。
        共同ホストの解除UIが再度必要になったら class="host-only" を戻せば復活する -->
@@ -1294,6 +1285,15 @@ body.gourmet-open #gFrame {
     <div class="legend-item host-only" style="display:none;margin-top:4px;width:100%;background:#f4f8e8;border:1px solid var(--green-mid);border-radius:6px;padding:6px 10px;font-size:0.8rem;color:var(--green);">
       日付の横の <b>確定</b> ボタンを押すと開催日を確定できます
     </div>
+  </div>
+
+  <!-- ホスト専用：日程調整のプッシュ通知設定（参加者用URLの直上に配置） -->
+  <div id="notifyWrap" class="host-only" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-top:16px;">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
+      <input type="checkbox" id="notifyToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
+      <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が回答を登録したらプッシュ通知を受け取る</span>
+    </label>
+    <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が回答を登録したときに通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
   </div>
 
   <!-- ホスト専用：参加者用URL表示（ページ下部に配置） -->
@@ -1421,18 +1421,18 @@ body.gourmet-open #gFrame {
 
   <!-- ホスト用：保存＋参加者表示用URL -->
   <div id="publishSettleWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-    <!-- ホスト専用：精算のプッシュ通知設定（日程調整の通知は日程調整ページで別途設定） -->
-    <div id="notifySettleWrap" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-bottom:14px;">
+    <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
+      保存して参加者に表示
+    </button>
+    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に表示中</div>
+    <!-- ホスト専用：精算のプッシュ通知設定（参加者表示用URLの直上に配置） -->
+    <div id="notifySettleWrap" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-top:14px;">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
         <input type="checkbox" id="notifySettleToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
         <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が支払済みにしたらプッシュ通知を受け取る</span>
       </label>
       <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が精算を「支払済み」にしたときに通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
     </div>
-    <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
-      保存して参加者に表示
-    </button>
-    <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に表示中</div>
     <div id="settleShareWrap" style="margin-top:14px;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
       <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者表示用URL（共有すると精算を確認してもらえます）</div>
       <div style="display:flex;gap:8px;">
