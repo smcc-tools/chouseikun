@@ -360,12 +360,15 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-chip.empty { color: #c9c4b4; border-style: dashed; background: #fafaf6; font-weight: 500; }
 .seat-chip.clickable { cursor: pointer; }
 .seat-chip.clickable:hover { border-color: var(--green); }
-.seat-chip.selected {
-  border-color: var(--gold); background: #FBF4E2; color: #94701C;
-  box-shadow: 0 0 0 2.5px rgba(176,136,58,0.3);
-}
 .seat-chip .sc-name { overflow: hidden; text-overflow: ellipsis; }
+/* ロック=金色（固定・シャッフルでも動かない）。選択と混同しないよう選択は緑系にする */
 .seat-chip.locked { border-color: var(--gold); background: #FBF4E2; }
+/* 選択中=緑（これから動かす席）。ロックの金色とは別系統の色で明確に区別する。
+   locked より後に定義し、ロック席を選択した場合も「選択中」の見た目を優先 */
+.seat-chip.selected {
+  border-color: var(--green); background: var(--green-light); color: var(--green-dark);
+  box-shadow: 0 0 0 2.5px rgba(61,90,58,0.3);
+}
 /* ロックボタンは「名前（＝移動）」とはっきり分かる独立した丸ボタンに */
 .seat-lock-btn {
   margin-left: 8px; padding: 0; flex-shrink: 0; cursor: pointer;
@@ -1471,6 +1474,10 @@ body.gourmet-open #gFrame {
     <div class="seating-actions">
       <button class="btn btn-primary" id="seatingShuffleBtn" style="flex:1;">席を決める（シャッフル）</button>
       <button class="btn btn-secondary" id="seatingReshuffleBtn" style="display:none;">もう一度</button>
+    </div>
+    <div class="seating-host" style="display:none;font-size:0.74rem;color:var(--text-muted);margin-top:8px;line-height:1.7;">
+      <span style="display:inline-block;padding:1px 8px;border:1.5px solid var(--gold);background:#FBF4E2;border-radius:6px;">🔒 金色 = 固定席</span>（シャッフルしても動きません）
+      <span style="display:inline-block;padding:1px 8px;border:1.5px solid var(--green);background:var(--green-light);border-radius:6px;margin-left:6px;">緑 = 選択中</span>（名前をタップ → 移動先をタップで入替え）
     </div>
 
     <!-- この次会の参加者 -->
