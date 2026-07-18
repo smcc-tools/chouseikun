@@ -581,7 +581,7 @@ tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important;
 .del-btn.visible { display: inline-block; }
 .del-btn:hover { background: #F7EAE6; }
 .vote-btns { display: flex; gap: 4px; justify-content: center; align-items: center; }
-td.locked .vote-btn { pointer-events: none; }
+td.locked .vote-btn { pointer-events: none; opacity: 0.4; }
 td.locked .note-input { pointer-events: none; color: #aaa; border-color: transparent; }
 .note-row td { background: #FAFBF4; padding: 9px 10px; }
 .note-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 700; }
@@ -1177,12 +1177,6 @@ body.gourmet-open #gFrame {
   <div style="padding:14px 16px 8px;">
     <button class="back-to-menu js-back-to-menu">← メニューに戻る</button>
     <h2 class="card-title" id="gourmetTitle" style="display:none;margin:10px 0 0;">お店検索</h2>
-  </div>
-  <div id="gourmetVenueBar" style="display:none;padding:0 16px 8px;">
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="gourmetShopInput" placeholder="お店の名前や食べログURLを貼り付け" style="flex:1;margin-bottom:0;">
-      <button class="btn btn-primary" id="gourmetSaveVenueBtn" style="white-space:nowrap;">会場に設定</button>
-    </div>
   </div>
   <iframe id="gFrame" title="お店検索（食べログ）" allow="geolocation; clipboard-write"
           style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:#FDFBF6;"></iframe>
@@ -3078,9 +3072,7 @@ body.gourmet-open #gFrame {
         const el = document.getElementById(id);
         if (el) el.style.display = (id === keep) ? 'block' : 'none';
       });
-      // お店検索：iframe を初回ロードし、ホストには会場保存バーを表示
-      const gvb = document.getElementById('gourmetVenueBar');
-      if (gvb) gvb.style.display = (keep === 'gourmetCard' && isHost) ? 'block' : 'none';
+      // お店検索：iframe を初回ロード
       if (keep === 'gourmetCard') {
         const f = document.getElementById('gFrame');
         if (f && !f.getAttribute('src')) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
@@ -3100,6 +3092,7 @@ body.gourmet-open #gFrame {
 
       evaluateHost(data);
       applyEventView();
+      pushVenueStateToTabel(); // 会場変更をお店検索カードの「✓ 設定しました」表示に反映
     }, (err) => {
       // リスナーがエラーで停止すると、以降の更新（他人の投票・公開切替）が一切反映されず
       // 画面が古いまま静かに凍結する。明示して再読み込みを促す。
@@ -3225,13 +3218,49 @@ body.gourmet-open #gFrame {
       if (btn && btn.dataset.view) publishView(btn.dataset.view);
     });
 
-    // お店検索ページ：選んだ店（名前/URL）を会場(venue.shop)に保存。Function が venue.preview を補完。
-    document.getElementById('gourmetSaveVenueBtn')?.addEventListener('click', async () => {
-      if (!isHost) return;
-      const val = (document.getElementById('gourmetShopInput')?.value || '').trim();
-      if (!val) { showToast('お店の名前かURLを入力してください'); return; }
-      try { await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val }); showToast('🏠 会場を保存しました'); }
-      catch (e) { console.error('gourmet venue save error:', e); showToast('保存に失敗しました'); }
+    // お店検索ページ：店カードの「会場に設定する」（Tabel埋込からのpostMessage）を受けて
+    // お知らせの会場(venue.shop)へ「店名 食べログURL」を自動保存。もう一度押すと解除(unset)。
+    // Function が venue.preview を補完。現在の会場URLは venue-state で iframe に同期し、
+    // 該当カードの「✓ 設定しました」表示を維持させる。
+    function pushVenueStateToTabel() {
+      const f = document.getElementById('gFrame');
+      if (!f || !f.contentWindow || !f.getAttribute('src')) return;
+      const venue = (latestEventData && latestEventData.venue) || {};
+      const shop = String(venue.shop || '');
+      const m = shop.match(/https?:\/\/[^\s]+/);
+      // 店名とプレビュー情報も渡す：検索結果に会場店が含まれないときの先頭固定カード描画に使われる
+      const p = venue.preview || {};
+      try {
+        f.contentWindow.postMessage({
+          type: 'chouseikun-venue-state',
+          url: m ? m[0] : '',
+          name: shop.replace(m ? m[0] : '', '').trim(),
+          preview: { title: p.title || '', image: p.image || '', rating: p.rating || '', reviews: p.reviews || '', price: p.price || '', genre: p.genre || '' },
+        }, TABEL_ORIGIN);
+      } catch (_) {}
+    }
+    window.addEventListener('message', async (e) => {
+      if (e.origin !== TABEL_ORIGIN) return;
+      const d = e.data || {};
+      if (d.type === 'tabel-ready') { pushVenueStateToTabel(); return; }
+      if (d.type !== 'tabel-shop-selected' || !d.url) return;
+      if (!/^https?:\/\//.test(String(d.url))) return;
+      if (!isHost) { showToast('会場を設定できるのはホストのみです'); pushVenueStateToTabel(); return; }
+      try {
+        if (d.unset) {
+          // 解除は「今の会場がこの店のURL」のときだけ（別の店に変更済みの会場を誤って消さない）
+          const cur = String((latestEventData && latestEventData.venue && latestEventData.venue.shop) || '');
+          if (cur.includes(String(d.url).trim())) {
+            await updateDoc(doc(db, 'events', eventId), { 'venue.shop': '' });
+            showToast('会場の設定を解除しました');
+          }
+        } else {
+          const val = [String(d.name || '').trim(), String(d.url).trim()].filter(Boolean).join(' ');
+          await updateDoc(doc(db, 'events', eventId), { 'venue.shop': val });
+          showToast('🏠 お知らせの会場に設定しました');
+        }
+      } catch (err) { console.error('venue set from tabel error:', err); showToast('会場の設定に失敗しました'); }
+      pushVenueStateToTabel();
     });
 
     // view ごとに描画を振り分ける
@@ -3813,9 +3842,13 @@ body.gourmet-open #gFrame {
     const btns = [['o','◯','circle'],['t','△','triangle'],['x','✕','cross']].map(([key,label,cls]) =>
       `<button class="vote-btn ${cls} ${current===key?'selected':''}" data-name="${en}" data-idx="${idx}" data-key="${key}" aria-label="${VOTE_LABEL[key]}" aria-pressed="${current===key}">${label}</button>`
     ).join('');
-    // プリセット（全未回答）または未回答セル（ホストが後から追加した日程）：ボタンを直接表示
-    if (isPreset || !current) {
-      return `<td data-col="${en}"${isPreset?' data-preset="1"':''}><div class="vote-btns">${btns}</div></td>`;
+    // プリセット（全日未回答＝未登録）のみ：ボタンを直接表示して新規登録できる
+    if (isPreset) {
+      return `<td data-col="${en}" data-preset="1"><div class="vote-btns">${btns}</div></td>`;
+    }
+    // 登録済み参加者の未回答セル：◯△✕は見せたまま選択不可（「変更」で編集モードに入ったときだけ入力可能）
+    if (!current) {
+      return `<td class="locked" data-col="${en}"><div class="vote-btns">${btns}</div></td>`;
     }
     // 回答済み：ロック表示
     const display = `<span class="vote-display vote-display-${current}">${labelMap[current]}</span>`;
@@ -3838,6 +3871,8 @@ body.gourmet-open #gFrame {
     // 既存参加者：編集モード中のみUI上の選択状態を変更（同じ記号を2回タップでクリア）
     wrap.querySelectorAll('.vote-btn[data-name]').forEach(btn => {
       btn.addEventListener('click', () => {
+        // ロック中（編集モード外）はキーボード操作(Tab→Enter)でも選択させない
+        if (btn.closest('td')?.classList.contains('locked')) return;
         const wasSelected = btn.classList.contains('selected');
         const name = btn.dataset.name;
         const idx = btn.dataset.idx;
@@ -3869,6 +3904,12 @@ body.gourmet-open #gFrame {
     // 備考は編集モード中のみ入力可（ロック解除はattachDeleteHandlersで管理）
     // 保存は完了ボタン押下時にまとめて行う
   }
+
+  // 保存処理中の行名。保存の書き込みは自分の onSnapshot 再描画を即座に発火させるが、
+  // その時点ではまだ .editing クラスが残っているため、再描画の「編集状態復元」が
+  // 編集モードを復活させてしまう（登録するを押しても編集中に戻って見えるバグ）。
+  // ここに入っている行は復元対象から除外する。
+  const _savingEditRows = new Set();
 
   function attachDeleteHandlers(wrap, dates) {
     // 変更・削除ボタン：編集モードのトグル
@@ -3929,6 +3970,7 @@ body.gourmet-open #gFrame {
           const noteInput = wrap.querySelector(`.note-input[data-name="${CSS.escape(name)}"]`);
           if (noteInput) updates[`participants.${name}._note`] = noteInput.value.trim();
           if (Object.keys(updates).length > 0) {
+            _savingEditRows.add(name); // 保存中の再描画で編集モードが復元されないように
             try {
               await updateDoc(doc(db, 'events', eventId), updates);
             } catch (e) {
@@ -3936,6 +3978,8 @@ body.gourmet-open #gFrame {
               showToast('保存に失敗しました。通信状態を確認してもう一度お試しください');
               console.error(e);
               return;
+            } finally {
+              _savingEditRows.delete(name);
             }
           }
           if (th) {
@@ -5214,21 +5258,20 @@ body.gourmet-open #gFrame {
     // 各列の登録ボタン行（未登録＝全日未入力の参加者のみ表示。1日でも回答済みなら何も表示しない）
     const registerCells = allEntries.map(([name, votes]) => {
       const answeredCount = dates.filter((_, di) => votes[di]).length;
-      const total = dates.length;
       if (answeredCount === 0) {
         // 未登録（全日未入力）：新規登録ボタン
         return `<td style="text-align:center;padding:4px 6px;background:var(--green-light);">
             <button class="register-btn preset-register-btn" data-name="${escHtml(name)}">登録する</button>
            </td>`;
       }
-      // 登録済み：編集時に押す「登録する」。未回答の日程が残る場合（ホストの日程追加後など）は最初から活性表示。
-      const incomplete = answeredCount < total;
-      return `<td style="text-align:center;padding:4px 6px;${incomplete ? 'background:var(--green-light);' : ''}">
-          <button class="register-btn edit-register-btn" data-name="${escHtml(name)}"${incomplete ? '' : ' style="display:none;"'}>登録する</button>
+      // 登録済み：「登録する」は常時表示しない（未回答の日程が残っていても出さない）。
+      // 「変更」で編集モードに入ったときだけ表示される（edit-btn ハンドラが display を戻す）
+      return `<td style="text-align:center;padding:4px 6px;">
+          <button class="register-btn edit-register-btn" data-name="${escHtml(name)}" style="display:none;">登録する</button>
          </td>`;
     }).join('');
     const registerRow = `<tr>
-      <td></td>
+      <td class="date-cell"></td><!-- 先頭列は他の行と同様に sticky 固定（横スクロールでこの行だけ流れないように） -->
       ${registerCells}
       <td class="input-col">
         <button class="register-btn" id="registerBtn">登録する</button>
@@ -5269,7 +5312,7 @@ body.gourmet-open #gFrame {
     allEntries.forEach(([name, votes]) => {
       // 編集モード中の行は全セルの選択状態を保持（回答済みセルも変更中の可能性あり）
       const inEditMode = !!wrap.querySelector(`.edit-btn[data-name="${CSS.escape(name)}"].editing`);
-      if (inEditMode) savedInput.editingRows.push(name);
+      if (inEditMode && !_savingEditRows.has(name)) savedInput.editingRows.push(name);
       const hasUnAnswered = dates.some((_, di) => !votes[di]);
       if (!inEditMode && !hasUnAnswered) return;
       dates.forEach((_, i) => {
