@@ -198,3 +198,54 @@ test('席替え: 同じ次会内の再シャッフルは現在の同卓ペアを
     assert.notEqual(tableOf.C, tableOf.D, `席替え${i}: C と D が同卓のまま`);
   }
 });
+
+test('席替え履歴: 直前の配置を先頭に追加し直近2件まで保持', () => {
+  const { buildAssignmentHistory } = loadFunctions(['buildAssignmentHistory']);
+  const a1 = { t1: ['A'] }, a2 = { t1: ['B'] }, a3 = { t1: ['C'] };
+  assert.deepEqual(buildAssignmentHistory(a1, []), [a1]);
+  assert.deepEqual(buildAssignmentHistory(a2, [a1]), [a2, a1]);
+  assert.deepEqual(buildAssignmentHistory(a3, [a2, a1]), [a3, a2]); // 3件目は捨てる
+  assert.deepEqual(buildAssignmentHistory(null, [a1]), [a1]);       // 初回(配置なし)は履歴不変
+});
+
+test('席替え履歴: 2次会は1次会の現在配置と履歴(前回の席)の両方を避ける', () => {
+  // 1次会: 現在 A-C/B-D、履歴に A-B/C-D。2次会で両方避けると A-D/B-C しか残らない
+  const data = {
+    participants: { A: {}, B: {}, C: {}, D: {} },
+    participantOrder: ['A', 'B', 'C', 'D'],
+    seatParties: [
+      {
+        id: 'p1', name: '1次会',
+        tables: [
+          { id: 't1', name: '卓1', capacity: 2, shape: 'rect' },
+          { id: 't2', name: '卓2', capacity: 2, shape: 'rect' },
+        ],
+        assignment: { t1: ['A', 'C'], t2: ['B', 'D'] },
+        assignmentHistory: [{ t1: ['A', 'B'], t2: ['C', 'D'] }],
+        locks: [], absent: [],
+      },
+      {
+        id: 'p2', name: '2次会',
+        tables: [
+          { id: 'u1', name: '卓1', capacity: 2, shape: 'rect' },
+          { id: 'u2', name: '卓2', capacity: 2, shape: 'rect' },
+        ],
+        assignment: null, locks: [], absent: [],
+      },
+    ],
+  };
+  const { computeSeating: cs } = loadFunctions(
+    ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'seatNeighborPairs',
+     'arrangeTableSeats', 'getParties', 'clampActiveIdx', 'roundMembers', 'getSortedNames',
+     'normalizeAssignment', 'buildAvoidance', 'computeSeating'],
+    { seatingActiveParty: 1 } // 2次会をアクティブに
+  );
+  for (let i = 0; i < 4; i++) {
+    const r = cs(data);
+    assert.ok(!r.error, r.error);
+    const tableOf = {};
+    Object.entries(r.assignment).forEach(([tid, arr]) => arr.forEach(n => { if (n) tableOf[n] = tid; }));
+    assert.equal(tableOf.A, tableOf.D, `2次会${i}: 残された唯一の組合せ A-D にならない`);
+    assert.equal(tableOf.B, tableOf.C, `2次会${i}: 残された唯一の組合せ B-C にならない`);
+  }
+});

@@ -4533,19 +4533,28 @@ body.gourmet-open #gFrame {
     return out;
   }
 
-  // 前回までの次会から「同卓ペア」「隣/対面ペア」の出現回数を集計
+  // 席替え履歴: 直前の配置を先頭に追加し、直近2件まで保持する（それ以前は捨てる）。
+  // 開始前の試行錯誤シャッフルで履歴が無限に汚れないよう上限を設ける
+  function buildAssignmentHistory(prevAssignment, prevHistory) {
+    const hist = prevAssignment ? [prevAssignment, ...(prevHistory || [])] : [...(prevHistory || [])];
+    return hist.slice(0, 2);
+  }
+
+  // 前回までの次会（現在配置＋席替え履歴を含む）から「同卓ペア」「隣/対面ペア」の出現回数を集計
   function buildAvoidance(data, prevParties) {
     const coTable = new Map(), adj = new Map();
     const bump = (m, a, b) => { if (!a || !b || a === b) return; const k = pairKey(a, b); m.set(k, (m.get(k) || 0) + 1); };
     const allNames = getSortedNames(data);
     prevParties.forEach(p => {
-      if (!p.assignment) return;
-      const norm = normalizeAssignment(p.tables || [], p.assignment, allNames);
-      (p.tables || []).forEach(t => {
-        const arr = norm[t.id] || [];
-        const present = arr.filter(Boolean);
-        for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) bump(coTable, present[i], present[j]);
-        for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape)) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
+      const assigns = [p.assignment, ...(p.assignmentHistory || [])].filter(Boolean);
+      assigns.forEach(assignment => {
+        const norm = normalizeAssignment(p.tables || [], assignment, allNames);
+        (p.tables || []).forEach(t => {
+          const arr = norm[t.id] || [];
+          const present = arr.filter(Boolean);
+          for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) bump(coTable, present[i], present[j]);
+          for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape)) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
+        });
       });
     });
     return { coTable, adj };
@@ -4583,7 +4592,7 @@ body.gourmet-open #gFrame {
     // 現在の配置も含めることで、同じ次会内の再シャッフルが席替えとして機能する
     // （同卓・隣/対面だった人と再び一緒になりにくい）。初回シャッフル（配置なし）は従来通り。
     const avoidParties = parties.slice(0, pIdx);
-    if (party.assignment) avoidParties.push(party);
+    if (party.assignment || (party.assignmentHistory || []).length) avoidParties.push(party);
     const avoid = buildAvoidance(data, avoidParties);
 
     let clusters = members.map(m => [m]);
@@ -5060,7 +5069,12 @@ body.gourmet-open #gFrame {
         el.classList.add('seat-result-reveal');
         setTimeout(() => el.classList.remove('seat-result-reveal'), 500);
         launchConfetti();
-        updateActiveParty({ assignment: finalAssign });
+        // 直前の配置を席替え履歴（直近2件）へ退避してから新しい配置を保存
+        const curParty = activeParty(data);
+        updateActiveParty({
+          assignment: finalAssign,
+          assignmentHistory: buildAssignmentHistory(curParty && curParty.assignment, curParty && curParty.assignmentHistory),
+        });
         showToast('席が決まりました🎉');
       }
     }
