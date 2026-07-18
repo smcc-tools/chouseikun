@@ -4116,12 +4116,12 @@ body.gourmet-open #gFrame {
   // お店・行き方の表示（参加者には内容があるときだけ表示）
   // Google店舗概要（マップのplaceページ）へ直接飛ばすための検索クエリを組み立てる。
   // 店名だけだと同名店の候補一覧どまりになりやすいので、
-  // 食べログOGPタイトル「店名（駅/ジャンル） - 食べログ」から駅名を補って一意に解決させる
+  // 食べログOGPタイトル「店名 (駅/ジャンル)」から駅名を補って一意に解決させる（括弧は半角・全角の両対応）
   function buildPlaceQuery(shopName, previewTitle) {
     const title = String(previewTitle || '');
     const base = String(shopName || '').trim()
-      || title.replace(/\s*-\s*食べログ.*$/, '').replace(/（[^）]*）/g, '').trim();
-    const m = title.match(/（([^）／\/]+)[／\/]?[^）]*）/);
+      || title.replace(/\s*-\s*食べログ.*$/, '').replace(/[（(][^）)]*[）)]/g, '').trim();
+    const m = title.match(/[（(]([^）)／\/]+)[／\/]?[^）)]*[）)]/);
     const station = m ? m[1].trim() : '';
     return (station && !base.includes(station)) ? `${base} ${station}` : base;
   }
