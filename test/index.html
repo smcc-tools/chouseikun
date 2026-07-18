@@ -5227,7 +5227,7 @@ body.gourmet-open #gFrame {
          </td>`;
     }).join('');
     const registerRow = `<tr>
-      <td></td>
+      <td class="date-cell"></td><!-- 先頭列は他の行と同様に sticky 固定（横スクロールでこの行だけ流れないように） -->
       ${registerCells}
       <td class="input-col">
         <button class="register-btn" id="registerBtn">登録する</button>
