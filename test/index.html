@@ -3813,9 +3813,13 @@ body.gourmet-open #gFrame {
     const btns = [['o','◯','circle'],['t','△','triangle'],['x','✕','cross']].map(([key,label,cls]) =>
       `<button class="vote-btn ${cls} ${current===key?'selected':''}" data-name="${en}" data-idx="${idx}" data-key="${key}" aria-label="${VOTE_LABEL[key]}" aria-pressed="${current===key}">${label}</button>`
     ).join('');
-    // プリセット（全未回答）または未回答セル（ホストが後から追加した日程）：ボタンを直接表示
-    if (isPreset || !current) {
-      return `<td data-col="${en}"${isPreset?' data-preset="1"':''}><div class="vote-btns">${btns}</div></td>`;
+    // プリセット（全日未回答＝未登録）のみ：ボタンを直接表示して新規登録できる
+    if (isPreset) {
+      return `<td data-col="${en}" data-preset="1"><div class="vote-btns">${btns}</div></td>`;
+    }
+    // 登録済み参加者の未回答セル：直接タップ不可のロック表示（「変更」で編集モードに入ったときだけ入力可能）
+    if (!current) {
+      return `<td class="locked" data-col="${en}"><span class="vote-display-empty">-</span><div class="vote-btns" style="display:none;">${btns}</div></td>`;
     }
     // 回答済み：ロック表示
     const display = `<span class="vote-display vote-display-${current}">${labelMap[current]}</span>`;
