@@ -420,11 +420,10 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* 卓の位置関係：列数指定のグリッド＋「⇄ 移動」で卓を入れ替え（参加者にも同じ配置で表示） */
 .seat-tables-grid { display: grid; gap: 0 10px; align-items: start; }
 .seat-tables-grid .seat-table-block { min-width: 0; }
-.seat-drag-handle { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
-  border-radius: 6px; font-size: 0.72rem; padding: 2px 9px; cursor: grab; white-space: nowrap;
-  touch-action: none; user-select: none; -webkit-user-select: none; }
-.seat-drag-handle:active { cursor: grabbing; }
-.seat-table-block.dragging { opacity: 0.55; outline: 2px dashed var(--green); outline-offset: 2px; border-radius: 8px; }
+.seat-table-block.move-sel { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
+.seat-move-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
+  border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+.seat-move-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
 .seat-cols-ctrl { display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
   font-size: 0.74rem; color: var(--text-muted); flex-wrap: wrap; }
 .seat-cols-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
@@ -4497,6 +4496,7 @@ body.gourmet-open #gFrame {
 
   // ══════════ 座席決め（何次会対応） ══════════
   let seatSel = null;              // 席入れ替え選択 { t,i } または { u:名前 }
+  let tableMoveSel = null;         // 卓の位置入れ替え選択（卓id）
   let seatingAnimating = false;
   let seatingActiveParty = 0;      // 表示中の次会インデックス
 
@@ -4871,20 +4871,20 @@ body.gourmet-open #gFrame {
     if (isHost && tables.length > 1) {
       html += `<div class="seat-cols-ctrl">卓の並び：${[1, 2, 3].filter(n => n <= tables.length).map(n =>
         `<button type="button" class="seat-cols-btn${cols === n ? ' selected' : ''}" data-cols="${n}">${n}列</button>`).join('')}
-        <span>／「⠿」をドラッグで卓の位置を入れ替え</span></div>`;
+        <span>／「⇄ 移動」で卓の位置を入れ替え</span></div>`;
     }
     let tablesHtml = '';
     tables.forEach(t => {
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
       const filled = arr.filter(Boolean).length;
-      // 参加者には満席数カウント（4/4等）もヘッダバーも出さない。ホストは卓名＋ドラッグハンドル＋カウント
-      const dragHandle = (isHost && tables.length > 1)
-        ? `<span class="seat-drag-handle" title="ドラッグで卓の位置を入れ替え">⠿ 移動</span>` : '';
+      // 参加者には満席数カウント（4/4等）もヘッダバーも出さない。ホストは卓名＋移動＋カウント
+      const moveBtn = (isHost && tables.length > 1)
+        ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">${tableMoveSel === t.id ? '移動先の卓をタップ' : '⇄ 移動'}</button>` : '';
       const headBar = isHost
-        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${dragHandle}<span class="stc-count">${filled}/${cap}</span></span></div>`
+        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${moveBtn}<span class="stc-count">${filled}/${cap}</span></span></div>`
         : '';
-      tablesHtml += `<div class="seat-table-block" data-tblwrap="${escHtml(t.id)}">${headBar}`;
+      tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
       if ((t.shape || 'rect') === 'round') {
         const R = 44;
         tablesHtml += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
@@ -4940,48 +4940,30 @@ body.gourmet-open #gFrame {
       const side = btn.dataset.ent;
       updateActiveParty({ entrance: cur === side ? null : side });
     }));
-    // 卓の並び（列数）。プレビュー中でも設定可能
+    // 卓の並び（列数・位置入れ替え）。プレビュー中でも設定可能
     el.querySelectorAll('.seat-cols-btn').forEach(btn => btn.addEventListener('click', () => {
       updateActiveParty({ tableCols: parseInt(btn.dataset.cols) || 1 });
     }));
-    // 卓のドラッグ&ドロップ並び替え（Pointer Eventsでマウス・タッチ両対応）。
-    // ドラッグ中は他の卓に重なった時点でDOM上の並びを即時入れ替えてプレビューし、離した時に保存する
-    el.querySelectorAll('.seat-drag-handle').forEach(handle => {
-      handle.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        const block = handle.closest('.seat-table-block');
-        const grid = block.parentElement;
-        const blocksOf = () => [...grid.querySelectorAll('.seat-table-block')];
-        const origOrder = blocksOf().map(b => b.dataset.tblwrap).join();
-        block.classList.add('dragging');
-        handle.setPointerCapture(e.pointerId);
-        const onMove = (ev) => {
-          ev.preventDefault();
-          const at = document.elementFromPoint(ev.clientX, ev.clientY);
-          const over = at && at.closest('.seat-table-block');
-          if (!over || over === block || over.parentElement !== grid) return;
-          if (blocksOf().indexOf(block) < blocksOf().indexOf(over)) over.after(block); else over.before(block);
-        };
-        const finish = (save) => {
-          handle.removeEventListener('pointermove', onMove);
-          handle.removeEventListener('pointerup', onUp);
-          handle.removeEventListener('pointercancel', onCancel);
-          block.classList.remove('dragging');
-          const order = blocksOf().map(b => b.dataset.tblwrap);
-          if (save && order.join() !== origOrder) {
-            const ts = activeParty(latestEventData).tables || [];
-            const newTs = order.map(id => ts.find(t => t.id === id)).filter(Boolean);
-            if (newTs.length === ts.length) { updateActiveParty({ tables: newTs }); return; }
-          }
-          renderSeatingResult(latestEventData);
-        };
-        const onUp = () => finish(true);
-        const onCancel = () => finish(false);
-        handle.addEventListener('pointermove', onMove);
-        handle.addEventListener('pointerup', onUp);
-        handle.addEventListener('pointercancel', onCancel);
-      });
-    });
+    el.querySelectorAll('.seat-move-btn').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      tableMoveSel = (tableMoveSel === btn.dataset.move) ? null : btn.dataset.move;
+      renderSeatingResult(latestEventData);
+    }));
+    if (isHost && tableMoveSel) {
+      // 移動モード中：卓ブロックのタップ＝移動先の指定。capture で席チップ等のハンドラより先に奪う
+      el.querySelectorAll('.seat-table-block').forEach(blk => blk.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        const tid = blk.dataset.tblwrap;
+        const from = tableMoveSel;
+        tableMoveSel = null;
+        if (tid && from && tid !== from) {
+          const ts = (activeParty(latestEventData).tables || []).slice();
+          const a = ts.findIndex(t => t.id === from), b = ts.findIndex(t => t.id === tid);
+          if (a >= 0 && b >= 0) { [ts[a], ts[b]] = [ts[b], ts[a]]; updateActiveParty({ tables: ts }); return; }
+        }
+        renderSeatingResult(latestEventData);
+      }, { capture: true }));
+    }
 
     if (!isHost || isPreview) return;
     el.querySelectorAll('.seat-chip[data-t], .seat-chip[data-u], .seat-chip[data-uzone]').forEach(c => c.addEventListener('click', () => onSeatChipClick(c)));
