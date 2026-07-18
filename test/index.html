@@ -1248,28 +1248,13 @@ body.gourmet-open #gFrame {
   </div>
 
 
-  <!-- ホスト専用：参加者用URL表示 -->
-  <div id="participantUrlWrap" class="host-only" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="participantUrlView" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-      <button class="btn btn-secondary" id="copyParticipantUrlBtn" style="white-space:nowrap;">コピー</button>
-    </div>
-    <div class="host-url-row" style="display:none;margin-top:10px;">
-      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
-      </div>
-    </div>
-  </div>
-  <!-- ホスト専用：参加登録のプッシュ通知設定 -->
+  <!-- ホスト専用：日程調整のプッシュ通知設定（精算の通知は精算ページで別途設定） -->
   <div id="notifyWrap" class="host-only" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-bottom:16px;">
     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
       <input type="checkbox" id="notifyToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
       <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が回答を登録したらプッシュ通知を受け取る</span>
     </label>
-    <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が回答を登録したとき、および<strong>精算を「支払済み」にしたとき</strong>に通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
+    <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が回答を登録したときに通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。精算の「支払済み」通知は精算ページで設定できます。</div>
   </div>
 
   <!-- ホスト専用：共同ホスト管理（ホスト専用URL方式） -->
@@ -1311,6 +1296,21 @@ body.gourmet-open #gFrame {
     </div>
   </div>
 
+  <!-- ホスト専用：参加者用URL表示（ページ下部に配置） -->
+  <div id="participantUrlWrap" class="host-only" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-top:16px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="participantUrlView" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+      <button class="btn btn-secondary" id="copyParticipantUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -1421,6 +1421,14 @@ body.gourmet-open #gFrame {
 
   <!-- ホスト用：保存＋参加者表示用URL -->
   <div id="publishSettleWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+    <!-- ホスト専用：精算のプッシュ通知設定（日程調整の通知は日程調整ページで別途設定） -->
+    <div id="notifySettleWrap" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-bottom:14px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
+        <input type="checkbox" id="notifySettleToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
+        <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が支払済みにしたらプッシュ通知を受け取る</span>
+      </label>
+      <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が精算を「支払済み」にしたときに通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
+    </div>
     <button class="btn btn-primary" id="publishSettleBtn" style="width:100%;padding:12px;">
       保存して参加者に表示
     </button>
@@ -1567,22 +1575,6 @@ body.gourmet-open #gFrame {
   <div class="card-title" id="announceCardTitle">集合時間・お店のお知らせ</div>
   <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
 
-  <!-- ホスト用：参加者用URL -->
-  <div id="announceShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:14px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="announceShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-      <button class="btn btn-secondary" id="copyAnnounceUrlBtn" style="white-space:nowrap;">コピー</button>
-    </div>
-    <div class="host-url-row" style="display:none;margin-top:10px;">
-      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
-      </div>
-    </div>
-  </div>
-
   <!-- お店・行き方（参加者には内容があるときだけ表示） -->
   <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
     <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
@@ -1700,6 +1692,22 @@ body.gourmet-open #gFrame {
       <circle cx="37" cy="48" r="7.5" fill="#B0883A"/>
     </svg>Googleカレンダーに追加
   </a>
+
+  <!-- ホスト用：参加者用URL（ページ下部に配置） -->
+  <div id="announceShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-top:14px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="announceShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+      <button class="btn btn-secondary" id="copyAnnounceUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:74px;z-index:49;pointer-events:none;">
@@ -3061,14 +3069,19 @@ body.gourmet-open #gFrame {
       document.getElementById('participantUrlView').value = `${base}?event=${eventId}`;
       renderCoHostList(ownerUids, base, eventId);
       fillHostUrlRows(); // ホスト専用URLを各画面の共有欄に自動表示（非同期・失敗時は非表示のまま）
-      // 通知トグルの状態を反映
+      // 通知トグルの状態を反映（日程調整=notifyUids／精算=settleNotifyUids に分割。
+      // settleNotifyUids 未設定の旧イベントは旧仕様(1トグル)互換で notifyUids に従う）
       const notifyToggle = document.getElementById('notifyToggle');
-      if (notifyToggle && currentUser) {
+      const settleNotifyToggle = document.getElementById('notifySettleToggle');
+      if (currentUser) {
         const isNotifyOn = (data.notifyUids || []).includes(currentUser.uid);
-        notifyToggle.checked = isNotifyOn;
+        if (notifyToggle) notifyToggle.checked = isNotifyOn;
+        const settleUidsEff = Array.isArray(data.settleNotifyUids) ? data.settleNotifyUids : (data.notifyUids || []);
+        const isSettleNotifyOn = settleUidsEff.includes(currentUser.uid);
+        if (settleNotifyToggle) settleNotifyToggle.checked = isSettleNotifyOn;
         // 通知ONだが古いプロジェクト由来のFCMトークンで送信失敗しているケースを解消するため、
         // 通知許可が既に granted の時のみ静かにトークンを再取得して最新化する
-        if (isNotifyOn && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        if ((isNotifyOn || isSettleNotifyOn) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           registerFcmToken().catch(() => {});
         }
       }
@@ -3743,49 +3756,54 @@ body.gourmet-open #gFrame {
       } catch (e) { showToast('削除に失敗しました'); console.error(e); }
     });
 
-    // 参加登録のプッシュ通知 ON/OFF（イベント毎・ホスト本人のuidを notifyUids に出し入れ）
-    document.getElementById('notifyToggle')?.addEventListener('change', async (e) => {
-      const toggle = e.target;
-      if (!currentUser) { showToast('ログインが必要です'); toggle.checked = false; return; }
-      if (toggle.checked) {
-        let token = null;
-        try {
-          token = await registerFcmToken();
-        } catch (err) {
-          // getToken/Firestore 失敗でトグルがONのまま残らないよう必ず巻き戻す
-          toggle.checked = false;
-          showToast('通知の登録に失敗しました。通信状態を確認してもう一度お試しください');
-          console.error(err);
-          return;
-        }
-        if (!token) {
-          toggle.checked = false;
-          // 原因別に案内（非対応ブラウザ／許可ブロック済み／許可ダイアログ拒否）
-          if (!messaging) showToast('このブラウザは通知に対応していません');
-          else if (Notification.permission === 'denied') showToast('通知がブロックされています。ブラウザの設定でこのサイトの通知を許可してください');
-          else showToast('通知を有効にできませんでした（通知許可が必要です）');
-          return;
-        }
-        try {
-          await runTransaction(db, async (tx) => {
-            const ref = doc(db, 'events', eventId);
-            const uids = (await tx.get(ref)).data().notifyUids || [];
-            if (!uids.includes(currentUser.uid)) uids.push(currentUser.uid);
-            tx.update(ref, { notifyUids: uids });
-          });
-          showToast('🔔 参加登録の通知をオンにしました');
-        } catch (err) { toggle.checked = false; showToast('設定に失敗しました'); console.error(err); }
-      } else {
-        try {
-          await runTransaction(db, async (tx) => {
-            const ref = doc(db, 'events', eventId);
-            const uids = (await tx.get(ref)).data().notifyUids || [];
-            tx.update(ref, { notifyUids: uids.filter(u => u !== currentUser.uid) });
-          });
-          showToast('通知をオフにしました');
-        } catch (err) { showToast('設定に失敗しました'); console.error(err); }
+    // プッシュ通知 ON/OFF（機能別）：日程調整=notifyUids／精算=settleNotifyUids。
+    // ON時のFCMトークン登録と失敗時の巻き戻しは共通処理にまとめる
+    async function prepareNotifyOn(toggle) {
+      let token = null;
+      try {
+        token = await registerFcmToken();
+      } catch (err) {
+        // getToken/Firestore 失敗でトグルがONのまま残らないよう必ず巻き戻す
+        toggle.checked = false;
+        showToast('通知の登録に失敗しました。通信状態を確認してもう一度お試しください');
+        console.error(err);
+        return false;
       }
-    });
+      if (!token) {
+        toggle.checked = false;
+        // 原因別に案内（非対応ブラウザ／許可ブロック済み／許可ダイアログ拒否）
+        if (!messaging) showToast('このブラウザは通知に対応していません');
+        else if (Notification.permission === 'denied') showToast('通知がブロックされています。ブラウザの設定でこのサイトの通知を許可してください');
+        else showToast('通知を有効にできませんでした（通知許可が必要です）');
+        return false;
+      }
+      return true;
+    }
+    // field: 保存先フィールド。readUids: 現ドキュメントから実効uid一覧を取り出す（旧仕様フォールバック込み）
+    function attachNotifyToggle(toggleId, field, readUids, onMsg) {
+      document.getElementById(toggleId)?.addEventListener('change', async (e) => {
+        const toggle = e.target;
+        if (!currentUser) { showToast('ログインが必要です'); toggle.checked = false; return; }
+        if (toggle.checked && !(await prepareNotifyOn(toggle))) return;
+        try {
+          await runTransaction(db, async (tx) => {
+            const ref = doc(db, 'events', eventId);
+            const d = (await tx.get(ref)).data() || {};
+            const base = readUids(d);
+            const uids = toggle.checked
+              ? (base.includes(currentUser.uid) ? base : [...base, currentUser.uid])
+              : base.filter(u => u !== currentUser.uid);
+            tx.update(ref, { [field]: uids });
+          });
+          showToast(toggle.checked ? onMsg : '通知をオフにしました');
+        } catch (err) { if (toggle.checked) toggle.checked = false; showToast('設定に失敗しました'); console.error(err); }
+      });
+    }
+    attachNotifyToggle('notifyToggle', 'notifyUids',
+      d => d.notifyUids || [], '🔔 参加登録の通知をオンにしました');
+    // 精算：settleNotifyUids 未設定の旧イベントは notifyUids を初期値として実体化する（旧1トグル仕様互換）
+    attachNotifyToggle('notifySettleToggle', 'settleNotifyUids',
+      d => Array.isArray(d.settleNotifyUids) ? d.settleNotifyUids : (d.notifyUids || []), '🔔 支払済みの通知をオンにしました');
 
     document.getElementById('addMemoBtn')?.addEventListener('click', () => {
       const addMemoWrap = document.getElementById('addMemoWrap');
@@ -6086,7 +6104,9 @@ body.gourmet-open #gFrame {
     if (!mount) return;
     // 参加者URL(participantUrlWrap)は精算画面内で settleShareUrl と重複するため移動しない。
     // 通知設定と共同ホスト管理のみ精算画面に集約する。
-    ['notifyWrap', 'coHostWrap'].forEach(id => {
+    // 通知は機能別トグルに分割済み：精算の通知トグル(notifySettleWrap)は精算画面に常設のため、
+    // 日程調整用の notifyWrap はもう移設しない
+    ['coHostWrap'].forEach(id => {
       const el = document.getElementById(id);
       if (el) mount.appendChild(el);
     });

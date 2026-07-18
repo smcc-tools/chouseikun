@@ -9,7 +9,10 @@ exports.notifyOnParticipantRegister = onDocumentUpdated('events/{eventId}', asyn
   const before = event.data.before.data() || {};
   const after  = event.data.after.data()  || {};
 
-  const notifyUids = after.notifyUids || [];
+  // 通知は機能別に分割：日程調整(回答登録)=notifyUids／精算(支払済み)=settleNotifyUids。
+  // settleNotifyUids 未設定の旧イベントは旧仕様(1トグル)互換で notifyUids に届ける
+  const scheduleUids = after.notifyUids || [];
+  const settleUids = Array.isArray(after.settleNotifyUids) ? after.settleNotifyUids : scheduleUids;
 
   // ① 新規回答登録
   const beforeP = before.participants || {};
@@ -24,64 +27,61 @@ exports.notifyOnParticipantRegister = onDocumentUpdated('events/{eventId}', asyn
   // 診断ログ：何もしない場合でも何が起きたか可視化する
   console.log(JSON.stringify({
     fn: 'notify', eventId,
-    notifyUidsCount: notifyUids.length,
+    scheduleUidsCount: scheduleUids.length,
+    settleUidsCount: settleUids.length,
     newParticipants: newNames.length,
     newlyPaid: newlyPaid.length,
   }));
 
-  if (!notifyUids.length) return;
-
-  const notifications = [];
   const eventName = after.name || 'イベント';
   const url = `https://smcc-tools.github.io/chouseikun/?event=${eventId}`;
 
-  if (newNames.length) {
-    notifications.push({
-      title: `「${eventName}」に新しい回答`,
-      body: `${newNames.join('、')} さんが回答を登録しました`,
-      tag: `evt-${eventId}`
+  // 各通知に「その機能で通知ONにしたuid一覧」を紐づける
+  const jobs = [];
+  if (newNames.length && scheduleUids.length) {
+    jobs.push({
+      uids: scheduleUids,
+      n: { title: `「${eventName}」に新しい回答`, body: `${newNames.join('、')} さんが回答を登録しました`, tag: `evt-${eventId}` },
     });
   }
-  if (newlyPaid.length) {
-    notifications.push({
-      title: `「${eventName}」の精算`,
-      body: `${newlyPaid.join('、')} さんが支払済みにしました`,
-      tag: `paid-${eventId}`
+  if (newlyPaid.length && settleUids.length) {
+    jobs.push({
+      uids: settleUids,
+      n: { title: `「${eventName}」の精算`, body: `${newlyPaid.join('、')} さんが支払済みにしました`, tag: `paid-${eventId}` },
     });
   }
-
-  if (!notifications.length) return;
+  if (!jobs.length) return;
 
   const db = admin.firestore();
 
-  // 通知ONホストのトークンを収集
-  let tokens = [];
-  for (const uid of notifyUids) {
-    const snap = await db.doc(`fcmTokens/${uid}`).get();
-    if (snap.exists && Array.isArray(snap.data().tokens)) tokens.push(...snap.data().tokens);
-  }
-  tokens = [...new Set(tokens)];
-
-  console.log(JSON.stringify({
-    fn: 'notify', eventId,
-    tokensFound: tokens.length,
-    notificationsToSend: notifications.length,
-  }));
-
-  if (!tokens.length) {
-    console.warn(JSON.stringify({ fn: 'notify', eventId, warn: 'no_tokens_for_notifyUids', notifyUids }));
-    return;
+  // uid→トークンはキャッシュして重複読み込みを避ける
+  const tokenCache = new Map();
+  async function tokensOf(uids) {
+    let tokens = [];
+    for (const uid of uids) {
+      if (!tokenCache.has(uid)) {
+        const snap = await db.doc(`fcmTokens/${uid}`).get();
+        tokenCache.set(uid, (snap.exists && Array.isArray(snap.data().tokens)) ? snap.data().tokens : []);
+      }
+      tokens.push(...tokenCache.get(uid));
+    }
+    return [...new Set(tokens)];
   }
 
   // data-only メッセージ（表示はService Worker側で行う）
   const invalid = new Set();
   const sendResults = [];
-  for (const n of notifications) {
+  for (const job of jobs) {
+    const tokens = await tokensOf(job.uids);
+    if (!tokens.length) {
+      console.warn(JSON.stringify({ fn: 'notify', eventId, warn: 'no_tokens', tag: job.n.tag, uids: job.uids }));
+      continue;
+    }
     const resp = await admin.messaging().sendEachForMulticast({
       tokens,
-      data: { title: n.title, body: n.body, url, tag: n.tag }
+      data: { title: job.n.title, body: job.n.body, url, tag: job.n.tag }
     });
-    sendResults.push({ successCount: resp.successCount, failureCount: resp.failureCount });
+    sendResults.push({ tag: job.n.tag, successCount: resp.successCount, failureCount: resp.failureCount });
     resp.responses.forEach((r, i) => {
       if (!r.success) {
         const code = r.error && r.error.code;
@@ -98,9 +98,10 @@ exports.notifyOnParticipantRegister = onDocumentUpdated('events/{eventId}', asyn
   }
   console.log(JSON.stringify({ fn: 'notify', eventId, sendResults, invalidCount: invalid.size }));
 
-  // 無効になったトークンを掃除
+  // 無効になったトークンを掃除（両トグルの対象uidをまとめて）
   if (invalid.size) {
-    for (const uid of notifyUids) {
+    const allUids = [...new Set(jobs.flatMap(j => j.uids))];
+    for (const uid of allUids) {
       const ref = db.doc(`fcmTokens/${uid}`);
       const snap = await ref.get();
       if (!snap.exists) continue;
