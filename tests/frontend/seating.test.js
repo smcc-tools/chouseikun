@@ -15,6 +15,7 @@ const {
     'seatColorOf',
     'pairKey',
     'spreadByColor',
+    'tableTopCount',
     'seatNeighborPairs',
     'arrangeTableSeats',
     'getParties',
@@ -296,7 +297,7 @@ test('席替え履歴: 2次会は1次会の現在配置と履歴(前回の席)�
     ],
   };
   const { computeSeating: cs } = loadFunctions(
-    ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'seatNeighborPairs',
+    ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'tableTopCount', 'seatNeighborPairs',
      'arrangeTableSeats', 'getParties', 'clampActiveIdx', 'roundMembers', 'getSortedNames',
      'normalizeAssignment', 'buildAvoidance', 'computeSeating'],
     { seatingActiveParty: 1 } // 2次会をアクティブに
