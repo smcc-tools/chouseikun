@@ -345,7 +345,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-longtable { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
 .seat-longtable-inner { width: fit-content; margin: 0 auto; }
 .seat-longtable-inner .seat-row { flex-wrap: nowrap; justify-content: flex-start; }
-.seat-longtable-inner .seat-table-bar { display: block; }
+/* display:block化でflex中央寄せが失われるため、TABLEの文字はテキスト＋行高で天地左右中央に置く */
+.seat-longtable-inner .seat-table-bar { display: block; text-align: center; line-height: 35px; }
 .seat-table-bar {
   height: 38px; background: var(--green-light); border: 1.5px solid var(--green-mid);
   border-radius: 10px; display: flex; align-items: center; justify-content: center;
@@ -382,12 +383,22 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   content: ''; position: absolute; left: -5px; top: 3px; bottom: 3px;
   width: 1px; background: var(--line-soft);
 }
+.seat-lock-btn::after {  /* タップ判定を「仕切り線から席チップの右端まで」に拡大（丸ボタン自体は見た目のまま） */
+  content: ''; position: absolute; left: -6px; right: -13px; top: -9px; bottom: -9px;
+}
 .seat-lock-btn:hover { border-color: var(--green); background: var(--green-light); }
 .seat-lock-btn:active { transform: scale(0.9); }
 .seat-chip.locked .seat-lock-btn { background: var(--gold); border-color: var(--gold); }
+/* 座席表の席チップは名前の長さに関わらず長さを統一（凸凹しないように） */
+#seatingResult .seat-chip { width: 106px; }
+/* 名前側を伸縮領域にしてロックボタンを常に右端へ固定（タップ判定拡大が右端まで確実に届くように）。
+   ロックボタンの無い参加者用チップでも名前は中央寄せのまま */
+#seatingResult .seat-chip .sc-name { flex: 1 1 auto; min-width: 0; text-align: center; }
 @media (max-width: 480px) {
   .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 122px; }
+  #seatingResult .seat-chip { width: 92px; }
   .seat-lock-btn { width: 24px; height: 24px; }
+  .seat-lock-btn::after { left: -6px; right: -11px; top: -8px; bottom: -8px; }
 }
 @keyframes seatFlicker { 0%,100% { transform: translateY(0) scale(0.96); } 50% { transform: translateY(-3px) scale(1.07); } }
 .seat-chip.flicker {
@@ -402,6 +413,38 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   100% { transform: scale(1); box-shadow: 0 2px 8px rgba(61,90,58,0.12); }
 }
 .seat-chip.seat-settled { animation: seatSettle 0.5s cubic-bezier(.2,1.5,.4,1); border-color: var(--green); background: #eef4e4; }
+/* 店の入り口：座席表の四方に配置（ホスト=選択ボタン、参加者=選択済み表示のみ） */
+.seat-entrance-grid { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto 1fr auto; gap: 6px; align-items: stretch; }
+.se-top    { grid-column: 2; grid-row: 1; display: flex; justify-content: center; }
+.se-left   { grid-column: 1; grid-row: 2; display: flex; align-items: center; }
+.se-main   { grid-column: 2; grid-row: 2; min-width: 0; }
+.se-right  { grid-column: 3; grid-row: 2; display: flex; align-items: center; }
+.se-bottom { grid-column: 2; grid-row: 3; display: flex; justify-content: center; }
+.seat-entrance-btn { border: 1.5px dashed var(--border); background: #fafaf6; color: var(--text-muted);
+  border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; cursor: pointer; white-space: nowrap; }
+.seat-entrance-btn:hover { border-color: var(--green); color: var(--green); }
+.seat-entrance-btn.vert { writing-mode: vertical-rl; padding: 10px 3px; }
+.seat-entrance-btn.selected { border-style: solid; border-color: var(--green); background: var(--green-light); color: var(--green); font-weight: 700; }
+.seat-entrance-label { border: 1.5px solid var(--green); background: var(--green-light); color: var(--green);
+  border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.seat-entrance-label.vert { writing-mode: vertical-rl; padding: 10px 3px; }
+/* 卓の位置関係：列数指定のグリッド＋「⇄ 移動」で卓を入れ替え（参加者にも同じ配置で表示） */
+.seat-tables-grid { display: grid; gap: 0 10px; align-items: start; }
+.seat-tables-grid .seat-table-block { min-width: 0; }
+.seat-table-block.move-sel { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
+.seat-move-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
+  border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+.seat-move-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
+.seat-empty-slot { border: 1.5px dashed var(--border); border-radius: 12px; min-height: 90px;
+  display: flex; align-items: center; justify-content: center; color: #c9c4b4;
+  font-size: 0.74rem; margin-bottom: 14px; align-self: stretch; }
+.seat-empty-slot.active { border-color: var(--green); color: var(--green); cursor: pointer; background: #f7faf0; }
+.seat-empty-slot.ghost { border: none; min-height: 0; margin: 0; }
+.seat-cols-ctrl { display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+  font-size: 0.74rem; color: var(--text-muted); flex-wrap: wrap; }
+.seat-cols-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
+  border-radius: 6px; font-size: 0.72rem; padding: 2px 9px; cursor: pointer; }
+.seat-cols-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
 /* シャッフル中バナー（グラデのきらめき＋波打つドット） */
 .seat-shuffle-banner {
   position: relative; overflow: hidden; text-align: center;
@@ -1205,30 +1248,6 @@ body.gourmet-open #gFrame {
   </div>
 
 
-  <!-- ホスト専用：参加者用URL表示 -->
-  <div id="participantUrlWrap" class="host-only" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="participantUrlView" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-      <button class="btn btn-secondary" id="copyParticipantUrlBtn" style="white-space:nowrap;">コピー</button>
-    </div>
-    <div class="host-url-row" style="display:none;margin-top:10px;">
-      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
-      </div>
-    </div>
-  </div>
-  <!-- ホスト専用：参加登録のプッシュ通知設定 -->
-  <div id="notifyWrap" class="host-only" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-bottom:16px;">
-    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
-      <input type="checkbox" id="notifyToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
-      <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が回答を登録したらプッシュ通知を受け取る</span>
-    </label>
-    <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が回答を登録したとき、および<strong>精算を「支払済み」にしたとき</strong>に通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
-  </div>
-
   <!-- ホスト専用：共同ホスト管理（ホスト専用URL方式） -->
   <!-- 共同ホスト管理パネルは非表示（ユーザー要望 2026-07-17）。招待はホスト専用URL（各共有欄に表示）で行う。
        共同ホストの解除UIが再度必要になったら class="host-only" を戻せば復活する -->
@@ -1268,6 +1287,30 @@ body.gourmet-open #gFrame {
     </div>
   </div>
 
+  <!-- ホスト専用：日程調整のプッシュ通知設定（参加者用URLの直上に配置） -->
+  <div id="notifyWrap" class="host-only" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-top:16px;">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
+      <input type="checkbox" id="notifyToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
+      <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が回答を登録したらプッシュ通知を受け取る</span>
+    </label>
+    <div id="notifyHint" style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が回答を登録したときに通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
+  </div>
+
+  <!-- ホスト専用：参加者用URL表示（ページ下部に配置） -->
+  <div id="participantUrlWrap" class="host-only" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-top:16px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="participantUrlView" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+      <button class="btn btn-secondary" id="copyParticipantUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -1382,6 +1425,14 @@ body.gourmet-open #gFrame {
       保存して参加者に表示
     </button>
     <div id="publishedBadge" style="display:none;text-align:center;margin-top:10px;font-size:0.85rem;color:var(--green);font-weight:600;">参加者に表示中</div>
+    <!-- ホスト専用：精算のプッシュ通知設定（参加者表示用URLの直上に配置） -->
+    <div id="notifySettleWrap" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:8px;padding:12px 16px;margin-top:14px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
+        <input type="checkbox" id="notifySettleToggle" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;">
+        <span style="font-size:0.86rem;font-weight:600;color:var(--text);">参加者が支払済みにしたらプッシュ通知を受け取る</span>
+      </label>
+      <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">参加者が精算を「支払済み」にしたときに通知が届きます。オンにするとこの端末への通知許可を求めます。アプリを閉じていても届きます（要・ホーム画面追加 / 通知許可）。</div>
+    </div>
     <div id="settleShareWrap" style="margin-top:14px;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
       <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者表示用URL（共有すると精算を確認してもらえます）</div>
       <div style="display:flex;gap:8px;">
@@ -1469,11 +1520,6 @@ body.gourmet-open #gFrame {
       <button class="btn btn-primary" id="seatingShuffleBtn" style="flex:1;">席を決める（シャッフル）</button>
       <button class="btn btn-secondary" id="seatingReshuffleBtn" style="display:none;">もう一度</button>
     </div>
-    <div class="seating-host" style="display:none;font-size:0.74rem;color:var(--text-muted);margin-top:8px;line-height:1.7;">
-      <span style="display:inline-block;padding:1px 8px;border:1.5px solid var(--gold);background:#FBF4E2;border-radius:6px;">🔒 金色 = 固定席</span>（シャッフルしても動きません）
-      <span style="display:inline-block;padding:1px 8px;border:1.5px solid var(--green);background:var(--green-light);border-radius:6px;margin-left:6px;">緑 = 選択中</span>（名前をタップ → 移動先をタップで入替え）
-    </div>
-
     <!-- この次会の参加者 -->
     <div class="field" style="margin-top:20px;margin-bottom:18px;">
       <label>この次会の参加者</label>
@@ -1523,22 +1569,6 @@ body.gourmet-open #gFrame {
 <div class="card" id="announceCard" style="display:none;">
   <div class="card-title" id="announceCardTitle">集合時間・お店のお知らせ</div>
   <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
-
-  <!-- ホスト用：参加者用URL -->
-  <div id="announceShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-bottom:14px;">
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="announceShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-      <button class="btn btn-secondary" id="copyAnnounceUrlBtn" style="white-space:nowrap;">コピー</button>
-    </div>
-    <div class="host-url-row" style="display:none;margin-top:10px;">
-      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
-        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
-      </div>
-    </div>
-  </div>
 
   <!-- お店・行き方（参加者には内容があるときだけ表示） -->
   <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
@@ -1657,6 +1687,22 @@ body.gourmet-open #gFrame {
       <circle cx="37" cy="48" r="7.5" fill="#B0883A"/>
     </svg>Googleカレンダーに追加
   </a>
+
+  <!-- ホスト用：参加者用URL（ページ下部に配置） -->
+  <div id="announceShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;margin-top:14px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">参加者用URL（共有用）</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="announceShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+      <button class="btn btn-secondary" id="copyAnnounceUrlBtn" style="white-space:nowrap;">コピー</button>
+    </div>
+    <div class="host-url-row" style="display:none;margin-top:10px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">ホスト専用URL（開いた人がホストになれます・取り扱い注意）</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
+        <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:74px;z-index:49;pointer-events:none;">
@@ -3018,14 +3064,19 @@ body.gourmet-open #gFrame {
       document.getElementById('participantUrlView').value = `${base}?event=${eventId}`;
       renderCoHostList(ownerUids, base, eventId);
       fillHostUrlRows(); // ホスト専用URLを各画面の共有欄に自動表示（非同期・失敗時は非表示のまま）
-      // 通知トグルの状態を反映
+      // 通知トグルの状態を反映（日程調整=notifyUids／精算=settleNotifyUids に分割。
+      // settleNotifyUids 未設定の旧イベントは旧仕様(1トグル)互換で notifyUids に従う）
       const notifyToggle = document.getElementById('notifyToggle');
-      if (notifyToggle && currentUser) {
+      const settleNotifyToggle = document.getElementById('notifySettleToggle');
+      if (currentUser) {
         const isNotifyOn = (data.notifyUids || []).includes(currentUser.uid);
-        notifyToggle.checked = isNotifyOn;
+        if (notifyToggle) notifyToggle.checked = isNotifyOn;
+        const settleUidsEff = Array.isArray(data.settleNotifyUids) ? data.settleNotifyUids : (data.notifyUids || []);
+        const isSettleNotifyOn = settleUidsEff.includes(currentUser.uid);
+        if (settleNotifyToggle) settleNotifyToggle.checked = isSettleNotifyOn;
         // 通知ONだが古いプロジェクト由来のFCMトークンで送信失敗しているケースを解消するため、
         // 通知許可が既に granted の時のみ静かにトークンを再取得して最新化する
-        if (isNotifyOn && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        if ((isNotifyOn || isSettleNotifyOn) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           registerFcmToken().catch(() => {});
         }
       }
@@ -3700,49 +3751,54 @@ body.gourmet-open #gFrame {
       } catch (e) { showToast('削除に失敗しました'); console.error(e); }
     });
 
-    // 参加登録のプッシュ通知 ON/OFF（イベント毎・ホスト本人のuidを notifyUids に出し入れ）
-    document.getElementById('notifyToggle')?.addEventListener('change', async (e) => {
-      const toggle = e.target;
-      if (!currentUser) { showToast('ログインが必要です'); toggle.checked = false; return; }
-      if (toggle.checked) {
-        let token = null;
-        try {
-          token = await registerFcmToken();
-        } catch (err) {
-          // getToken/Firestore 失敗でトグルがONのまま残らないよう必ず巻き戻す
-          toggle.checked = false;
-          showToast('通知の登録に失敗しました。通信状態を確認してもう一度お試しください');
-          console.error(err);
-          return;
-        }
-        if (!token) {
-          toggle.checked = false;
-          // 原因別に案内（非対応ブラウザ／許可ブロック済み／許可ダイアログ拒否）
-          if (!messaging) showToast('このブラウザは通知に対応していません');
-          else if (Notification.permission === 'denied') showToast('通知がブロックされています。ブラウザの設定でこのサイトの通知を許可してください');
-          else showToast('通知を有効にできませんでした（通知許可が必要です）');
-          return;
-        }
-        try {
-          await runTransaction(db, async (tx) => {
-            const ref = doc(db, 'events', eventId);
-            const uids = (await tx.get(ref)).data().notifyUids || [];
-            if (!uids.includes(currentUser.uid)) uids.push(currentUser.uid);
-            tx.update(ref, { notifyUids: uids });
-          });
-          showToast('🔔 参加登録の通知をオンにしました');
-        } catch (err) { toggle.checked = false; showToast('設定に失敗しました'); console.error(err); }
-      } else {
-        try {
-          await runTransaction(db, async (tx) => {
-            const ref = doc(db, 'events', eventId);
-            const uids = (await tx.get(ref)).data().notifyUids || [];
-            tx.update(ref, { notifyUids: uids.filter(u => u !== currentUser.uid) });
-          });
-          showToast('通知をオフにしました');
-        } catch (err) { showToast('設定に失敗しました'); console.error(err); }
+    // プッシュ通知 ON/OFF（機能別）：日程調整=notifyUids／精算=settleNotifyUids。
+    // ON時のFCMトークン登録と失敗時の巻き戻しは共通処理にまとめる
+    async function prepareNotifyOn(toggle) {
+      let token = null;
+      try {
+        token = await registerFcmToken();
+      } catch (err) {
+        // getToken/Firestore 失敗でトグルがONのまま残らないよう必ず巻き戻す
+        toggle.checked = false;
+        showToast('通知の登録に失敗しました。通信状態を確認してもう一度お試しください');
+        console.error(err);
+        return false;
       }
-    });
+      if (!token) {
+        toggle.checked = false;
+        // 原因別に案内（非対応ブラウザ／許可ブロック済み／許可ダイアログ拒否）
+        if (!messaging) showToast('このブラウザは通知に対応していません');
+        else if (Notification.permission === 'denied') showToast('通知がブロックされています。ブラウザの設定でこのサイトの通知を許可してください');
+        else showToast('通知を有効にできませんでした（通知許可が必要です）');
+        return false;
+      }
+      return true;
+    }
+    // field: 保存先フィールド。readUids: 現ドキュメントから実効uid一覧を取り出す（旧仕様フォールバック込み）
+    function attachNotifyToggle(toggleId, field, readUids, onMsg) {
+      document.getElementById(toggleId)?.addEventListener('change', async (e) => {
+        const toggle = e.target;
+        if (!currentUser) { showToast('ログインが必要です'); toggle.checked = false; return; }
+        if (toggle.checked && !(await prepareNotifyOn(toggle))) return;
+        try {
+          await runTransaction(db, async (tx) => {
+            const ref = doc(db, 'events', eventId);
+            const d = (await tx.get(ref)).data() || {};
+            const base = readUids(d);
+            const uids = toggle.checked
+              ? (base.includes(currentUser.uid) ? base : [...base, currentUser.uid])
+              : base.filter(u => u !== currentUser.uid);
+            tx.update(ref, { [field]: uids });
+          });
+          showToast(toggle.checked ? onMsg : '通知をオフにしました');
+        } catch (err) { if (toggle.checked) toggle.checked = false; showToast('設定に失敗しました'); console.error(err); }
+      });
+    }
+    attachNotifyToggle('notifyToggle', 'notifyUids',
+      d => d.notifyUids || [], '🔔 参加登録の通知をオンにしました');
+    // 精算：settleNotifyUids 未設定の旧イベントは notifyUids を初期値として実体化する（旧1トグル仕様互換）
+    attachNotifyToggle('notifySettleToggle', 'settleNotifyUids',
+      d => Array.isArray(d.settleNotifyUids) ? d.settleNotifyUids : (d.notifyUids || []), '🔔 支払済みの通知をオンにしました');
 
     document.getElementById('addMemoBtn')?.addEventListener('click', () => {
       const addMemoWrap = document.getElementById('addMemoWrap');
@@ -4469,6 +4525,7 @@ body.gourmet-open #gFrame {
 
   // ══════════ 座席決め（何次会対応） ══════════
   let seatSel = null;              // 席入れ替え選択 { t,i } または { u:名前 }
+  let tableMoveSel = null;         // 卓の位置入れ替え選択（卓id）
   let seatingAnimating = false;
   let seatingActiveParty = 0;      // 表示中の次会インデックス
 
@@ -4500,16 +4557,40 @@ body.gourmet-open #gFrame {
   }
 
   // 卓レイアウトに応じた「隣り合う席」ペア（長机=左右＋対面／円卓=円周）
-  function seatNeighborPairs(cap, shape) {
+  // 長机の上段人数。奇数定員はホストがどちら側を多くするか選べる（t.split: 'top'=上が多い(既定)/'bottom'=下が多い）
+  function tableTopCount(t) {
+    const cap = parseInt(t && t.capacity) || 0;
+    return (t && t.split === 'bottom') ? Math.floor(cap / 2) : Math.ceil(cap / 2);
+  }
+
+  // 上下の振り分け(split)変更時：配置済みの参加者を「行ごと・並びそのまま」入れ替えるパッチを作る。
+  // 旧上段(oldTopCount人)が新しい下段に、旧下段が新しい上段になる。🔒ロック位置も同じ席の人に追従する。
+  function flipTableRowsPatch(party, tid, oldTopCount) {
+    const arr = (((party && party.assignment) || {})[tid] || []).slice();
+    if (!arr.length) return null;
+    const h = Math.max(0, Math.min(parseInt(oldTopCount) || 0, arr.length));
+    const assignment = { ...(party.assignment || {}), [tid]: [...arr.slice(h), ...arr.slice(0, h)] };
+    const hNew = arr.length - h;
+    const locks = ((party && party.locks) || []).map(pos => {
+      const sep = String(pos).lastIndexOf(':');
+      const ptid = String(pos).slice(0, sep);
+      const idx = parseInt(String(pos).slice(sep + 1));
+      if (ptid !== tid || !Number.isInteger(idx) || idx < 0 || idx >= arr.length) return pos;
+      return `${ptid}:${idx < h ? hNew + idx : idx - h}`;
+    });
+    return { assignment, locks };
+  }
+
+  function seatNeighborPairs(cap, shape, topCount) {
     const pairs = [];
     if (cap <= 1) return pairs;
     if ((shape || 'rect') === 'round') {
       for (let i = 0; i < cap; i++) { const j = (i + 1) % cap; if (i !== j) pairs.push([i, j]); }
     } else {
-      const half = Math.ceil(cap / 2);
+      const half = Number.isInteger(topCount) ? Math.max(0, Math.min(topCount, cap)) : Math.ceil(cap / 2);
       for (let i = 0; i < half - 1; i++) pairs.push([i, i + 1]);
       for (let i = half; i < cap - 1; i++) pairs.push([i, i + 1]);
-      for (let i = 0; i < cap - half; i++) pairs.push([i, half + i]);
+      for (let i = 0; i < cap - half && i < half; i++) pairs.push([i, half + i]);
     }
     return pairs;
   }
@@ -4517,8 +4598,8 @@ body.gourmet-open #gFrame {
   const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
 
   // 卓内の席順を、隣接・対面とも「同色」「前回の隣/対面」が並びにくいよう最適化
-  function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf, prevAdj) {
-    const neighbors = seatNeighborPairs(cap, shape);
+  function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf, prevAdj, topCount) {
+    const neighbors = seatNeighborPairs(cap, shape, topCount);
     const freeIdx = []; for (let i = 0; i < cap; i++) if (!(i in lockedSeat)) freeIdx.push(i);
     const conflicts = arr => {
       let s = 0;
@@ -4604,7 +4685,7 @@ body.gourmet-open #gFrame {
           const arr = norm[t.id] || [];
           const present = arr.filter(Boolean);
           for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) bump(coTable, present[i], present[j]);
-          for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape)) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
+          for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape, tableTopCount(t))) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
         });
       });
     });
@@ -4699,9 +4780,32 @@ body.gourmet-open #gFrame {
         if (nm != null && idx >= 0 && idx < cap) lockedSeat[idx] = nm;
       });
       const people = best[i].filter(n => !lockedNames.has(n));
-      assignment[t.id] = arrangeTableSeats(cap, t.shape, lockedSeat, people, n => seatColorOf(data, n), avoid.adj);
+      assignment[t.id] = arrangeTableSeats(cap, t.shape, lockedSeat, people, n => seatColorOf(data, n), avoid.adj, tableTopCount(t));
     });
     return { assignment };
+  }
+
+  // 卓のグリッド位置（slot: 行優先の通し番号）を正規化し「slot順の配列（空きマスは null）」を返す。
+  // slot未設定・重複・不正値の卓は、卓配列の順に空いているスロットへ詰める。
+  // 配列長は列数の倍数に切り上げるので、末尾に半端な空きマスが並ぶ（そこへも卓を移動できる）。
+  function normalizeTableSlots(tables, cols) {
+    const c = Math.max(1, parseInt(cols) || 1);
+    const bySlot = new Map();
+    const pending = [];
+    (tables || []).forEach(t => {
+      const s = parseInt(t && t.slot);
+      if (Number.isInteger(s) && s >= 0 && !bySlot.has(s)) bySlot.set(s, t); else pending.push(t);
+    });
+    let free = 0;
+    pending.forEach(t => { while (bySlot.has(free)) free++; bySlot.set(free, t); });
+    if (!bySlot.size) return [];
+    // 卓数が列数で割り切れる場合（例：2卓×2列）は空きマスを作らず詰めて表示。
+    // 割り切れない場合（例：3卓×2列＝1マス余る）のみ、余りマスの位置(slotの隙間)を保持する
+    const entries = [...bySlot.entries()].sort((a, b) => a[0] - b[0]);
+    if (entries.length % c === 0) return entries.map(e => e[1]);
+    const maxSlot = entries[entries.length - 1][0];
+    const total = Math.ceil((maxSlot + 1) / c) * c;
+    return Array.from({ length: total }, (_, i) => bySlot.get(i) || null);
   }
 
   // 参加者名に敬称（さん・くん等）が誰一人ついていないか判定。
@@ -4756,8 +4860,8 @@ body.gourmet-open #gFrame {
   function addSeatingParty() {
     const parties = getParties(latestEventData).map(p => ({ ...p }));
     const src = parties[clampActiveIdx(parties)];
-    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect' }));
-    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice() });
+    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
+    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1 });
     seatingActiveParty = parties.length - 1;
     updateParties(parties);
     showToast(`${parties.length}次会を追加しました（卓は前回をコピー）`);
@@ -4837,31 +4941,73 @@ body.gourmet-open #gFrame {
 
     let html = isPreview
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
-      : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の丸い<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
-    tables.forEach(t => {
+      : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
+    // 卓の並び（列数）。ホストが設定し、参加者も同じ位置関係で見る
+    const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, 3, tables.length || 1));
+    if (isHost && tables.length > 1) {
+      html += `<div class="seat-cols-ctrl">卓の並び：${[1, 2, 3].filter(n => n <= tables.length).map(n =>
+        `<button type="button" class="seat-cols-btn${cols === n ? ' selected' : ''}" data-cols="${n}">${n}列</button>`).join('')}
+        <span>／「⇄ 移動」で卓の位置を入れ替え</span></div>`;
+    }
+    // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する
+    const slotArr = normalizeTableSlots(tables, cols);
+    const slotOf = {}; slotArr.forEach((t, i) => { if (t) slotOf[t.id] = i; });
+    let tablesHtml = '';
+    slotArr.forEach((t, si) => {
+      if (!t) {
+        tablesHtml += isHost
+          ? `<div class="seat-empty-slot${tableMoveSel ? ' active' : ''}" data-slot="${si}">${tableMoveSel ? 'ここへ移動' : '空きスペース'}</div>`
+          : `<div class="seat-empty-slot ghost"></div>`;
+        return;
+      }
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
       const filled = arr.filter(Boolean).length;
-      html += `<div class="seat-table-block"><div class="stb-name" style="justify-content:flex-end;"><span class="stc-count">${filled}/${cap}</span></div>`;
+      // 参加者には満席数カウント（4/4等）もヘッダバーも出さない。ホストは卓名＋移動＋カウント
+      const moveBtn = (isHost && tables.length > 1)
+        ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
+      const headBar = isHost
+        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${moveBtn}<span class="stc-count">${filled}/${cap}</span></span></div>`
+        : '';
+      tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
       if ((t.shape || 'rect') === 'round') {
         const R = 44;
-        html += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
+        tablesHtml += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
         arr.forEach((n, i) => {
           const ang = (-90 + i * 360 / Math.max(cap, 1)) * Math.PI / 180;
           const x = 50 + R * Math.cos(ang), y = 50 + R * Math.sin(ang);
-          html += `<div style="position:absolute;left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;transform:translate(-50%,-50%);">${chip(n, t.id, i)}</div>`;
+          tablesHtml += `<div style="position:absolute;left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;transform:translate(-50%,-50%);">${chip(n, t.id, i)}</div>`;
         });
-        html += `</div>`;
+        tablesHtml += `</div>`;
       } else {
-        const half = Math.ceil(cap / 2);
-        html += `<div class="seat-longtable"><div class="seat-longtable-inner">
+        const half = tableTopCount(t); // 奇数定員はホスト設定(split)で上下どちらを多くするか決まる
+        tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner">
           <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, t.id, i)).join('')}</div>
           <div class="seat-table-bar">TABLE</div>
           <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, t.id, half + i)).join('')}</div>
         </div></div>`;
       }
-      html += `</div>`;
+      tablesHtml += `</div>`;
     });
+    tablesHtml = `<div class="seat-tables-grid" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
+    // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
+    const entrance = party.entrance || null;
+    if (isHost || entrance) {
+      const entCell = (side, vert) => {
+        const sel = entrance === side;
+        if (isHost) return `<button type="button" class="seat-entrance-btn${vert ? ' vert' : ''}${sel ? ' selected' : ''}" data-ent="${side}" title="${sel ? '入り口の選択を解除' : 'この側を店の入り口にする'}">${sel ? '🚪 店の入り口' : '入り口'}</button>`;
+        return sel ? `<div class="seat-entrance-label${vert ? ' vert' : ''}">🚪 店の入り口</div>` : '';
+      };
+      html += `<div class="seat-entrance-grid">
+        <div class="se-top">${entCell('top', false)}</div>
+        <div class="se-left">${entCell('left', true)}</div>
+        <div class="se-main">${tablesHtml}</div>
+        <div class="se-right">${entCell('right', true)}</div>
+        <div class="se-bottom">${entCell('bottom', false)}</div>
+      </div>`;
+    } else {
+      html += tablesHtml;
+    }
     // プレビュー時は未割当ゾーン・クリックハンドラ不要（配置ロジック未確定のため）
     if (!isPreview && (unassigned.length || (isHost && seatSel && seatSel.t))) {
       html += `<div class="seat-unassigned seat-unassigned-zone"><b>未割当：</b><div class="seat-row" style="justify-content:flex-start;">${
@@ -4873,9 +5019,62 @@ body.gourmet-open #gFrame {
     }
     el.innerHTML = html;
 
+    // 入り口の選択はプレビュー中（席決め前）でも可能。同じ辺をもう一度押すと解除
+    el.querySelectorAll('.seat-entrance-btn').forEach(btn => btn.addEventListener('click', () => {
+      const cur = activeParty(latestEventData).entrance || null;
+      const side = btn.dataset.ent;
+      updateActiveParty({ entrance: cur === side ? null : side });
+    }));
+    // 卓の並び（列数・位置入れ替え）。プレビュー中でも設定可能
+    el.querySelectorAll('.seat-cols-btn').forEach(btn => btn.addEventListener('click', () => {
+      updateActiveParty({ tableCols: parseInt(btn.dataset.cols) || 1 });
+    }));
+    el.querySelectorAll('.seat-move-btn').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      tableMoveSel = (tableMoveSel === btn.dataset.move) ? null : btn.dataset.move;
+      renderSeatingResult(latestEventData);
+    }));
+    if (isHost && tableMoveSel) {
+      // 移動モード中の保存：現在の正規化済みslotを全卓に確定させたうえで変更を適用する
+      const applySlots = (mutate) => {
+        const ts = (activeParty(latestEventData).tables || []).map(x => ({ ...x, slot: slotOf[x.id] }));
+        mutate(ts);
+        updateActiveParty({ tables: ts });
+      };
+      // 卓ブロックのタップ＝位置の入れ替え。capture で席チップ等のハンドラより先に奪う
+      el.querySelectorAll('.seat-table-block').forEach(blk => blk.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        const tid = blk.dataset.tblwrap;
+        const from = tableMoveSel;
+        tableMoveSel = null;
+        if (tid && from && tid !== from) {
+          applySlots(ts => {
+            const a = ts.find(t => t.id === from), b = ts.find(t => t.id === tid);
+            if (a && b) { const tmp = a.slot; a.slot = b.slot; b.slot = tmp; }
+          });
+          return;
+        }
+        renderSeatingResult(latestEventData);
+      }, { capture: true }));
+      // 空きマスのタップ＝そのマスへ移動（例：3卓2列で余った1マスにも配置できる）
+      el.querySelectorAll('.seat-empty-slot[data-slot]').forEach(slotEl => slotEl.addEventListener('click', e => {
+        e.stopPropagation();
+        const si = parseInt(slotEl.dataset.slot);
+        const from = tableMoveSel;
+        tableMoveSel = null;
+        applySlots(ts => { const a = ts.find(t => t.id === from); if (a && Number.isInteger(si)) a.slot = si; });
+      }));
+    }
+
     if (!isHost || isPreview) return;
     el.querySelectorAll('.seat-chip[data-t], .seat-chip[data-u], .seat-chip[data-uzone]').forEach(c => c.addEventListener('click', () => onSeatChipClick(c)));
-    el.querySelectorAll('.seat-lock-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); toggleSeatLock(b.dataset.lock); }));
+    el.querySelectorAll('.seat-lock-btn').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      // 入れ替え選択中に「他の」チップの🔒部分をタップした場合は、ロックではなく入れ替え先の指定として扱う
+      const chip = b.closest('.seat-chip');
+      if (seatSel && chip && !chip.classList.contains('selected')) { onSeatChipClick(chip); return; }
+      toggleSeatLock(b.dataset.lock);
+    }));
   }
 
   function toggleSeatLock(pos) {
@@ -5004,15 +5203,25 @@ body.gourmet-open #gFrame {
     if (!box) return;
     const party = activeParty(data);
     const tables = party.tables || [];
-    box.innerHTML = tables.map(t => `<div class="seat-table-row" data-id="${escHtml(t.id)}">
+    box.innerHTML = tables.map(t => {
+      const cap = parseInt(t.capacity) || 0;
+      // 長机×奇数定員のときだけ、上下どちらを多くするか選べる（例：7人→上4・下3 / 上3・下4）
+      const oddSplit = ((t.shape || 'rect') === 'rect' && cap % 2 === 1 && cap > 1)
+        ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の上下の振り分け">
+            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>上${Math.ceil(cap / 2)}・下${Math.floor(cap / 2)}</option>
+            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>上${Math.floor(cap / 2)}・下${Math.ceil(cap / 2)}</option>
+          </select>` : '';
+      return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
         <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
-        <input type="number" class="stcap" min="0" value="${parseInt(t.capacity) || 0}" placeholder="定員">
+        <input type="number" class="stcap" min="0" value="${cap}" placeholder="定員">
         <select class="stshape" style="width:auto;margin-bottom:0;padding:8px 8px;">
           <option value="rect" ${(t.shape || 'rect') === 'rect' ? 'selected' : ''}>長机</option>
           <option value="round" ${t.shape === 'round' ? 'selected' : ''}>円卓</option>
         </select>
+        ${oddSplit}
         <button type="button" class="btn-remove st-del" data-id="${escHtml(t.id)}" aria-label="卓を削除">✕</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     const members = roundMembers(data, party);
     const totalCap = tables.reduce((s, t) => s + (parseInt(t.capacity) || 0), 0);
     const hint = document.getElementById('seatingCapacityHint');
@@ -5026,12 +5235,28 @@ body.gourmet-open #gFrame {
         const name = row.querySelector('.stn').value.trim() || '卓';
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
         const shape = row.querySelector('.stshape').value === 'round' ? 'round' : 'rect';
-        const next = (activeParty(latestEventData).tables || []).map(t => t.id === id ? { ...t, name, capacity, shape } : t);
-        updateActiveParty({ tables: next });
+        const splitEl = row.querySelector('.stsplit');
+        const party = activeParty(latestEventData);
+        const prevT = (party.tables || []).find(t => t.id === id);
+        const next = (party.tables || []).map(t => t.id === id
+          ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
+          : t);
+        const patch = { tables: next };
+        // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
+        if (splitEl && prevT && (prevT.shape || 'rect') === 'rect') {
+          const oldSplit = prevT.split === 'bottom' ? 'bottom' : 'top';
+          const newSplit = splitEl.value === 'bottom' ? 'bottom' : 'top';
+          if (oldSplit !== newSplit) {
+            const flip = flipTableRowsPatch(party, id, tableTopCount(prevT));
+            if (flip) Object.assign(patch, flip);
+          }
+        }
+        updateActiveParty(patch);
       };
       row.querySelector('.stn').addEventListener('blur', save);
       row.querySelector('.stcap').addEventListener('blur', save);
       row.querySelector('.stshape').addEventListener('change', save);
+      row.querySelector('.stsplit')?.addEventListener('change', save);
     });
     box.querySelectorAll('.st-del').forEach(b => b.addEventListener('click', () => {
       const id = b.dataset.id;
@@ -5880,7 +6105,9 @@ body.gourmet-open #gFrame {
     if (!mount) return;
     // 参加者URL(participantUrlWrap)は精算画面内で settleShareUrl と重複するため移動しない。
     // 通知設定と共同ホスト管理のみ精算画面に集約する。
-    ['notifyWrap', 'coHostWrap'].forEach(id => {
+    // 通知は機能別トグルに分割済み：精算の通知トグル(notifySettleWrap)は精算画面に常設のため、
+    // 日程調整用の notifyWrap はもう移設しない
+    ['coHostWrap'].forEach(id => {
       const el = document.getElementById(id);
       if (el) mount.appendChild(el);
     });
