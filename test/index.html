@@ -424,6 +424,11 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-move-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
   border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
 .seat-move-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
+.seat-empty-slot { border: 1.5px dashed var(--border); border-radius: 12px; min-height: 90px;
+  display: flex; align-items: center; justify-content: center; color: #c9c4b4;
+  font-size: 0.74rem; margin-bottom: 14px; align-self: stretch; }
+.seat-empty-slot.active { border-color: var(--green); color: var(--green); cursor: pointer; background: #f7faf0; }
+.seat-empty-slot.ghost { border: none; min-height: 0; margin: 0; }
 .seat-cols-ctrl { display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
   font-size: 0.74rem; color: var(--text-muted); flex-wrap: wrap; }
 .seat-cols-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
@@ -4732,6 +4737,25 @@ body.gourmet-open #gFrame {
     return { assignment };
   }
 
+  // 卓のグリッド位置（slot: 行優先の通し番号）を正規化し「slot順の配列（空きマスは null）」を返す。
+  // slot未設定・重複・不正値の卓は、卓配列の順に空いているスロットへ詰める。
+  // 配列長は列数の倍数に切り上げるので、末尾に半端な空きマスが並ぶ（そこへも卓を移動できる）。
+  function normalizeTableSlots(tables, cols) {
+    const c = Math.max(1, parseInt(cols) || 1);
+    const bySlot = new Map();
+    const pending = [];
+    (tables || []).forEach(t => {
+      const s = parseInt(t && t.slot);
+      if (Number.isInteger(s) && s >= 0 && !bySlot.has(s)) bySlot.set(s, t); else pending.push(t);
+    });
+    let free = 0;
+    pending.forEach(t => { while (bySlot.has(free)) free++; bySlot.set(free, t); });
+    if (!bySlot.size) return [];
+    const maxSlot = Math.max(...bySlot.keys());
+    const total = Math.ceil((maxSlot + 1) / c) * c;
+    return Array.from({ length: total }, (_, i) => bySlot.get(i) || null);
+  }
+
   // 参加者名に敬称（さん・くん等）が誰一人ついていないか判定。
   // 全員敬称なしの座席表には「（敬称略）」の断り書きを添える（1人でも敬称付きがいれば略していないので出さない）
   function noHonorificsInNames(names) {
@@ -4784,7 +4808,7 @@ body.gourmet-open #gFrame {
   function addSeatingParty() {
     const parties = getParties(latestEventData).map(p => ({ ...p }));
     const src = parties[clampActiveIdx(parties)];
-    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect' }));
+    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
     parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1 });
     seatingActiveParty = parties.length - 1;
     updateParties(parties);
@@ -4873,8 +4897,17 @@ body.gourmet-open #gFrame {
         `<button type="button" class="seat-cols-btn${cols === n ? ' selected' : ''}" data-cols="${n}">${n}列</button>`).join('')}
         <span>／「⇄ 移動」で卓の位置を入れ替え</span></div>`;
     }
+    // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する
+    const slotArr = normalizeTableSlots(tables, cols);
+    const slotOf = {}; slotArr.forEach((t, i) => { if (t) slotOf[t.id] = i; });
     let tablesHtml = '';
-    tables.forEach(t => {
+    slotArr.forEach((t, si) => {
+      if (!t) {
+        tablesHtml += isHost
+          ? `<div class="seat-empty-slot${tableMoveSel ? ' active' : ''}" data-slot="${si}">${tableMoveSel ? 'ここへ移動' : '空きスペース'}</div>`
+          : `<div class="seat-empty-slot ghost"></div>`;
+        return;
+      }
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
       const filled = arr.filter(Boolean).length;
@@ -4950,19 +4983,35 @@ body.gourmet-open #gFrame {
       renderSeatingResult(latestEventData);
     }));
     if (isHost && tableMoveSel) {
-      // 移動モード中：卓ブロックのタップ＝移動先の指定。capture で席チップ等のハンドラより先に奪う
+      // 移動モード中の保存：現在の正規化済みslotを全卓に確定させたうえで変更を適用する
+      const applySlots = (mutate) => {
+        const ts = (activeParty(latestEventData).tables || []).map(x => ({ ...x, slot: slotOf[x.id] }));
+        mutate(ts);
+        updateActiveParty({ tables: ts });
+      };
+      // 卓ブロックのタップ＝位置の入れ替え。capture で席チップ等のハンドラより先に奪う
       el.querySelectorAll('.seat-table-block').forEach(blk => blk.addEventListener('click', e => {
         e.stopPropagation(); e.preventDefault();
         const tid = blk.dataset.tblwrap;
         const from = tableMoveSel;
         tableMoveSel = null;
         if (tid && from && tid !== from) {
-          const ts = (activeParty(latestEventData).tables || []).slice();
-          const a = ts.findIndex(t => t.id === from), b = ts.findIndex(t => t.id === tid);
-          if (a >= 0 && b >= 0) { [ts[a], ts[b]] = [ts[b], ts[a]]; updateActiveParty({ tables: ts }); return; }
+          applySlots(ts => {
+            const a = ts.find(t => t.id === from), b = ts.find(t => t.id === tid);
+            if (a && b) { const tmp = a.slot; a.slot = b.slot; b.slot = tmp; }
+          });
+          return;
         }
         renderSeatingResult(latestEventData);
       }, { capture: true }));
+      // 空きマスのタップ＝そのマスへ移動（例：3卓2列で余った1マスにも配置できる）
+      el.querySelectorAll('.seat-empty-slot[data-slot]').forEach(slotEl => slotEl.addEventListener('click', e => {
+        e.stopPropagation();
+        const si = parseInt(slotEl.dataset.slot);
+        const from = tableMoveSel;
+        tableMoveSel = null;
+        applySlots(ts => { const a = ts.find(t => t.id === from); if (a && Number.isInteger(si)) a.slot = si; });
+      }));
     }
 
     if (!isHost || isPreview) return;

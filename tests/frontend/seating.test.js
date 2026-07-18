@@ -199,6 +199,29 @@ test('席替え: 同じ次会内の再シャッフルは現在の同卓ペアを
   }
 });
 
+// ── normalizeTableSlots（卓のグリッド位置の正規化） ──
+
+test('卓slot: 未設定なら卓順に詰め、列数の倍数まで空き(null)で埋める', () => {
+  const { normalizeTableSlots } = loadFunctions(['normalizeTableSlots']);
+  const t1 = { id: 't1' }, t2 = { id: 't2' }, t3 = { id: 't3' };
+  assert.deepEqual(normalizeTableSlots([t1, t2, t3], 2), [t1, t2, t3, null]);
+  assert.deepEqual(normalizeTableSlots([t1, t2], 1), [t1, t2]);
+  assert.deepEqual(normalizeTableSlots([], 2), []);
+});
+
+test('卓slot: 明示slotは尊重し、間の空きマスも保持する', () => {
+  const { normalizeTableSlots } = loadFunctions(['normalizeTableSlots']);
+  const a = { id: 'a', slot: 3 }, b = { id: 'b', slot: 0 };
+  assert.deepEqual(normalizeTableSlots([a, b], 2), [b, null, null, a]);
+});
+
+test('卓slot: 重複・不正slotの卓は空きスロットへ順に退避する', () => {
+  const { normalizeTableSlots } = loadFunctions(['normalizeTableSlots']);
+  const a = { id: 'a', slot: 1 }, b = { id: 'b', slot: 1 }, c = { id: 'c', slot: -5 };
+  const r = normalizeTableSlots([a, b, c], 2);
+  assert.deepEqual(r, [b, a, c, null]); // aがslot1を確保、b・cは0,2へ
+});
+
 // ── noHonorificsInNames（敬称略の断り書き判定） ──
 
 test('敬称略: 全員敬称なしなら true、1人でも敬称付きがいれば false', () => {
