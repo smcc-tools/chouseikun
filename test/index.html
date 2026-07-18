@@ -4757,7 +4757,11 @@ body.gourmet-open #gFrame {
     let free = 0;
     pending.forEach(t => { while (bySlot.has(free)) free++; bySlot.set(free, t); });
     if (!bySlot.size) return [];
-    const maxSlot = Math.max(...bySlot.keys());
+    // 卓数が列数で割り切れる場合（例：2卓×2列）は空きマスを作らず詰めて表示。
+    // 割り切れない場合（例：3卓×2列＝1マス余る）のみ、余りマスの位置(slotの隙間)を保持する
+    const entries = [...bySlot.entries()].sort((a, b) => a[0] - b[0]);
+    if (entries.length % c === 0) return entries.map(e => e[1]);
+    const maxSlot = entries[entries.length - 1][0];
     const total = Math.ceil((maxSlot + 1) / c) * c;
     return Array.from({ length: total }, (_, i) => bySlot.get(i) || null);
   }

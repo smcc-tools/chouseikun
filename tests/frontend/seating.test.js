@@ -230,10 +230,18 @@ test('卓slot: 未設定なら卓順に詰め、列数の倍数まで空き(null
   assert.deepEqual(normalizeTableSlots([], 2), []);
 });
 
-test('卓slot: 明示slotは尊重し、間の空きマスも保持する', () => {
+test('卓slot: 割り切れない卓数では明示slotの空きマス位置を保持する', () => {
+  const { normalizeTableSlots } = loadFunctions(['normalizeTableSlots']);
+  const a = { id: 'a', slot: 3 }, b = { id: 'b', slot: 0 }, c = { id: 'c', slot: 1 };
+  assert.deepEqual(normalizeTableSlots([a, b, c], 2), [b, c, null, a]); // 左下が空き
+});
+
+test('卓slot: 卓数が列数で割り切れる場合は空きマスを作らず詰める', () => {
   const { normalizeTableSlots } = loadFunctions(['normalizeTableSlots']);
   const a = { id: 'a', slot: 3 }, b = { id: 'b', slot: 0 };
-  assert.deepEqual(normalizeTableSlots([a, b], 2), [b, null, null, a]);
+  assert.deepEqual(normalizeTableSlots([a, b], 2), [b, a]);        // 2卓×2列：隙間があっても詰める
+  const d = { id: 'd', slot: 5 };
+  assert.deepEqual(normalizeTableSlots([a, b, d], 3), [b, a, d]);  // 3卓×3列も同様
 });
 
 test('卓slot: 重複・不正slotの卓は空きスロットへ順に退避する', () => {
