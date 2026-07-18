@@ -390,6 +390,9 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-chip.locked .seat-lock-btn { background: var(--gold); border-color: var(--gold); }
 /* 座席表の席チップは名前の長さに関わらず長さを統一（凸凹しないように） */
 #seatingResult .seat-chip { width: 106px; }
+/* 名前側を伸縮領域にしてロックボタンを常に右端へ固定（タップ判定拡大が右端まで確実に届くように）。
+   ロックボタンの無い参加者用チップでも名前は中央寄せのまま */
+#seatingResult .seat-chip .sc-name { flex: 1 1 auto; min-width: 0; text-align: center; }
 @media (max-width: 480px) {
   .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 122px; }
   #seatingResult .seat-chip { width: 92px; }
