@@ -199,6 +199,24 @@ test('席替え: 同じ次会内の再シャッフルは現在の同卓ペアを
   }
 });
 
+// ── noHonorificsInNames（敬称略の断り書き判定） ──
+
+test('敬称略: 全員敬称なしなら true、1人でも敬称付きがいれば false', () => {
+  const { noHonorificsInNames } = loadFunctions(['noHonorificsInNames']);
+  assert.equal(noHonorificsInNames(['太郎', '花子', '次郎']), true);
+  assert.equal(noHonorificsInNames(['太郎さん', '花子', '次郎']), false);
+  assert.equal(noHonorificsInNames(['太郎', '花子ちゃん']), false);
+  assert.equal(noHonorificsInNames(['田中様', '佐藤くん']), false);
+  assert.equal(noHonorificsInNames(['山田先生']), false);
+});
+
+test('敬称略: 空・空白のみの名簿では表示しない(false)', () => {
+  const { noHonorificsInNames } = loadFunctions(['noHonorificsInNames']);
+  assert.equal(noHonorificsInNames([]), false);
+  assert.equal(noHonorificsInNames(null), false);
+  assert.equal(noHonorificsInNames(['', '  ']), false);
+});
+
 test('席替え履歴: 直前の配置を先頭に追加し直近2件まで保持', () => {
   const { buildAssignmentHistory } = loadFunctions(['buildAssignmentHistory']);
   const a1 = { t1: ['A'] }, a2 = { t1: ['B'] }, a3 = { t1: ['C'] };

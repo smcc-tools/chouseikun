@@ -1459,7 +1459,7 @@ body.gourmet-open #gFrame {
 
   <!-- 結果（参加者・ホスト共通で表示） -->
   <div class="field" style="margin-bottom:20px;">
-    <label>座席表</label>
+    <label>座席表<span id="seatingKeishoNote" style="display:none;font-weight:400;text-transform:none;letter-spacing:0;">（敬称略）</span></label>
     <div id="seatingResult"></div>
   </div>
 
@@ -4704,8 +4704,19 @@ body.gourmet-open #gFrame {
     return { assignment };
   }
 
+  // 参加者名に敬称（さん・くん等）が誰一人ついていないか判定。
+  // 全員敬称なしの座席表には「（敬称略）」の断り書きを添える（1人でも敬称付きがいれば略していないので出さない）
+  function noHonorificsInNames(names) {
+    const HONORIFICS = ['さん', 'くん', 'ちゃん', '様', 'さま', '君', '氏', '先生', '先輩', '殿'];
+    const valid = (names || []).map(n => String(n || '').trim()).filter(Boolean);
+    if (!valid.length) return false;
+    return valid.every(n => !HONORIFICS.some(h => n.endsWith(h)));
+  }
+
   function renderSeatingBoard(data) {
     document.getElementById('seatingTitle').textContent = data.name || '座席決め';
+    const keishoNote = document.getElementById('seatingKeishoNote');
+    if (keishoNote) keishoNote.style.display = noHonorificsInNames(getSortedNames(data)) ? '' : 'none';
     document.querySelectorAll('.seating-host').forEach(el => el.style.display = isHost ? '' : 'none');
     const editBtn = document.getElementById('seatingEditTitleBtn');
     if (editBtn) editBtn.style.display = isHost ? 'inline-block' : 'none';
