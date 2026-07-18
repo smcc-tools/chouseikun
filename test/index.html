@@ -5214,17 +5214,16 @@ body.gourmet-open #gFrame {
     // 各列の登録ボタン行（未登録＝全日未入力の参加者のみ表示。1日でも回答済みなら何も表示しない）
     const registerCells = allEntries.map(([name, votes]) => {
       const answeredCount = dates.filter((_, di) => votes[di]).length;
-      const total = dates.length;
       if (answeredCount === 0) {
         // 未登録（全日未入力）：新規登録ボタン
         return `<td style="text-align:center;padding:4px 6px;background:var(--green-light);">
             <button class="register-btn preset-register-btn" data-name="${escHtml(name)}">登録する</button>
            </td>`;
       }
-      // 登録済み：編集時に押す「登録する」。未回答の日程が残る場合（ホストの日程追加後など）は最初から活性表示。
-      const incomplete = answeredCount < total;
-      return `<td style="text-align:center;padding:4px 6px;${incomplete ? 'background:var(--green-light);' : ''}">
-          <button class="register-btn edit-register-btn" data-name="${escHtml(name)}"${incomplete ? '' : ' style="display:none;"'}>登録する</button>
+      // 登録済み：「登録する」は常時表示しない（未回答の日程が残っていても出さない）。
+      // 「変更」で編集モードに入ったときだけ表示される（edit-btn ハンドラが display を戻す）
+      return `<td style="text-align:center;padding:4px 6px;">
+          <button class="register-btn edit-register-btn" data-name="${escHtml(name)}" style="display:none;">登録する</button>
          </td>`;
     }).join('');
     const registerRow = `<tr>
