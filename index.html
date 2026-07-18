@@ -3007,7 +3007,10 @@ body.gourmet-open #gFrame {
       isHost = true;
       warmUpTabel(); // ホストはお店検索を開く可能性が高いので Cloud Run を事前に起こす
       document.getElementById('hostBadge').style.display = 'inline-block';
-      document.querySelectorAll('.host-only').forEach(el => el.style.display = 'inline-block');
+      // インラインの display:none を外して各要素の自然な表示に戻す
+      // （旧実装の 'inline-block' 固定は、venueBriefSection 等のパネルdivが内容幅に縮み、
+      //   中の width:100% ボタンが「保存」より短く見える崩れの原因だった）
+      document.querySelectorAll('.host-only').forEach(el => el.style.display = '');
       document.getElementById('hostNav').style.display = 'block';
       document.body.classList.add('has-hostnav');
       const base = `${location.origin}${location.pathname}`;
