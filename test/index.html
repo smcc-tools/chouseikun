@@ -4114,6 +4114,18 @@ body.gourmet-open #gFrame {
   }
 
   // お店・行き方の表示（参加者には内容があるときだけ表示）
+  // Google店舗概要（マップのplaceページ）へ直接飛ばすための検索クエリを組み立てる。
+  // 店名だけだと同名店の候補一覧どまりになりやすいので、
+  // 食べログOGPタイトル「店名（駅/ジャンル） - 食べログ」から駅名を補って一意に解決させる
+  function buildPlaceQuery(shopName, previewTitle) {
+    const title = String(previewTitle || '');
+    const base = String(shopName || '').trim()
+      || title.replace(/\s*-\s*食べログ.*$/, '').replace(/（[^）]*）/g, '').trim();
+    const m = title.match(/（([^）／\/]+)[／\/]?[^）]*）/);
+    const station = m ? m[1].trim() : '';
+    return (station && !base.includes(station)) ? `${base} ${station}` : base;
+  }
+
   function renderVenue(venue) {
     const shop = (venue.shop || '').trim();
     const note = (venue.note || '').trim();
@@ -4152,9 +4164,9 @@ body.gourmet-open #gFrame {
       }
       const mapBtn = document.getElementById('venueShopMapBtn');
       if (placeQuery) {
-        // Google検索に飛ばす：店名で検索すると店舗情報（ナレッジパネル）が表示される
-        // （旧: マップ検索だと候補一覧どまりで店舗情報に届かないことがあった）
-        mapBtn.href = `https://www.google.com/search?q=${encodeURIComponent(placeQuery)}`;
+        // 店名＋駅名でマップのplace検索 → 一意に解決するとその店のGoogle店舗概要ページに直行する
+        const pq = buildPlaceQuery(shopName, previewTitle);
+        mapBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pq || placeQuery)}`;
         mapBtn.style.display = 'inline-flex';
       } else {
         mapBtn.style.display = 'none';
