@@ -538,6 +538,10 @@ td.input-col { background: #F6F9F0; border-left: 1px solid var(--green-mid); tex
 
 /* ── 回答テーブル ── */
 .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--border); background: #fff; }
+/* 回答入力への導線CTA（表が横スクロールするときだけ表示） */
+.jump-input-cta { display:block; width:100%; margin-bottom:10px; padding:11px 14px; background:var(--green); color:#fff; border:none; border-radius:10px; font-size:0.9rem; font-weight:700; cursor:pointer; box-shadow:0 3px 10px rgba(45,66,40,0.18); }
+.jump-input-cta:hover { background:var(--green-dark); }
+.jump-input-cta:active { transform:scale(0.99); }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 300px; }
 thead tr { background: #F4F2EA; }
 th { padding: 13px 6px; text-align: center; color: #5A6B4E; font-weight: 700; white-space: nowrap; font-size: 0.8rem; border-bottom: 1.5px solid var(--green-mid); letter-spacing: 0.02em; }
@@ -805,8 +809,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
    SPは下部浮遊ピル、PC(≥768px)はヘッダー直下の上部横タブバーに切替（下のmedia queryで上書き） */
 #hostNav { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; top:auto; width:min(680px, calc(100% - 20px)); z-index:50; background:rgba(251,247,236,0.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--green-mid); border-radius:18px; box-shadow:0 10px 30px rgba(45,66,40,0.16); }
 #hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:5px; }
-.hostnav-btn { display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:#6E7460; cursor:pointer; border-radius:13px; font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
+.hostnav-btn { position:relative; display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:#6E7460; cursor:pointer; border-radius:13px; font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
 .hostnav-btn .hn-lbl { white-space:nowrap; }
+/* 参加者に公開中のビューを示すドット（作業画面のハイライトとは別軸。ゴールド＋背景色リングで緑・無地どちらでも視認可） */
+.hostnav-btn.live::after { content:''; position:absolute; top:6px; right:7px; width:7px; height:7px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 2px rgba(251,247,236,0.95); }
 .hostnav-btn:hover { background:rgba(110,116,96,0.10); color:var(--green); }
 .hostnav-btn.active { background:var(--green); color:#fff; box-shadow:0 3px 10px rgba(45,66,40,0.25); }
 body.has-hostnav { padding-bottom:80px; }
@@ -2073,10 +2079,6 @@ body.gourmet-open #gFrame {
       if (!skip) addDateRow(dateStr);
       current.setDate(current.getDate() + 1);
     }
-    const btn = document.getElementById('autoFillBtn');
-    btn.classList.remove('btn-ready');
-    const hint = document.getElementById('autoFillHint');
-    if (hint) hint.style.display = 'none';
   }
 
   // 3条件が揃ったら自動実行
@@ -2313,6 +2315,18 @@ body.gourmet-open #gFrame {
   document.getElementById('menuScheduleBtn')?.addEventListener('click', goToSchedule);
   document.getElementById('menuSettleBtn')?.addEventListener('click', goToSettleSetup);
   document.getElementById('menuOrderAiBtn')?.addEventListener('click', goToOrderAi);
+
+  // role="button" tabindex の div（メニューCTA／タイル）をキーボードでも起動できるように
+  // Enter / Space を click に委譲する（button要素と同じ挙動にする）
+  document.querySelectorAll('.menu-cta[role="button"], .menu-tile[role="button"]').forEach(el => {
+    el.addEventListener('keydown', (e) => {
+      if (el.classList.contains('soon')) return;
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        el.click();
+      }
+    });
+  });
 
   // ── AI注文提案 ──
   let lastOrderPlanDishes = [];   // 「別の案」用: 直前プランの品名
@@ -3185,8 +3199,18 @@ body.gourmet-open #gFrame {
     rerenderCurrentEvent = applyEventView;
 
     function syncHostNav(view) {
-      document.querySelectorAll('#hostNav .hostnav-btn').forEach(b =>
-        b.classList.toggle('active', b.dataset.view === view));
+      // active=自分が今見ている作業画面。live=参加者に公開中の画面（作業画面≠公開画面を可視化）
+      const data = latestEventData || {};
+      const liveView = deriveView(data);
+      const settleLive = !data.settlePublished; // 精算は settlePublished が無いと参加者に見えない
+      document.querySelectorAll('#hostNav .hostnav-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === view);
+        const isLive = b.dataset.view === liveView && !(liveView === 'settle' && settleLive);
+        b.classList.toggle('live', isLive);
+        const base = (b.querySelector('.hn-lbl')?.textContent || '').trim();
+        if (isLive) b.setAttribute('aria-label', `${base}（参加者に表示中）`);
+        else b.removeAttribute('aria-label');
+      });
     }
     // ホストの下部ナビ：作業画面(hostView)を切り替える（activeView=公開は変えない）
     function setHostView(view, opts) {
@@ -5584,6 +5608,7 @@ body.gourmet-open #gFrame {
     });
 
     wrap.innerHTML = `
+      <button type="button" id="jumpToInputBtn" class="jump-input-cta" style="display:none;">＋ あなたの回答を入力</button>
       <div class="table-wrap">
         <table>
           <thead><tr>
@@ -5646,6 +5671,23 @@ body.gourmet-open #gFrame {
     attachNoteHandlers(wrap);
     attachDeleteHandlers(wrap, dates);
     if (isHost) attachDateEditHandlers(wrap, dates);
+
+    // 回答入力への導線：参加者が多く表が横スクロールするとき、入力列（右端）が画面外になり
+    // 初見参加者が自分の回答欄を見つけづらい。表が実際にはみ出す時だけCTAを出し、
+    // タップで入力列までスクロール＋名前欄にフォーカスする。
+    (function setupJumpToInput() {
+      const cta = wrap.querySelector('#jumpToInputBtn');
+      const tw = wrap.querySelector('.table-wrap');
+      if (!cta || !tw) return;
+      const overflow = tw.scrollWidth - tw.clientWidth > 24;
+      cta.style.display = overflow ? '' : 'none';
+      if (!overflow) return;
+      cta.addEventListener('click', () => {
+        tw.scrollTo({ left: tw.scrollWidth, behavior: 'smooth' });
+        const nameInput = wrap.querySelector('#newName');
+        if (nameInput) setTimeout(() => nameInput.focus({ preventScroll: true }), 350);
+      });
+    })();
 
     // ── ホスト専用：日程確定ボタン ──
     if (isHost) {
@@ -6662,7 +6704,8 @@ body.gourmet-open #gFrame {
         el.textContent = ok
           ? `金額一致`
           : `¥${partySums[pi].toLocaleString()}（${diff > 0 ? '+' : '−'}¥${Math.abs(diff).toLocaleString()}）`;
-        el.style.color = ok ? '#bff0c0' : '#ffd27a';
+        el.style.color = ok ? 'var(--green)' : 'var(--clay)';
+        el.style.fontWeight = '700';
       }
 
       const summaryCollected = result.querySelector('#summaryCollected');
@@ -6747,7 +6790,8 @@ body.gourmet-open #gFrame {
           el.textContent = ok
             ? '✅ 割合OK'
             : (gap > 0 ? `⚠️ あと +${gap}%` : `⚠️ あと −${-gap}%`);
-          el.style.color = ok ? '#bff0c0' : '#ffd27a';
+          el.style.color = ok ? 'var(--green)' : 'var(--clay)';
+        el.style.fontWeight = '700';
         }
       }
 
