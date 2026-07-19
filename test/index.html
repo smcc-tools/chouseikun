@@ -160,7 +160,7 @@ body {
 .field { margin-bottom: 22px; }
 .field label {
   display: block; font-size: 0.72rem; font-weight: 700;
-  color: #8A8F7C; margin-bottom: 8px;
+  color: #5A6B4E; margin-bottom: 8px;
   letter-spacing: 0.12em; text-transform: uppercase;
 }
 input[type="text"], input[type="date"], input[type="password"], input[type="number"], input[type="time"], textarea, select {
@@ -208,7 +208,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   font-weight: 700; color: white; background: var(--green);
   border-radius: 7px; padding: 4px 7px;
 }
-.day-badge.weekend { background: var(--lime); }
+.day-badge.weekend { background: var(--clay); } /* 白文字が読めるよう淡いlimeから濃いテラコッタへ（コントラスト確保） */
 .btn-remove {
   background: none; border: none; color: #B6B3A2; font-size: 1.1rem;
   cursor: pointer; padding: 4px 8px; border-radius: 6px;
@@ -598,32 +598,32 @@ tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important;
 .confirm-btn {
   font-size: 0.68rem; background: none;
   border: 1px solid var(--green-mid); color: #5A6B4E;
-  border-radius: 999px; cursor: pointer; padding: 3px 10px; margin-left: 6px;
+  border-radius: 999px; cursor: pointer; padding: 6px 12px; margin-left: 6px;
   transition: all 0.15s; white-space: nowrap; font-weight: 600;
 }
 .confirm-btn:hover { background: var(--green-light); }
 .confirm-btn.confirmed { background: var(--gold); border-color: var(--gold); color: white; }
 .reorder-btn {
-  font-size: 0.65rem; background: none;
-  border: 1px solid var(--green-mid); color: #7A8A6E;
-  border-radius: 999px; cursor: pointer; padding: 1px 6px; margin: 1px;
+  font-size: 0.72rem; background: none;
+  border: 1px solid var(--green-mid); color: #5A6B4E;
+  border-radius: 999px; cursor: pointer; padding: 4px 10px; margin: 1px;
   transition: all 0.15s;
 }
 .reorder-btn:hover { background: var(--green-light); color: var(--green); }
 .participant-th { min-width: 60px; font-size: 0.82rem; }
 .edit-btn {
-  display: inline-block; margin-top: 5px; font-size: 0.68rem;
+  display: inline-block; margin-top: 5px; font-size: 0.7rem;
   background: none; border: 1px solid var(--green-mid);
   color: #5A6B4E; border-radius: 999px; cursor: pointer;
-  padding: 2px 9px; font-weight: 500; transition: all 0.15s;
+  padding: 5px 11px; font-weight: 500; transition: all 0.15s;
 }
 .edit-btn:hover { background: var(--green-light); }
 .edit-btn.editing { background: var(--gold); border-color: var(--gold); color: white; }
 .del-btn {
-  display: none; margin-top: 4px; font-size: 0.68rem;
+  display: none; margin-top: 4px; font-size: 0.7rem;
   background: none; border: 1px solid #E6C6BC;
   color: var(--clay); border-radius: 999px; cursor: pointer;
-  padding: 2px 9px; font-weight: 500; transition: all 0.15s;
+  padding: 5px 11px; font-weight: 500; transition: all 0.15s;
 }
 .del-btn.visible { display: inline-block; }
 .del-btn:hover { background: #F7EAE6; }
@@ -816,6 +816,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .hostnav-btn:hover { background:rgba(110,116,96,0.10); color:var(--green); }
 .hostnav-btn.active { background:var(--green); color:#fff; box-shadow:0 3px 10px rgba(45,66,40,0.25); }
 body.has-hostnav { padding-bottom:80px; }
+/* 公開バー表示中はナビと二段重ねになり最下部（共有URL等）が隠れるため余白を増やす */
+body.publish-bar-open { padding-bottom:150px; }
 /* お店検索を下部ナビ経由で開いた時、iframe が固定ナビに隠れないよう高さを詰める */
 body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360px !important; }
 @media (min-width:768px){
@@ -825,6 +827,7 @@ body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360
   #hostNav .hostnav-inner { max-width:980px; margin:0 auto; gap:4px; padding:6px 12px; }
   .hostnav-btn { font-size:0.82rem; padding:12px 4px; min-height:42px; border-radius:11px; }
   body.has-hostnav { padding-bottom:0; }
+  body.publish-bar-open { padding-bottom:88px; } /* PCはナビが上部なので公開バー分だけ確保 */
   body.has-hostnav .page { padding-top:calc(var(--header-h, 62px) + 12px); }
   body.has-hostnav #gFrame { height:calc(100vh - var(--header-h, 62px) - 100px) !important; min-height:420px !important; }  /* M8修正: PCでは下部ナビ分の減算不要 */
   #publishBar { bottom:20px; }
@@ -864,12 +867,12 @@ body.gourmet-open #gFrame {
 @media (max-width: 520px) {
   .page { padding: 16px 10px 0; }
   .card { padding: 18px; border-radius: 16px; }
-  /* メニュー3列を狭い画面に収める */
-  .menu-grid { gap: 8px; }
-  .menu-tile { padding: 14px 6px; gap: 7px; border-radius: 13px; }
+  /* メニュー：狭い画面では2列にして説明文を残す（精算/割り勘等の違いが分かるように） */
+  .menu-grid { gap: 8px; grid-template-columns: repeat(2, 1fr) !important; }
+  .menu-tile { padding: 14px 10px; gap: 7px; border-radius: 13px; }
   .menu-tile .mt-icon { width: 42px; height: 42px; border-radius: 12px; }
-  .menu-tile .mt-title { font-size: 0.86rem; }
-  .menu-tile .mt-desc { display: none; }
+  .menu-tile .mt-title { font-size: 0.9rem; }
+  .menu-tile .mt-desc { display: block; font-size: 0.68rem; line-height: 1.4; }
   .card-title { font-size: 1.08rem; margin-bottom: 18px; }
   h1.header-logo { font-size: 1.1rem; }
   #viewTitle { font-size: 1.18rem; }
@@ -924,7 +927,7 @@ body.gourmet-open #gFrame {
 </div>
 <header class="header">
   <div class="header-inner">
-    <h1 class="header-logo">調整くん</h1>
+    <h1 class="header-logo"><a id="homeLogoLink" href="#" style="color:inherit;text-decoration:none;">調整くん</a></h1>
     <div id="authArea" style="margin-left:auto;display:flex;align-items:center;gap:10px;">
       <div id="authUser" style="display:none;align-items:center;gap:8px;">
         <a id="myEventsNavBtn" href="#" style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:4px 12px;font-size:0.78rem;color:var(--green);cursor:pointer;font-weight:600;text-decoration:none;white-space:nowrap;">トップに戻る</a>
@@ -1729,7 +1732,7 @@ body.gourmet-open #gFrame {
 </nav>
 
 </main>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
@@ -1828,11 +1831,15 @@ body.gourmet-open #gFrame {
 
   // ── ユーティリティ ──────────────────────────
 
+  let _toastTimer = null;
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
+    // 長文（コピー失敗時の操作案内など）が読み切れないよう、文字数に応じて表示時間を延ばす
+    if (_toastTimer) clearTimeout(_toastTimer);
+    const dur = Math.min(8000, Math.max(2500, msg.length * 90));
+    _toastTimer = setTimeout(() => t.classList.remove('show'), dur);
   }
 
   // AI機能（venue-brief / 注文提案）のエラーコードをユーザー向けの日本語に変換
@@ -2662,6 +2669,7 @@ body.gourmet-open #gFrame {
         const nav = document.getElementById('hostNav'); if (nav) nav.style.display = 'none';
         document.body.classList.remove('has-hostnav');
         const bar = document.getElementById('publishBar'); if (bar) bar.style.display = 'none';
+        document.body.classList.remove('publish-bar-open');
         // Tabel iframe にもログアウトを伝播（I10修正）：セッション残存による他ユーザーの誤ログインを防ぐ
         try {
           const f = document.getElementById('gFrame');
@@ -2765,6 +2773,9 @@ body.gourmet-open #gFrame {
   // ヘッダーの「マイイベント」ボタン：トップページ（クエリなし）へ遷移
   const myEventsNavBtn = document.getElementById('myEventsNavBtn');
   if (myEventsNavBtn) myEventsNavBtn.href = location.pathname;
+  // ロゴをトップ（?event= の無い単体ツール一覧）へのリンクに。未ログイン参加者もトップへ戻れる
+  const homeLogoLink = document.getElementById('homeLogoLink');
+  if (homeLogoLink) homeLogoLink.href = location.pathname;
 
   // 初期表示（?event= なしのトップページのみ）
   if (!new URLSearchParams(location.search).get('event')) {
@@ -3147,6 +3158,9 @@ body.gourmet-open #gFrame {
       if (!snap.exists()) {
         document.getElementById('viewCard').style.display = 'block';
         document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">イベントが見つかりません</p>';
+        // 投票の凡例（◯△✕）はイベントが無い時には無関係なので隠す
+        const lg = document.getElementById('voteLegend');
+        if (lg) lg.style.display = 'none';
         return;
       }
       const data = snap.data();
@@ -3286,8 +3300,9 @@ body.gourmet-open #gFrame {
       const bar = document.getElementById('publishBar');
       const btn = document.getElementById('publishViewBtn');
       if (!bar || !btn) return;
-      if (!isHost || !PUBLISHABLE.includes(view)) { bar.style.display = 'none'; return; }
+      if (!isHost || !PUBLISHABLE.includes(view)) { bar.style.display = 'none'; document.body.classList.remove('publish-bar-open'); return; }
       bar.style.display = 'block';
+      document.body.classList.add('publish-bar-open'); // 最下部が公開バーに隠れないよう余白を確保
       // 精算は activeView に加えて settlePublished も立っていて初めて参加者に見える
       const isLive = deriveView(data || {}) === view && (view !== 'settle' || !!(data && data.settlePublished));
       btn.textContent = isLive ? '参加者に表示中' : 'この画面を参加者に表示';
