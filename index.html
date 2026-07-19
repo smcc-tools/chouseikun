@@ -209,6 +209,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   border-radius: 7px; padding: 4px 7px;
 }
 .day-badge.weekend { background: var(--clay); } /* 白文字が読めるよう淡いlimeから濃いテラコッタへ（コントラスト確保） */
+/* 作成ボタン下のログイン必須注記（未ログイン時のみ表示） */
+.login-note { margin-top: 8px; font-size: 0.78rem; color: var(--clay); line-height: 1.6; text-align: center; }
 .btn-remove {
   background: none; border: none; color: #B6B3A2; font-size: 1.1rem;
   cursor: pointer; padding: 4px 8px; border-radius: 6px;
@@ -1116,6 +1118,7 @@ body.gourmet-open #gFrame {
   <button class="btn btn-primary btn-full" id="createBtn" style="padding:14px;">
     イベントを作成してリンクを発行
   </button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 
 </div>
 
@@ -1137,6 +1140,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 </div>
 
 <!-- お知らせ 作成カード（日程調整なしで集合・お店を告知） -->
@@ -1149,6 +1153,7 @@ body.gourmet-open #gFrame {
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
   </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
   <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">※ 開催日・集合時間・お店は、作成後の「お知らせ」画面で入力します。</p>
 </div>
 
@@ -1201,6 +1206,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createWalicaBtn" style="padding:14px;">割り勘を作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 </div>
 
 <!-- 座席決め 作成カード -->
@@ -1222,6 +1228,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createSeatingBtn" style="padding:14px;">座席決めを作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 </div>
 
 <!-- お店検索カード（食べログ検索API連携） -->
@@ -2635,6 +2642,7 @@ body.gourmet-open #gFrame {
 
   onAuthStateChanged(auth, async user => {
     currentUser = user;
+    updateLoginNotes(); // 作成ボタン下のログイン必須注記を表示/非表示
     // ホスト専用URL（?hostcode=）の引き換え。認証状態が確定してから1回だけ実行
     claimHostByUrlCode();
     const signInBtn  = document.getElementById('signInBtn');
@@ -2650,6 +2658,8 @@ body.gourmet-open #gFrame {
       document.getElementById('authAvatar').style.display = user.photoURL ? 'block' : 'none';
       // Tabel iframe が既に開いていれば、この時点でログイン情報を引き継ぐ
       pushAuthToTabel();
+      // 未ログインで作成しようとして保留していた操作を、ログイン確定後に自動実行
+      resumePendingCreate();
     } else if (user) {
       // 匿名ユーザー：ログインボタンは出したまま。ホストUI・マイイベントはそのまま動かす
       signInBtn.style.display = 'flex';
@@ -2784,45 +2794,122 @@ body.gourmet-open #gFrame {
 
   // ── イベント作成 ──────────────────────────────
 
-  document.getElementById('createBtn').addEventListener('click', async () => {
+  // 作成イベントのFirestoreドキュメントを組み立てる純粋関数（DOM・認証に非依存）。
+  // ログイン後の自動継続では sessionStorage に退避した payload から同じ結果を再現する。
+  // ctx: { uid, now, rid }（rid=ID生成関数）
+  function buildEventDoc(actionId, payload, ctx) {
+    const { uid, now, rid } = ctx;
+    const p = payload || {};
+    const membersToParticipants = (members) => {
+      const participants = {};
+      (members || []).forEach((m, i) => { participants[m] = { _note: '', _joinedAt: now + i }; });
+      return participants;
+    };
+    const base = { name: p.name || '', dates: [], memo: '', participants: {}, ownerUids: [uid], confirmedDate: null, participantOrder: [] };
+    switch (actionId) {
+      case 'schedule': {
+        const dates = p.dates || [];
+        const presetNames = p.presetNames || [];
+        const participants = {};
+        presetNames.forEach((pName, i) => {
+          const votes = { _note: '', _joinedAt: now + i };
+          dates.forEach((_, di) => { votes[di] = ''; });
+          participants[pName] = votes;
+        });
+        return { ...base, dates, memo: p.memo || '', participants, participantOrder: presetNames, activeView: 'scheduleCreate' };
+      }
+      case 'settle':
+        return { ...base, participants: membersToParticipants(p.members), participantOrder: (p.members || []).slice(), settleOnly: true, activeView: 'settle' };
+      case 'announce':
+        return { ...base, activeView: 'announce' };
+      case 'walica':
+        return { ...base, participants: membersToParticipants(p.members), participantOrder: (p.members || []).slice(), walica: true, expenses: [], activeView: 'walica' };
+      case 'seating': {
+        const members = (p.members || []).slice();
+        const seatTables = [{ id: rid(6), name: '卓1', capacity: members.length }];
+        const seatParties = [{ id: rid(6), name: '1次会', tables: seatTables, assignment: null, locks: [], absent: [] }];
+        return { ...base, participants: membersToParticipants(members), participantOrder: members, seating: true, activeView: 'seating', seatTags: {}, seatParties };
+      }
+      default:
+        return null;
+    }
+  }
+
+  const CREATE_BTN = {
+    schedule: { id: 'createBtn', label: 'イベントを作成してリンクを発行' },
+    settle:   { id: 'createSettleBtn', label: '精算表を作成' },
+    announce: { id: 'createAnnounceBtn', label: 'お知らせを作成' },
+    walica:   { id: 'createWalicaBtn', label: '割り勘を作成' },
+    seating:  { id: 'createSeatingBtn', label: '座席決めを作成' },
+  };
+  const PENDING_CREATE_KEY = 'chouseikun_pendingCreate';
+
+  // 実際にイベントを書き込んで開く。ログイン確定後（本人クリック or 自動継続）に呼ぶ
+  async function writeCreatedEvent(actionId, payload) {
+    const info = CREATE_BTN[actionId];
+    const btn = info && document.getElementById(info.id);
+    if (btn) { btn.textContent = '作成中...'; btn.disabled = true; }
+    try {
+      const evId = randomId(16);
+      const docData = buildEventDoc(actionId, payload, { uid: currentUser.uid, now: Date.now(), rid: randomId });
+      await setDoc(doc(db, 'events', evId), docData);
+      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
+      await addMyEvent(evId, docData.name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
+      location.href = `${location.origin}${location.pathname}?event=${evId}`;
+    } catch (e) {
+      if (btn && info) { btn.textContent = info.label; btn.disabled = false; }
+      showToast('作成に失敗しました'); console.error(e);
+    }
+  }
+
+  // ログイン必須の作成を実行。未ログインなら入力内容を保留してログイン→復帰後に自動継続する
+  function submitCreate(actionId, payload) {
+    if (currentUser && !currentUser.isAnonymous) { writeCreatedEvent(actionId, payload); return; }
+    try { sessionStorage.setItem(PENDING_CREATE_KEY, JSON.stringify({ actionId, payload, path: location.pathname, ts: Date.now() })); } catch (_) {}
+    showToast('ログインすると作成できます。ログイン後そのまま続行します');
+    signIn();
+  }
+
+  // 作成ボタン下の「ログインが必要です」注記を、未ログイン（またはホスト権限のない匿名）のときだけ表示
+  function updateLoginNotes() {
+    const show = !currentUser || currentUser.isAnonymous;
+    document.querySelectorAll('.login-note').forEach(el => { el.style.display = show ? 'block' : 'none'; });
+  }
+
+  // ログイン確定時（onAuthStateChangedから呼ぶ）：保留中の作成があれば自動実行
+  function resumePendingCreate() {
+    if (!currentUser || currentUser.isAnonymous) return;
+    let pend = null;
+    try {
+      const raw = sessionStorage.getItem(PENDING_CREATE_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(PENDING_CREATE_KEY);
+      pend = JSON.parse(raw);
+    } catch (_) { return; }
+    // 別ページの保留や、ログインを見送った後の古い保留を誤実行しないよう検査
+    // （パス一致＋5分以内。時間切れなら破棄済みのまま何もしない）
+    if (!pend || pend.path !== location.pathname || !CREATE_BTN[pend.actionId]) return;
+    if (!(pend.ts > 0) || Date.now() - pend.ts > 5 * 60 * 1000) return;
+    showToast('ログインしました。作成しています…');
+    writeCreatedEvent(pend.actionId, pend.payload);
+  }
+
+  document.getElementById('createBtn').addEventListener('click', () => {
     const name = document.getElementById('eventName').value.trim();
     const dates = getDates();
     if (!name) { showToast('イベント名を入力してください'); return; }
     if (dates.length === 0) { showToast('候補日を1つ以上選択してください'); return; }
-    // アカウント認可：ホストはログイン必須
-    if (!currentUser) {
-      showToast('イベント作成にはログインが必要です');
-      await signIn();
-      return;
-    }
-    // 事前参加者を空の投票データとして初期化
     const presetNames = getPresetParticipants();
     for (const pName of presetNames) {
       const err = validateParticipantName(pName);
       if (err) { showToast(`事前参加者「${pName}」：${err}`); return; }
     }
-    const btn = document.getElementById('createBtn');
-    btn.textContent = '作成中...';
-    btn.disabled = true;
     const memo = document.getElementById('eventMemo').value.trim();
-    const eventId = randomId(16);
-    const participants = {};
-    const now = Date.now();
-    presetNames.forEach((pName, i) => {
-      const votes = { _note: '', _joinedAt: now + i };
-      dates.forEach((_, di) => { votes[di] = ''; });
-      participants[pName] = votes;
-    });
-    await setDoc(doc(db, 'events', eventId), { name, dates, memo, participants, ownerUids: [currentUser.uid], confirmedDate: null, participantOrder: presetNames, activeView: 'scheduleCreate' });
-    // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
-    await addMyEvent(eventId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
-    // 作成後は自動でイベントページ（候補日の回答/日程入力画面）へ遷移。
-    // 共有用URLはその画面のホスト欄に表示される。
-    location.href = `${location.origin}${location.pathname}?event=${eventId}`;
+    submitCreate('schedule', { name, memo, dates, presetNames });
   });
 
   // ── 精算のみ：作成 ──
-  document.getElementById('createSettleBtn')?.addEventListener('click', async () => {
+  document.getElementById('createSettleBtn')?.addEventListener('click', () => {
     const name = (document.getElementById('settleName')?.value || '').trim();
     const members = getSettleMembers();
     if (!name) { showToast('精算名を入力してください'); return; }
@@ -2838,58 +2925,18 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    if (!currentUser) {
-      showToast('精算作成にはログインが必要です');
-      await signIn();
-      return;
-    }
-    const btn = document.getElementById('createSettleBtn');
-    btn.textContent = '作成中...'; btn.disabled = true;
-    try {
-      const evId = randomId(16);
-      const now = Date.now();
-      const participants = {};
-      members.forEach((m, i) => { participants[m] = { _note: '', _joinedAt: now + i }; });
-      await setDoc(doc(db, 'events', evId), {
-        name, dates: [], memo: '', participants,
-        ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, settleOnly: true, activeView: 'settle',
-      });
-      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
-      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
-      // 作成したイベントを開く（精算画面へ）
-      location.href = `${location.origin}${location.pathname}?event=${evId}`;
-    } catch (e) {
-      btn.textContent = '精算表を作成'; btn.disabled = false;
-      showToast('作成に失敗しました'); console.error(e);
-    }
+    submitCreate('settle', { name, members });
   });
 
   // お知らせを作成（日程調整なし・集合/お店のみ）
-  document.getElementById('createAnnounceBtn')?.addEventListener('click', async () => {
+  document.getElementById('createAnnounceBtn')?.addEventListener('click', () => {
     const name = (document.getElementById('announceName')?.value || '').trim();
     if (!name) { showToast('タイトルを入力してください'); return; }
-    if (!currentUser) { showToast('作成にはログインが必要です'); await signIn(); return; }
-    const btn = document.getElementById('createAnnounceBtn');
-    btn.textContent = '作成中...'; btn.disabled = true;
-    try {
-      const evId = randomId(16);
-      await setDoc(doc(db, 'events', evId), {
-        name, dates: [], memo: '', participants: {},
-        ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: [], activeView: 'announce',
-      });
-      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
-      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
-      location.href = `${location.origin}${location.pathname}?event=${evId}`;
-    } catch (e) {
-      btn.textContent = 'お知らせを作成'; btn.disabled = false;
-      showToast('作成に失敗しました'); console.error(e);
-    }
+    submitCreate('announce', { name });
   });
 
   // 立替・割り勘を作成
-  document.getElementById('createWalicaBtn')?.addEventListener('click', async () => {
+  document.getElementById('createWalicaBtn')?.addEventListener('click', () => {
     const name = (document.getElementById('walicaName')?.value || '').trim();
     const members = walicaDraftMembers.slice();
     if (!name) { showToast('タイトルを入力してください'); return; }
@@ -2904,34 +2951,11 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    if (!currentUser) {
-      showToast('作成にはログインが必要です');
-      await signIn();
-      return;
-    }
-    const btn = document.getElementById('createWalicaBtn');
-    btn.textContent = '作成中...'; btn.disabled = true;
-    try {
-      const evId = randomId(16);
-      const now = Date.now();
-      const participants = {};
-      members.forEach((m, i) => { participants[m] = { _note: '', _joinedAt: now + i }; });
-      await setDoc(doc(db, 'events', evId), {
-        name, dates: [], memo: '', participants,
-        ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, walica: true, expenses: [], activeView: 'walica',
-      });
-      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
-      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
-      location.href = `${location.origin}${location.pathname}?event=${evId}`;
-    } catch (e) {
-      btn.textContent = '割り勘を作成'; btn.disabled = false;
-      showToast('作成に失敗しました'); console.error(e);
-    }
+    submitCreate('walica', { name, members });
   });
 
   // 座席決めを作成
-  document.getElementById('createSeatingBtn')?.addEventListener('click', async () => {
+  document.getElementById('createSeatingBtn')?.addEventListener('click', () => {
     const name = (document.getElementById('seatingName')?.value || '').trim();
     const members = seatingDraftMembers.slice();
     if (!name) { showToast('タイトルを入力してください'); return; }
@@ -2946,38 +2970,7 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    if (!currentUser) {
-      showToast('作成にはログインが必要です');
-      await signIn();
-      return;
-    }
-    const btn = document.getElementById('createSeatingBtn');
-    btn.textContent = '作成中...'; btn.disabled = true;
-    try {
-      const evId = randomId(16);
-      const now = Date.now();
-      const participants = {};
-      members.forEach((m, i) => { participants[m] = { _note: '', _joinedAt: now + i }; });
-      // 既定：卓は1つ（全員ぶんの定員）。1次会からスタート
-      const seatTables = [
-        { id: randomId(6), name: '卓1', capacity: members.length },
-      ];
-      const seatParties = [
-        { id: randomId(6), name: '1次会', tables: seatTables, assignment: null, locks: [], absent: [] },
-      ];
-      await setDoc(doc(db, 'events', evId), {
-        name, dates: [], memo: '', participants,
-        ownerUids: [currentUser.uid], confirmedDate: null,
-        participantOrder: members, seating: true, activeView: 'seating',
-        seatTags: {}, seatParties,
-      });
-      // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
-      await addMyEvent(evId, name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
-      location.href = `${location.origin}${location.pathname}?event=${evId}`;
-    } catch (e) {
-      btn.textContent = '座席決めを作成'; btn.disabled = false;
-      showToast('作成に失敗しました'); console.error(e);
-    }
+    submitCreate('seating', { name, members });
   });
 
   function copyText(text, btnEl, label) {
