@@ -2857,7 +2857,7 @@ body.gourmet-open #gFrame {
   // ログイン必須の作成を実行。未ログインなら入力内容を保留してログイン→復帰後に自動継続する
   function submitCreate(actionId, payload) {
     if (currentUser && !currentUser.isAnonymous) { writeCreatedEvent(actionId, payload); return; }
-    try { sessionStorage.setItem(PENDING_CREATE_KEY, JSON.stringify({ actionId, payload, path: location.pathname })); } catch (_) {}
+    try { sessionStorage.setItem(PENDING_CREATE_KEY, JSON.stringify({ actionId, payload, path: location.pathname, ts: Date.now() })); } catch (_) {}
     showToast('ログインすると作成できます。ログイン後そのまま続行します');
     signIn();
   }
@@ -2872,8 +2872,10 @@ body.gourmet-open #gFrame {
       sessionStorage.removeItem(PENDING_CREATE_KEY);
       pend = JSON.parse(raw);
     } catch (_) { return; }
-    // 別ページの保留を誤実行しないようパス一致を確認
+    // 別ページの保留や、ログインを見送った後の古い保留を誤実行しないよう検査
+    // （パス一致＋5分以内。時間切れなら破棄済みのまま何もしない）
     if (!pend || pend.path !== location.pathname || !CREATE_BTN[pend.actionId]) return;
+    if (!(pend.ts > 0) || Date.now() - pend.ts > 5 * 60 * 1000) return;
     showToast('ログインしました。作成しています…');
     writeCreatedEvent(pend.actionId, pend.payload);
   }
