@@ -209,6 +209,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   border-radius: 7px; padding: 4px 7px;
 }
 .day-badge.weekend { background: var(--clay); } /* 白文字が読めるよう淡いlimeから濃いテラコッタへ（コントラスト確保） */
+/* 作成ボタン下のログイン必須注記（未ログイン時のみ表示） */
+.login-note { margin-top: 8px; font-size: 0.78rem; color: var(--clay); line-height: 1.6; text-align: center; }
 .btn-remove {
   background: none; border: none; color: #B6B3A2; font-size: 1.1rem;
   cursor: pointer; padding: 4px 8px; border-radius: 6px;
@@ -1116,6 +1118,7 @@ body.gourmet-open #gFrame {
   <button class="btn btn-primary btn-full" id="createBtn" style="padding:14px;">
     イベントを作成してリンクを発行
   </button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 
 </div>
 
@@ -1137,6 +1140,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 </div>
 
 <!-- お知らせ 作成カード（日程調整なしで集合・お店を告知） -->
@@ -1149,6 +1153,7 @@ body.gourmet-open #gFrame {
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
   </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
   <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">※ 開催日・集合時間・お店は、作成後の「お知らせ」画面で入力します。</p>
 </div>
 
@@ -1201,6 +1206,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createWalicaBtn" style="padding:14px;">割り勘を作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 </div>
 
 <!-- 座席決め 作成カード -->
@@ -1222,6 +1228,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createSeatingBtn" style="padding:14px;">座席決めを作成</button>
+  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
 </div>
 
 <!-- お店検索カード（食べログ検索API連携） -->
@@ -2635,6 +2642,7 @@ body.gourmet-open #gFrame {
 
   onAuthStateChanged(auth, async user => {
     currentUser = user;
+    updateLoginNotes(); // 作成ボタン下のログイン必須注記を表示/非表示
     // ホスト専用URL（?hostcode=）の引き換え。認証状態が確定してから1回だけ実行
     claimHostByUrlCode();
     const signInBtn  = document.getElementById('signInBtn');
@@ -2860,6 +2868,12 @@ body.gourmet-open #gFrame {
     try { sessionStorage.setItem(PENDING_CREATE_KEY, JSON.stringify({ actionId, payload, path: location.pathname, ts: Date.now() })); } catch (_) {}
     showToast('ログインすると作成できます。ログイン後そのまま続行します');
     signIn();
+  }
+
+  // 作成ボタン下の「ログインが必要です」注記を、未ログイン（またはホスト権限のない匿名）のときだけ表示
+  function updateLoginNotes() {
+    const show = !currentUser || currentUser.isAnonymous;
+    document.querySelectorAll('.login-note').forEach(el => { el.style.display = show ? 'block' : 'none'; });
   }
 
   // ログイン確定時（onAuthStateChangedから呼ぶ）：保留中の作成があれば自動実行
