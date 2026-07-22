@@ -355,14 +355,18 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-lock-btn:hover { border-color: var(--green); background: var(--green-light); }
 .seat-lock-btn:active { transform: scale(0.9); }
 .seat-chip.locked .seat-lock-btn { background: var(--gold); border-color: var(--gold); }
-/* 座席表の席チップは名前の長さに関わらず長さを統一（凸凹しないように） */
-#seatingResult .seat-chip { width: 106px; }
+/* 座席表の席チップは幅を揃える（下限）が、長い名前は「…」で切れず伸びるようにする */
+#seatingResult .seat-chip { min-width: 106px; width: auto; max-width: 220px; }
+/* 円卓は席を円周上に絶対配置するため、固定幅だと上下頂点付近でチップ同士が重なる。
+   円卓のチップは内容に合わせた幅（小さめ・下限解除）にして重なりを防ぐ（長机の統一下限は維持） */
+#seatingResult .seat-round .seat-chip { min-width: 0; width: auto; max-width: 90px; padding: 5px 8px; font-size: 0.78rem; }
 /* 名前側を伸縮領域にしてロックボタンを常に右端へ固定（タップ判定拡大が右端まで確実に届くように）。
    ロックボタンの無い参加者用チップでも名前は中央寄せのまま */
 #seatingResult .seat-chip .sc-name { flex: 1 1 auto; min-width: 0; text-align: center; }
 @media (max-width: 480px) {
   .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 122px; }
-  #seatingResult .seat-chip { width: 92px; }
+  #seatingResult .seat-chip { min-width: 92px; width: auto; max-width: 180px; }
+  #seatingResult .seat-round .seat-chip { min-width: 0; width: auto; max-width: 78px; padding: 4px 7px; font-size: 0.72rem; }
   .seat-lock-btn { width: 24px; height: 24px; }
   .seat-lock-btn::after { left: -6px; right: -11px; top: -8px; bottom: -8px; }
 }
@@ -4933,7 +4937,8 @@ body.gourmet-open #gFrame {
         : '';
       tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
       if ((t.shape || 'rect') === 'round') {
-        const R = 44;
+        // 人数が多いほど円周半径を広げ、頂点付近のチップの重なりを防ぐ（10人以下は従来通り）
+        const R = Math.min(48, 44 + Math.max(0, cap - 10) * 2);
         tablesHtml += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
         arr.forEach((n, i) => {
           const ang = (-90 + i * 360 / Math.max(cap, 1)) * Math.PI / 180;
@@ -5259,7 +5264,8 @@ body.gourmet-open #gFrame {
       };
       html += `<div class="seat-table-block"><div class="stb-name" style="justify-content:flex-end;"><span class="stc-count">${arr.filter(Boolean).length}/${cap}</span></div>`;
       if ((t.shape || 'rect') === 'round') {
-        const R = 44;
+        // 人数が多いほど円周半径を広げ、頂点付近のチップの重なりを防ぐ（10人以下は従来通り）
+        const R = Math.min(48, 44 + Math.max(0, cap - 10) * 2);
         html += `<div class="seat-round"><div class="srt-table">TABLE</div>`;
         arr.forEach((n, i) => {
           const ang = (-90 + i * 360 / Math.max(cap, 1)) * Math.PI / 180;
