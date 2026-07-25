@@ -146,6 +146,11 @@ body {
 
 /* ── フィールド・入力 ── */
 .field { margin-bottom: 22px; }
+/* 数字だけの入力欄（口座番号・支店番号）は、欧文フォントの数字の字面が
+   日本語より約13%小さく見えるため、字面高さが漢字と揃うようサイズを上げる */
+.num-field { font-size: 1.09rem !important; }
+/* 表示側（参加者に見える振込先）の数字も、周囲の日本語と字面が揃うよう少し大きく */
+.num-text { font-size: 1.09em; }
 /* text-transform:uppercase は日本語ラベルで「口」などが半角字形に化けて小さく見えるため使わない
    （英字ラベル前提の装飾。日本語には効果がなく崩れだけが出る） */
 .field label {
@@ -1326,7 +1331,7 @@ body.gourmet-open #gFrame {
       </div>
       <div>
         <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.04em;">支店番号</div>
-        <input type="text" id="bankBranchCode" placeholder="例：001" maxlength="3" inputmode="numeric" style="margin-bottom:0;">
+        <input type="text" id="bankBranchCode" class="num-field" placeholder="例：001" maxlength="3" inputmode="numeric" style="margin-bottom:0;">
       </div>
       <div>
         <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.04em;">支店名</div>
@@ -1337,7 +1342,7 @@ body.gourmet-open #gFrame {
       </div>
       <div>
         <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.04em;">口座番号</div>
-        <input type="text" id="bankAccount" placeholder="例：1234567" style="margin-bottom:0;">
+        <input type="text" id="bankAccount" class="num-field" inputmode="numeric" placeholder="例：1234567" style="margin-bottom:0;">
       </div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer;font-size:0.82rem;color:var(--text);">
@@ -6264,8 +6269,8 @@ body.gourmet-open #gFrame {
           <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;">振込先口座</div>
           <div style="background:#f5f5f5;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:0.9rem;display:flex;gap:24px;flex-wrap:wrap;">
             ${bankInfo.name ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">銀行名</span><div style="font-weight:600;margin-top:2px;">${escHtml(bankInfo.name)}</div></div>` : ''}
-            ${(bankInfo.branchCode || bankInfo.branch) ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">支店</span><div style="font-weight:600;margin-top:2px;">${bankInfo.branchCode ? `${escHtml(bankInfo.branchCode)} ` : ''}${escHtml(bankInfo.branch || '')}</div></div>` : ''}
-            ${bankInfo.account ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">口座番号</span><div style="font-weight:600;margin-top:2px;">${escHtml(bankInfo.account)}</div></div>` : ''}
+            ${(bankInfo.branchCode || bankInfo.branch) ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">支店</span><div style="font-weight:600;margin-top:2px;">${bankInfo.branchCode ? `<span class="num-text">${escHtml(bankInfo.branchCode)}</span> ` : ''}${escHtml(bankInfo.branch || '')}</div></div>` : ''}
+            ${bankInfo.account ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">口座番号</span><div style="font-weight:600;margin-top:2px;"><span class="num-text">${escHtml(bankInfo.account)}</span></div></div>` : ''}
           </div>`;
       } else {
         bankWrap.style.display = 'none';
