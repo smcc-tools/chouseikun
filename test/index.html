@@ -146,10 +146,12 @@ body {
 
 /* ── フィールド・入力 ── */
 .field { margin-bottom: 22px; }
+/* text-transform:uppercase は日本語ラベルで「口」などが半角字形に化けて小さく見えるため使わない
+   （英字ラベル前提の装飾。日本語には効果がなく崩れだけが出る） */
 .field label {
   display: block; font-size: 0.72rem; font-weight: 700;
   color: #5A6B4E; margin-bottom: 8px;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 input[type="text"], input[type="date"], input[type="password"], input[type="number"], input[type="time"], textarea, select {
   font-family: var(--font-ui);
@@ -1297,7 +1299,7 @@ body.gourmet-open #gFrame {
     <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;">振込先口座</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div>
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;">銀行名</div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.04em;">銀行名</div>
         <input type="text" id="bankName" list="bankNameList" placeholder="例：三井住友銀行" style="margin-bottom:0;" autocomplete="off">
         <datalist id="bankNameList">
           <option value="三井住友銀行">
@@ -1323,18 +1325,18 @@ body.gourmet-open #gFrame {
         </datalist>
       </div>
       <div>
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;">支店番号</div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.04em;">支店番号</div>
         <input type="text" id="bankBranchCode" placeholder="例：001" maxlength="3" inputmode="numeric" style="margin-bottom:0;">
       </div>
       <div>
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;">支店名</div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.04em;">支店名</div>
         <div class="branch-ac-wrap">
           <input type="text" id="bankBranch" placeholder="例：本店営業部" style="margin-bottom:0;" autocomplete="off">
           <div class="branch-ac-list" id="branchAcList"></div>
         </div>
       </div>
       <div>
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;">口座番号</div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.04em;">口座番号</div>
         <input type="text" id="bankAccount" placeholder="例：1234567" style="margin-bottom:0;">
       </div>
     </div>
