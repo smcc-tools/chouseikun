@@ -1303,6 +1303,10 @@ body.gourmet-open #gFrame {
 
   <!-- 振込先口座 -->
   <div id="bankInfoWrap" style="margin-bottom:20px;">
+    <!-- ホスト用の入力欄。参加者表示(bankReadOnlyView)とはDOMを分けて表示を切り替える。
+         以前は参加者表示で bankInfoWrap.innerHTML ごと差し替えていたため、ログインで
+         ホストに切り替わった時に入力欄とイベントリスナーが失われていた。 -->
+    <div id="bankHostFields">
     <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;">振込先口座</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div>
@@ -1354,6 +1358,9 @@ body.gourmet-open #gFrame {
     <div id="bankSavedHint" style="display:none;font-size:0.74rem;color:var(--green);margin-top:6px;">
       保存済みの口座を自動入力しました　<button type="button" id="clearBankProfileBtn" style="background:none;border:1px solid var(--green-mid);border-radius:4px;padding:1px 7px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;margin-left:4px;">保存を削除</button>
     </div>
+    </div>
+    <!-- 参加者向けの読み取り専用表示（中身はopenSettlePageで生成） -->
+    <div id="bankReadOnlyView" style="display:none;"></div>
   </div>
   <!-- 精算結果 -->
   <div id="settleResult"></div>
@@ -6267,22 +6274,35 @@ body.gourmet-open #gFrame {
     const partiesCountEl = document.getElementById('partiesCount');
     if (partiesCountEl) partiesCountEl.value = partyCount;
 
-    // 口座情報の表示
+    // 口座情報の表示。ホスト入力欄(bankHostFields)と参加者テキスト(bankReadOnlyView)は
+    // 別DOMにして表示を切り替える。innerHTML で潰すと、ログインでホストに切り替わった時に
+    // 入力欄とそこに紐づくリスナー（保存を削除ボタン等）が復元できなくなるため。
     const bankWrap = document.getElementById('bankInfoWrap');
+    const bankHostFields = document.getElementById('bankHostFields');
+    const bankRoView = document.getElementById('bankReadOnlyView');
     if (readOnly) {
       // 参加者：テキスト表示（入力欄なし）
+      if (bankHostFields) bankHostFields.style.display = 'none';
       if (bankInfo.name || bankInfo.branch || bankInfo.account) {
-        bankWrap.innerHTML = `
+        bankWrap.style.display = '';
+        if (bankRoView) {
+          bankRoView.style.display = '';
+          bankRoView.innerHTML = `
           <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;">振込先口座</div>
           <div style="background:#f5f5f5;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:0.9rem;display:flex;gap:24px;flex-wrap:wrap;">
             ${bankInfo.name ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">銀行名</span><div style="font-weight:600;margin-top:2px;">${escHtml(bankInfo.name)}</div></div>` : ''}
             ${(bankInfo.branchCode || bankInfo.branch) ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">支店</span><div style="font-weight:600;margin-top:2px;">${bankInfo.branchCode ? `<span class="num-text">${escHtml(bankInfo.branchCode)}</span> ` : ''}${escHtml(bankInfo.branch || '')}</div></div>` : ''}
             ${bankInfo.account ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">口座番号</span><div style="font-weight:600;margin-top:2px;"><span class="num-text">${escHtml(bankInfo.account)}</span></div></div>` : ''}
           </div>`;
+        }
       } else {
         bankWrap.style.display = 'none';
       }
     } else {
+      // ホスト：参加者表示を隠して入力欄を戻す（ログインでホストに切り替わった場合に必要）
+      if (bankRoView) { bankRoView.style.display = 'none'; bankRoView.innerHTML = ''; }
+      if (bankHostFields) bankHostFields.style.display = '';
+      bankWrap.style.display = '';
       // ホスト：入力欄に既存値をセット
       if (document.getElementById('bankName')) document.getElementById('bankName').value = bankInfo.name || '';
       if (document.getElementById('bankBranchCode')) {
