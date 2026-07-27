@@ -148,9 +148,12 @@ body {
 .field { margin-bottom: 22px; }
 /* 数字だけの入力欄（口座番号・支店番号）は、欧文フォントの数字の字面が
    日本語より約13%小さく見えるため、字面高さが漢字と揃うようサイズを上げる */
-/* 数字欄はフォントを大きくする分、行高を固定して他の入力欄と高さ・位置を揃える
-   （揃えないと数字欄だけ2px高くなり、隣や下の欄と縦位置がずれる） */
-.num-field { font-size: 1.09rem !important; line-height: 1.2 !important; }
+.num-field { font-size: 1.09rem !important; }
+/* 振込先口座の入力欄は、数字欄(.num-field)だけフォントを大きくしているため
+   行高が font-size に比例して伸び、数字欄だけ約2px高くなって隣や下の欄と縦位置がずれる。
+   行高を rem で固定し、フォントサイズに関わらず全欄の高さを揃える
+   （1.1875rem = 19px は 0.95rem の欄の既定行高と同値なので、見た目は変わらない）。 */
+#bankHostFields input[type="text"] { line-height: 1.1875rem; }
 /* 表示側（参加者に見える振込先）の数字も、周囲の日本語と字面が揃うよう少し大きく */
 .num-text { font-size: 1.09em; }
 /* text-transform:uppercase は日本語ラベルで「口」などが半角字形に化けて小さく見えるため使わない
