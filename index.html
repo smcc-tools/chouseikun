@@ -149,6 +149,11 @@ body {
 /* 数字だけの入力欄（口座番号・支店番号）は、欧文フォントの数字の字面が
    日本語より約13%小さく見えるため、字面高さが漢字と揃うようサイズを上げる */
 .num-field { font-size: 1.09rem !important; }
+/* 振込先口座の入力欄は、数字欄(.num-field)だけフォントを大きくしているため
+   行高が font-size に比例して伸び、数字欄だけ約2px高くなって隣や下の欄と縦位置がずれる。
+   行高を rem で固定し、フォントサイズに関わらず全欄の高さを揃える
+   （1.1875rem = 19px は 0.95rem の欄の既定行高と同値なので、見た目は変わらない）。 */
+#bankHostFields input[type="text"] { line-height: 1.1875rem; }
 /* 表示側（参加者に見える振込先）の数字も、周囲の日本語と字面が揃うよう少し大きく */
 .num-text { font-size: 1.09em; }
 /* text-transform:uppercase は日本語ラベルで「口」などが半角字形に化けて小さく見えるため使わない
@@ -1301,6 +1306,10 @@ body.gourmet-open #gFrame {
 
   <!-- 振込先口座 -->
   <div id="bankInfoWrap" style="margin-bottom:20px;">
+    <!-- ホスト用の入力欄。参加者表示(bankReadOnlyView)とはDOMを分けて表示を切り替える。
+         以前は参加者表示で bankInfoWrap.innerHTML ごと差し替えていたため、ログインで
+         ホストに切り替わった時に入力欄とイベントリスナーが失われていた。 -->
+    <div id="bankHostFields">
     <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;">振込先口座</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div>
@@ -1352,6 +1361,9 @@ body.gourmet-open #gFrame {
     <div id="bankSavedHint" style="display:none;font-size:0.74rem;color:var(--green);margin-top:6px;">
       保存済みの口座を自動入力しました　<button type="button" id="clearBankProfileBtn" style="background:none;border:1px solid var(--green-mid);border-radius:4px;padding:1px 7px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;margin-left:4px;">保存を削除</button>
     </div>
+    </div>
+    <!-- 参加者向けの読み取り専用表示（中身はopenSettlePageで生成） -->
+    <div id="bankReadOnlyView" style="display:none;"></div>
   </div>
   <!-- 精算結果 -->
   <div id="settleResult"></div>
@@ -2974,6 +2986,7 @@ body.gourmet-open #gFrame {
 
   // ホスト判定（アカウントuidベース。旧hostKey方式は互換のため残す）
   async function evaluateHost(data) {
+    const wasHost = isHost;
     const ownerUids = data.ownerUids || [];
     const legacyKeys = data.hostKeys || (data.hostKey ? [data.hostKey] : []);
     const isUidOwner = !!(currentUser && ownerUids.includes(currentUser.uid));
@@ -3019,6 +3032,10 @@ body.gourmet-open #gFrame {
         }
       }
     }
+    // ログインでホスト権限が付いた（または外れた）場合は、精算ページを開き直せるようにする。
+    // このフラグは通常リセットしない（入力の巻き戻し防止）が、参加者モードで開いたままだと
+    // ログインしてもホスト用の精算画面に切り替わらないため、権限が変化した時だけ解除する。
+    if (wasHost !== isHost) hostSettleAutoOpened = false;
     // 開いたイベントをマイイベントに記録（ホスト/参加者問わず、ログイン時）
     saveMyEvent(data);
   }
@@ -6260,22 +6277,35 @@ body.gourmet-open #gFrame {
     const partiesCountEl = document.getElementById('partiesCount');
     if (partiesCountEl) partiesCountEl.value = partyCount;
 
-    // 口座情報の表示
+    // 口座情報の表示。ホスト入力欄(bankHostFields)と参加者テキスト(bankReadOnlyView)は
+    // 別DOMにして表示を切り替える。innerHTML で潰すと、ログインでホストに切り替わった時に
+    // 入力欄とそこに紐づくリスナー（保存を削除ボタン等）が復元できなくなるため。
     const bankWrap = document.getElementById('bankInfoWrap');
+    const bankHostFields = document.getElementById('bankHostFields');
+    const bankRoView = document.getElementById('bankReadOnlyView');
     if (readOnly) {
       // 参加者：テキスト表示（入力欄なし）
+      if (bankHostFields) bankHostFields.style.display = 'none';
       if (bankInfo.name || bankInfo.branch || bankInfo.account) {
-        bankWrap.innerHTML = `
+        bankWrap.style.display = '';
+        if (bankRoView) {
+          bankRoView.style.display = '';
+          bankRoView.innerHTML = `
           <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:10px;">振込先口座</div>
           <div style="background:#f5f5f5;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:0.9rem;display:flex;gap:24px;flex-wrap:wrap;">
             ${bankInfo.name ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">銀行名</span><div style="font-weight:600;margin-top:2px;">${escHtml(bankInfo.name)}</div></div>` : ''}
             ${(bankInfo.branchCode || bankInfo.branch) ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">支店</span><div style="font-weight:600;margin-top:2px;">${bankInfo.branchCode ? `<span class="num-text">${escHtml(bankInfo.branchCode)}</span> ` : ''}${escHtml(bankInfo.branch || '')}</div></div>` : ''}
             ${bankInfo.account ? `<div><span style="color:var(--text-muted);font-size:0.78rem;">口座番号</span><div style="font-weight:600;margin-top:2px;"><span class="num-text">${escHtml(bankInfo.account)}</span></div></div>` : ''}
           </div>`;
+        }
       } else {
         bankWrap.style.display = 'none';
       }
     } else {
+      // ホスト：参加者表示を隠して入力欄を戻す（ログインでホストに切り替わった場合に必要）
+      if (bankRoView) { bankRoView.style.display = 'none'; bankRoView.innerHTML = ''; }
+      if (bankHostFields) bankHostFields.style.display = '';
+      bankWrap.style.display = '';
       // ホスト：入力欄に既存値をセット
       if (document.getElementById('bankName')) document.getElementById('bankName').value = bankInfo.name || '';
       if (document.getElementById('bankBranchCode')) {
@@ -6322,11 +6352,15 @@ body.gourmet-open #gFrame {
   // 何次会セレクタ変更
   document.getElementById('partiesCount')?.addEventListener('change', () => {
     const count = parseInt(document.getElementById('partiesCount').value);
-    // 既存の名前を引き継ぐ
+    // 既存の名前・金額を引き継ぐ（金額を引き継がないと入力済みの合計金額が消えてしまう）
     const existingNames = Array.from(document.querySelectorAll('.party-name-input'))
       .sort((a, b) => parseInt(a.dataset.idx) - parseInt(b.dataset.idx))
       .map(el => el.value.trim());
-    buildPartyAmountsUI(count, [], existingNames, false);
+    const existingAmounts = Array.from(document.querySelectorAll('.party-amount-input'))
+      .sort((a, b) => parseInt(a.dataset.idx) - parseInt(b.dataset.idx))
+      .map(el => el.value === '' ? '' : (parseInt(el.value) || 0));
+    buildPartyAmountsUI(count, existingAmounts, existingNames, false);
+    updatePartyTotal(); // 合計表示と精算表を引き継いだ金額で再計算
   });
 
   function getCurrentAmounts() {
@@ -6500,8 +6534,14 @@ body.gourmet-open #gFrame {
         const v = pAmounts[i] !== undefined ? pAmounts[i] : evenForPerson[i];
         if (readOnly) return `<td class="settle-amount-cell">¥${(v||0).toLocaleString()}</td>`;
         // 次会別の割合セレクタ＋金額入力
-        const wi = wArr[i] !== undefined ? wArr[i] : 100;
-        const wopts = [0,25,50,75,100,125,150,175,200].map(p =>
+        // 金額を手入力すると割合は任意の整数（例:174%）になるため、標準の選択肢に
+        // 無い値は選択肢として追加する。追加しないと選択が外れて先頭の0%が表示され、
+        // 「しばらくすると割合が0%になる」状態になっていた。
+        const wi = Number.isFinite(wArr[i]) ? Math.round(wArr[i]) : 100;
+        const wchoices = [0,25,50,75,100,125,150,175,200];
+        if (!wchoices.includes(wi)) wchoices.push(wi);
+        wchoices.sort((a, b) => a - b);
+        const wopts = wchoices.map(p =>
           `<option value="${p}" ${p===wi?'selected':''}>${p}%</option>`).join('');
         return `<td style="white-space:nowrap;">
           <select class="settle-weight" data-name="${en}" data-party="${i}" title="割合" style="display:block;width:90px;margin:0 0 3px;padding:3px 6px;border:1.5px solid var(--green-mid);border-radius:6px;font-size:0.76rem;background:var(--green-light);color:var(--green-dark);outline:none;">${wopts}</select>
@@ -6711,19 +6751,25 @@ body.gourmet-open #gFrame {
         });
       });
 
-      // 次会ごとに割合の平均が100%か表示（/）
+      // 次会ごとの過不足を表示。判定は「金額の合計＝その会の総額」を基準にする。
+      // 割合(整数%)の合計で判定すると、金額がぴったり合っていても丸め誤差で
+      // 「あと±1〜2%」と出てしまい、「金額一致」と矛盾していたため。
       function updateWeightSums() {
         for (let pi = 0; pi < partyCount; pi++) {
-          let sum = 0, n = 0;
-          result.querySelectorAll(`.settle-weight[data-party="${pi}"]`).forEach(s => { sum += parseInt(s.value) || 0; n++; });
           const el = result.querySelector(`#wsum-${pi}`);
           if (!el) continue;
-          // 目標は「割合の合計＝人数×100%（＝平均100%）」。あと何%増減すればよいかを表示。
-          const gap = n * 100 - sum; // +なら不足（増やす）／−なら超過（減らす）
-          const ok = gap === 0;
+          const partyInp = document.querySelector(`.party-amount-input[data-idx="${pi}"]`);
+          const partyTotal = partyInp ? (parseInt(partyInp.value) || 0) : (partyAmounts[pi] || 0);
+          let amtSum = 0;
+          result.querySelectorAll(`.settle-amount-input[data-party="${pi}"]`).forEach(i => { amtSum += parseInt(i.value) || 0; });
+          const diff = partyTotal - amtSum; // +なら不足（増やす）／−なら超過（減らす）
+          const ok = diff === 0;
+          // 金額の過不足を、均等額に対する割合(%)の目安に換算して表示
+          const share = evenSplitAmounts(partyTotal, count)[0] || 0;
+          const gapPct = share > 0 ? Math.round(diff / share * 100) : 0;
           el.textContent = ok
             ? '✅ 割合OK'
-            : (gap > 0 ? `⚠️ あと +${gap}%` : `⚠️ あと −${-gap}%`);
+            : (diff > 0 ? `⚠️ あと +${gapPct}%` : `⚠️ あと −${-gapPct}%`);
           el.style.color = ok ? 'var(--green)' : 'var(--clay)';
         el.style.fontWeight = '700';
         }
