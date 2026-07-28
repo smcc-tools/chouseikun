@@ -1676,7 +1676,7 @@ body.gourmet-open #gFrame {
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField, query, where, getCountFromServer, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
   import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-functions.js";
@@ -2346,21 +2346,151 @@ body.gourmet-open #gFrame {
     return collection(db, 'users', uid, 'events');
   }
 
-  async function addMyEvent(eventId, name, isHostEvent = false) {
+  // マイイベント一覧の表示に必要な項目だけをイベント本体から取り出す。
+  // これを索引(users/{uid}/events/{id})に複製して持つことで、一覧描画のたびに
+  // 全イベントを読み直す必要がなくなる（読み取り回数が登録件数に比例しなくなる）。
+  // 返す値はそのまま Firestore に書くため、undefined ではなく null を使う。
+  function myEventSummary(data) {
+    const d = data || {};
+    // 参加者に見せている画面。旧データは個別フラグから読み替える。
+    const type = d.activeView
+      || (d.walica ? 'walica' : (d.seating ? 'seating' : (d.settleOnly ? 'settle' : 'schedule')));
+    let confirmedTs = null, dateSource = null;
+    // 開催日：お知らせ等の入力開催日を優先し、無ければ日程調整の確定日
+    const evDate = String(d.eventDate || '').trim();
+    const ci = d.confirmedDate;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(evDate)) {
+      confirmedTs = new Date(evDate + 'T00:00:00').getTime();
+      dateSource = 'input';
+    } else if (ci != null && d.dates && d.dates[ci]) {
+      confirmedTs = new Date(String(d.dates[ci]).split(' ')[0] + 'T00:00:00').getTime();
+      dateSource = 'confirmed';
+    }
+    return { type, confirmedTs, dateSource, orphan: !!d.parentEventId };
+  }
+
+  async function addMyEvent(eventId, name, isHostEvent = false, summary = null) {
     if (!currentUser) return;
     const ref = doc(db, 'users', currentUser.uid, 'events', eventId);
-    await setDoc(ref, { name, host: isHostEvent, createdAt: Date.now() }, { merge: true });
+    const patch = { name, host: isHostEvent, createdAt: Date.now(), updatedAt: serverTimestamp() };
+    // サマリが分かっている時だけ索引に複製する（無い時は既存の値を残す）
+    if (summary) Object.assign(patch, summary, { summaryAt: Date.now(), missing: false });
+    await setDoc(ref, patch, { merge: true });
+    patchMyEventsCache(eventId, patch);
+  }
+
+  // ── マイイベント索引のローカルキャッシュと差分同期 ──
+  // Firestore のクエリは「返ってきたドキュメント数」ぶん読み取りが課金される。
+  // 一覧のたびに索引を全件取ると、登録件数に比例して読み取りが増え続ける。
+  // 索引を端末に保持し、前回以降に変わった分だけを取りに行くことで、
+  // 通常時の読み取りを（件数に関係なく）件数カウント1回＋差分クエリ1回に固定する。
+  const MY_EVENTS_CACHE_KEY = 'chouseikun_myEventsCache_v1';
+  const MY_EVENTS_FULL_RESYNC_MS = 7 * 24 * 3600 * 1000; // 取りこぼし対策の全同期間隔
+
+  // Firestore の Timestamp / 数値 / 未設定 を一律ミリ秒に均す（キャッシュはJSONで持つため）
+  function tsMillis(v) {
+    if (v && typeof v.toMillis === 'function') return v.toMillis();
+    // NaN/Infinity をそのまま水位にすると Timestamp.fromMillis が例外を投げ、
+    // 一覧が「読み込みに失敗しました」で固まるため 0（＝全同期）に倒す
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    return 0;
+  }
+
+  function readMyEventsCache(uid) {
+    try {
+      const c = JSON.parse(localStorage.getItem(MY_EVENTS_CACHE_KEY) || 'null');
+      // 別アカウントのキャッシュを混ぜない
+      if (!c || c.uid !== uid || !c.items) return null;
+      return c;
+    } catch (_) { return null; }
+  }
+
+  function writeMyEventsCache(cache) {
+    try { localStorage.setItem(MY_EVENTS_CACHE_KEY, JSON.stringify(cache)); } catch (_) {}
+  }
+
+  // 自端末の書き込みを即キャッシュへ反映する（patch=null で削除）。
+  // これをしないと、削除・終了切替のたびに件数が食い違って全同期に落ちる。
+  function patchMyEventsCache(eventId, patch) {
+    if (!currentUser) return;
+    const c = readMyEventsCache(currentUser.uid);
+    if (!c) return;
+    if (patch === null) delete c.items[eventId];
+    else {
+      // serverTimestamp() はローカルでは値が無いので、キャッシュには現在時刻を入れておく。
+      // 実際のサーバ値は次回の差分同期で上書きされる。
+      c.items[eventId] = { ...(c.items[eventId] || {}), ...patch, updatedAt: Date.now() };
+    }
+    writeMyEventsCache(c);
+  }
+
+  async function myEventsFullSync(uid) {
+    const snap = await getDocs(userEventsRef(uid));
+    const items = {};
+    let watermark = 0;
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const ms = tsMillis(data.updatedAt);
+      items[d.id] = { ...data, updatedAt: ms };
+      if (ms > watermark) watermark = ms;
+    });
+    const cache = { uid, items, watermark, fullAt: Date.now() };
+    writeMyEventsCache(cache);
+    return cache;
+  }
+
+  async function myEventsDeltaSync(uid, cache) {
+    // 他端末での削除は差分クエリに現れないため、件数の一致で検知して全同期に切り替える。
+    // 件数集計は最大1000件ごとに読み取り1回なので、全件取得よりはるかに安い。
+    const [countSnap, deltaSnap] = await Promise.all([
+      getCountFromServer(userEventsRef(uid)),
+      getDocs(query(userEventsRef(uid), where('updatedAt', '>', Timestamp.fromMillis(cache.watermark)))),
+    ]);
+    const items = { ...cache.items };
+    let watermark = cache.watermark;
+    deltaSnap.docs.forEach(d => {
+      const data = d.data();
+      const ms = tsMillis(data.updatedAt);
+      items[d.id] = { ...data, updatedAt: ms };
+      if (ms > watermark) watermark = ms;
+    });
+    if (countSnap.data().count !== Object.keys(items).length) return await myEventsFullSync(uid);
+    const next = { uid, items, watermark, fullAt: cache.fullAt };
+    writeMyEventsCache(next);
+    return next;
+  }
+
+  let myEventsSyncedAt = 0;  // 直近に同期した時刻（タブ切替の連打で毎回問い合わせないため）
+  const MY_EVENTS_SYNC_MIN_INTERVAL_MS = 30 * 1000;
+
+  async function loadMyEventsIndex(uid) {
+    const cache = readMyEventsCache(uid);
+    // watermark が無い＝updatedAt を持つ索引がまだ無い（初回・旧データのみ）ので全件取る
+    const stale = !cache || !cache.watermark || (Date.now() - (cache.fullAt || 0)) > MY_EVENTS_FULL_RESYNC_MS;
+    if (stale) {
+      const full = await myEventsFullSync(uid);
+      myEventsSyncedAt = Date.now();
+      return full;
+    }
+    // ホスト／参加／終了のタブ切替でも renderMyEvents が走るため、直後の再同期は省く
+    if (Date.now() - myEventsSyncedAt < MY_EVENTS_SYNC_MIN_INTERVAL_MS) return cache;
+    const next = await myEventsDeltaSync(uid, cache);
+    myEventsSyncedAt = Date.now();
+    return next;
   }
 
 
   async function removeMyEvent(eventId) {
     if (!currentUser) return;
     await deleteDoc(doc(db, 'users', currentUser.uid, 'events', eventId));
+    patchMyEventsCache(eventId, null);
   }
 
   async function setMyEventFinished(eventId, finished) {
     if (!currentUser) return;
-    await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId), { finished }, { merge: true });
+    await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId),
+      { finished, updatedAt: serverTimestamp() }, { merge: true });
+    patchMyEventsCache(eventId, { finished });
   }
 
   let myEventsRole = 'host';     // 'host' | 'part' | 'finished'
@@ -2386,9 +2516,9 @@ body.gourmet-open #gFrame {
     list.innerHTML = '<div style="text-align:center;color:#bbb;padding:16px;font-size:0.85rem;">読み込み中…</div>';
     card.style.display = 'block';
 
-    let snap;
+    let cache;
     try {
-      snap = await getDocs(userEventsRef(currentUser.uid));
+      cache = await loadMyEventsIndex(currentUser.uid);
     } catch (err) {
       // 「読み込み中…」が永久表示にならないよう、失敗を明示して再試行できるようにする
       console.error('マイイベント一覧の取得に失敗:', err);
@@ -2398,49 +2528,62 @@ body.gourmet-open #gFrame {
       document.getElementById('myEventsRetryBtn')?.addEventListener('click', () => renderMyEvents());
       return;
     }
-    const events = snap.docs.map(d => ({ eventId: d.id, ...d.data() }));
+    const events = Object.entries(cache.items).map(([eventId, v]) => ({ eventId, ...v }));
 
     if (events.length === 0) {
       list.innerHTML = '<div style="text-align:center;color:#bbb;padding:16px;font-size:0.85rem;">まだイベントがありません</div>';
       return;
     }
 
-    // 各イベントの確定日を取得（並び替え用）
+    // 一覧の表示内容は索引(users/{uid}/events)に複製済みのサマリから組み立てる。
+    // イベント本体を読むのは「サマリがまだ無い旧データ」と「旧ホスト鍵の移行が未完のもの」だけ。
+    // 全件を読み直していた頃は、トップを開くたびに登録件数ぶんの読み取りが発生し、
+    // イベントが増えるほど無料枠を圧迫していた（登録件数に比例しない形にするための変更）。
+    const myEventRef = id => doc(db, 'users', currentUser.uid, 'events', id);
     await Promise.all(events.map(async e => {
-      e.confirmedTs = null;
-      e.dateSource = null;    // 'input'=お知らせ等の入力開催日 / 'confirmed'=日程調整の確定日
-      e.type = 'schedule';
-      e.orphanChild = false;
+      // 索引の値を既定値として展開（サマリ未取得のものは本体から取り直す）
+      e.confirmedTs = e.confirmedTs != null ? e.confirmedTs : null;
+      e.dateSource = e.dateSource || null;  // 'input'=お知らせ等の入力開催日 / 'confirmed'=日程調整の確定日
+      e.type = e.type || 'schedule';
+      e.orphanChild = !!e.orphan;
       e.fetchFailed = false;  // 読取失敗を「日程調整中」に化けさせず区別して表示する
-      e.notFound = false;     // イベント本体が削除済み等で存在しない
+      e.notFound = !!e.missing; // イベント本体が削除済み等で存在しない
+      const needsMigration = !!e.hostKey && !e.hostKeyMigrated;
+      if (e.summaryAt != null && !needsMigration) return;
       try {
         const ev = await getDoc(doc(db, 'events', e.eventId));
-        if (!ev.exists()) { e.notFound = true; return; }
-        const data = ev.data();
-        // 旧イベントハブ方式の子レコード（parentEventId 付き）は現行では未使用。重複表示になるため一覧から除外。
-        e.orphanChild = !!data.parentEventId;
-        // ステータス＝現在参加者に見せている画面（activeView）。旧データはフラグから読み替え。
-        e.type = data.activeView
-          || (data.walica ? 'walica' : (data.seating ? 'seating' : (data.settleOnly ? 'settle' : 'schedule')));
-        // 開催日: 単体お知らせ等の eventDate(YYYY-MM-DD) を優先し、無ければ日程調整の確定日
-        // （renderAnnounceView と同じ優先順位）。ステータスに関わらず取得して並び替えに使う。
-        const evDate = String(data.eventDate || '').trim();
-        const ci = data.confirmedDate;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(evDate)) {
-          e.confirmedTs = new Date(evDate + 'T00:00:00').getTime();
-          e.dateSource = 'input';
-        } else if (ci != null && data.dates && data.dates[ci]) {
-          e.confirmedTs = new Date(data.dates[ci].split(' ')[0] + 'T00:00:00').getTime();
-          e.dateSource = 'confirmed';
+        if (!ev.exists()) {
+          e.notFound = true;
+          // 次回以降このイベントを読み直さないよう、索引にも「不存在」を記録する
+          const miss = { missing: true, summaryAt: Date.now() };
+          await setDoc(myEventRef(e.eventId), { ...miss, updatedAt: serverTimestamp() }, { merge: true })
+            .then(() => patchMyEventsCache(e.eventId, miss))
+            .catch(err => console.warn('マイイベント索引の更新に失敗:', e.eventId, err));
+          return;
         }
+        const data = ev.data();
+        const s = myEventSummary(data);
+        // 旧イベントハブ方式の子レコード（parentEventId 付き）は現行では未使用。重複表示になるため一覧から除外。
+        e.orphanChild = s.orphan;
+        e.type = s.type;
+        e.confirmedTs = s.confirmedTs;
+        e.dateSource = s.dateSource;
+        e.notFound = false;
         // 旧イベント（ownerUidsフィールドが存在しない）で自分が正当なホスト（hostKey一致）なら、
         // 新方式(uid)へ自動移行。以降は ?event=<id> だけでホスト判定され、URLに host= が不要になる。
         // 注: ルール(isLegacyClaim)は「フィールド不存在」のみ許可。空配列 [] は対象外なので試みない。
+        let migrated = true;
         const legacyKeys = data.hostKeys || (data.hostKey ? [data.hostKey] : []);
         if (data.ownerUids === undefined && e.hostKey && legacyKeys.includes(e.hostKey)) {
           try { await updateDoc(doc(db, 'events', e.eventId), { ownerUids: [currentUser.uid] }); }
-          catch (err) { console.warn('旧イベントのホスト移行に失敗:', e.eventId, err); }
+          catch (err) { migrated = false; console.warn('旧イベントのホスト移行に失敗:', e.eventId, err); }
         }
+        // サマリを索引に複製 → 次回からこのイベントは読まない
+        const patch = { ...s, missing: false, summaryAt: Date.now() };
+        if (e.hostKey) patch.hostKeyMigrated = migrated;
+        await setDoc(myEventRef(e.eventId), { ...patch, updatedAt: serverTimestamp() }, { merge: true })
+          .then(() => patchMyEventsCache(e.eventId, patch))
+          .catch(err => console.warn('マイイベント索引の更新に失敗:', e.eventId, err));
       } catch (err) {
         e.fetchFailed = true;
         console.error('イベントの取得に失敗:', e.eventId, err);
@@ -2604,7 +2747,7 @@ body.gourmet-open #gFrame {
       // I1修正：以前ホストだったUIがログアウト後も残る問題への対応
       try {
         isHost = false;
-        myEventSavedAsHost = null;
+        myEventSavedSig = null;
         const hostBadge = document.getElementById('hostBadge'); if (hostBadge) hostBadge.style.display = 'none';
         document.querySelectorAll('.host-only').forEach(el => el.style.display = 'none');
         // ホスト専用URLの行は host-only の外（割り勘の共有欄等）にもあるため明示的に隠して値も消す
@@ -2787,7 +2930,9 @@ body.gourmet-open #gFrame {
       const docData = buildEventDoc(actionId, payload, { uid: currentUser.uid, now: Date.now(), rid: randomId });
       await setDoc(doc(db, 'events', evId), docData);
       // 遷移(unload)で書き込みが失われないよう完了を待つ。失敗しても遷移は続行（イベント自体は作成済み）
-      await addMyEvent(evId, docData.name, true).catch(e => console.warn('マイイベントへの記録に失敗:', e));
+      // サマリも一緒に書いておくと、一覧描画でこのイベントを読み直さずに済む
+      await addMyEvent(evId, docData.name, true, myEventSummary(docData))
+        .catch(e => console.warn('マイイベントへの記録に失敗:', e));
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       if (btn && info) { btn.textContent = info.label; btn.disabled = false; }
@@ -2929,7 +3074,7 @@ body.gourmet-open #gFrame {
   let hostSettleAutoOpened = false; // ホストの初回精算自動表示済みフラグ
   let latestEventData = null;      // 認証状態変化時の再評価用
   let rerenderCurrentEvent = null; // 現在のイベント表示を再描画する関数（ログイン後の再評価用）
-  let myEventSavedAsHost = null;   // マイイベント保存済みのロール（null=未保存）
+  let myEventSavedSig = null;      // マイイベント索引に書いた内容の署名（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
 
   // ── ホスト専用URL：参加者用URLのある各画面へ自動表示 ──
@@ -3043,11 +3188,16 @@ body.gourmet-open #gFrame {
   // 開いたイベントをマイイベント一覧へ保存（ロール変化時のみ書き込み）
   function saveMyEvent(data) {
     if (!currentUser || !eventId) return;
-    if (myEventSavedAsHost === isHost) return;
     const role = isHost;
-    // フラグは書き込み成功後に確定する（失敗したら次の snapshot/再評価で自動的に再試行される）
-    addMyEvent(eventId, data.name, role)
-      .then(() => { myEventSavedAsHost = role; })
+    const summary = myEventSummary(data);
+    // 一覧に出る内容（名前・公開画面・開催日）かホスト権限が変わった時だけ書く。
+    // ロールだけで判定していると、開催日を確定しても索引が古いままになる。
+    // 一方 onSnapshot のたびに書くと更新1回ごとに無駄な書き込みが増えるため、署名で差分を見る。
+    const sig = JSON.stringify([role, data.name || '', summary]);
+    if (myEventSavedSig === sig) return;
+    // 署名は書き込み成功後に確定する（失敗したら次の snapshot/再評価で自動的に再試行される）
+    addMyEvent(eventId, data.name, role, summary)
+      .then(() => { myEventSavedSig = sig; })
       .catch(e => console.warn('マイイベントへの記録に失敗:', e));
   }
 
