@@ -429,6 +429,9 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   font-size: 0.74rem; margin-bottom: 14px; align-self: stretch; }
 .seat-empty-slot.active { border-color: var(--green); color: var(--green); cursor: pointer; background: #f7faf0; }
 .seat-empty-slot.ghost { border: none; min-height: 0; margin: 0; }
+/* ホストが配置を調整した次会では、空けたマスが通常表示でも高さを保つ。
+   min-height:0 のままだと空きマスだけの行が潰れ、意図して空けた行が消えてしまう。 */
+.seat-tables-grid.free .seat-empty-slot.ghost { min-height: 90px; margin-bottom: 14px; }
 .seat-cols-ctrl { display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
   font-size: 0.74rem; color: var(--text-muted); flex-wrap: wrap; }
 .seat-cols-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
@@ -5247,7 +5250,7 @@ body.gourmet-open #gFrame {
       }
       tablesHtml += `</div>`;
     });
-    tablesHtml = `<div class="seat-tables-grid" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
+    tablesHtml = `<div class="seat-tables-grid${party.freeLayout ? ' free' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
     // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
     const entrance = party.entrance || null;
     if (isHost || entrance) {
