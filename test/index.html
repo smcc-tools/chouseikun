@@ -5081,19 +5081,26 @@ body.gourmet-open #gFrame {
     if (!box) return;
     const parties = getParties(data);
     const active = clampActiveIdx(parties);
-    let html = parties.map((p, i) => `<button class="my-event-tab${i === active ? ' active' : ''}" data-party="${i}">${escHtml(p.name || (i + 1) + '次会')}</button>`).join('');
+    // 名称の変更は「表示中のタブをもう一度タップ」で行う。ホストには表示中のタブに ✎ を
+    // 出して気づけるようにする（スマホでは title 属性が出ないため、印を本文に入れる）。
+    let html = parties.map((p, i) => {
+      const cur = i === active;
+      const label = escHtml(p.name || (i + 1) + '次会') + (isHost && cur ? ' ✎' : '');
+      const tip = isHost && cur ? ' title="もう一度タップすると名称を変更できます"' : '';
+      return `<button class="my-event-tab${cur ? ' active' : ''}" data-party="${i}"${tip}>${label}</button>`;
+    }).join('');
     if (isHost) {
-      // 名称の変更は表示中の次会に対して行う（タブごとにボタンを並べると横に伸びるため）
-      html += `<button class="my-event-tab" id="seatingRenamePartyBtn" style="flex:0 0 auto;">名称を変更</button>`;
       html += `<button class="my-event-tab" id="seatingAddPartyBtn" style="flex:0 0 auto;">＋次会</button>`;
       if (parties.length > 1) html += `<button class="my-event-tab" id="seatingDelPartyBtn" style="flex:0 0 auto;color:var(--clay);">この次会を削除</button>`;
     }
     box.innerHTML = html;
     box.querySelectorAll('[data-party]').forEach(b => b.addEventListener('click', () => {
-      seatingActiveParty = parseInt(b.dataset.party); seatSel = null; seatAdjustMode = false;
+      const idx = parseInt(b.dataset.party);
+      // 表示中の次会をもう一度タップ＝名称変更（ホストのみ）。別の次会なら切り替え。
+      if (isHost && idx === active) { renameSeatingParty(); return; }
+      seatingActiveParty = idx; seatSel = null; seatAdjustMode = false;
       renderSeatingBoard(latestEventData);
     }));
-    document.getElementById('seatingRenamePartyBtn')?.addEventListener('click', renameSeatingParty);
     document.getElementById('seatingAddPartyBtn')?.addEventListener('click', addSeatingParty);
     document.getElementById('seatingDelPartyBtn')?.addEventListener('click', deleteSeatingParty);
   }
