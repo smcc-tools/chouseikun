@@ -38,7 +38,9 @@ service cloud.firestore {
       allow delete: if false;
 
       // 更新：ホスト本人 / 参加者の投票 / 支払済みトグル / 立替割り勘の編集 / 旧イベントの移行クレーム
-      allow update: if isOwner() || isParticipantWrite() || isPaidToggle() || isWalicaWrite() || isLegacyClaim();
+      //       / 保存期限の延長（イベントを開いた人なら誰でも）
+      allow update: if isOwner() || isParticipantWrite() || isPaidToggle() || isWalicaWrite()
+                       || isLegacyClaim() || isTtlTouch();
     }
 
     // ホストコード等の非公開データ：イベントのホストのみ読み書き可（参加者からは読めない）
@@ -75,6 +77,15 @@ service cloud.firestore {
               || (('activeView' in resource.data) && resource.data.activeView == 'walica'))
         && request.resource.data.diff(resource.data)
              .affectedKeys().hasOnly(['participants', 'participantOrder', 'expenses']);
+    }
+
+    // 保存期限(ttl_at)の延長のみ。イベントを開いた人なら誰でも可（閲覧は元々全員に開いている）。
+    // 期限を「先に延ばす」方向だけ許し、前倒し＝実質的な削除予約は禁止する。
+    // これを許さないと、ホストが不在のまま参加者だけで使っているイベントが1年で消えてしまう。
+    function isTtlTouch() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ttl_at'])
+        && request.resource.data.ttl_at is timestamp
+        && (!('ttl_at' in resource.data) || request.resource.data.ttl_at > resource.data.ttl_at);
     }
 
     // 旧イベント（ownerUids未設定）をログインユーザーがクレーム（移行用・ownerUidsの新規付与のみ・匿名不可）

@@ -2372,11 +2372,31 @@ body.gourmet-open #gFrame {
   async function addMyEvent(eventId, name, isHostEvent = false, summary = null) {
     if (!currentUser) return;
     const ref = doc(db, 'users', currentUser.uid, 'events', eventId);
-    const patch = { name, host: isHostEvent, createdAt: Date.now(), updatedAt: serverTimestamp() };
+    // ttl_at：索引もイベント本体と同じ1年の保存期限に乗せる（TTLポリシーは
+    // コレクショングループ events に対して設定するため、users/{uid}/events も対象になる）
+    const patch = { name, host: isHostEvent, createdAt: Date.now(), updatedAt: serverTimestamp(), ttl_at: ttlTimestamp() };
     // サマリが分かっている時だけ索引に複製する（無い時は既存の値を残す）
     if (summary) Object.assign(patch, summary, { summaryAt: Date.now(), missing: false });
     await setDoc(ref, patch, { merge: true });
     patchMyEventsCache(eventId, patch);
+  }
+
+  // ── 保存期限（1年）──
+  // イベントを開いた時点から1年後を ttl_at に入れ、Firestore の TTL ポリシーで自動削除させる。
+  // 書き込み経路（updateDoc/runTransaction）は20箇所以上あり、そのすべてに期限更新を足すと
+  // 1箇所の漏れが「使っているのに消える」になって1年後まで気づけない。
+  // 更新は必ずページを開いた状態で起きるため、「開いた時に延長」は「最終更新から1年」を包含する。
+  const EVENT_TTL_MS = 365 * 24 * 3600 * 1000;
+  const EVENT_TTL_REFRESH_SLACK_MS = 30 * 24 * 3600 * 1000; // 開くたびに書かず月1回程度に抑える
+
+  // 期限を書き直すべきか。未設定（TTL導入前のデータ）と、前回延長から十分経った時だけ true。
+  function needsTtlRefresh(ttlMs, nowMs) {
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0) return true;
+    return ttlMs < nowMs + EVENT_TTL_MS - EVENT_TTL_REFRESH_SLACK_MS;
+  }
+
+  function ttlTimestamp() {
+    return Timestamp.fromMillis(Date.now() + EVENT_TTL_MS);
   }
 
   // ── マイイベント索引のローカルキャッシュと差分同期 ──
@@ -2489,7 +2509,7 @@ body.gourmet-open #gFrame {
   async function setMyEventFinished(eventId, finished) {
     if (!currentUser) return;
     await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId),
-      { finished, updatedAt: serverTimestamp() }, { merge: true });
+      { finished, updatedAt: serverTimestamp(), ttl_at: ttlTimestamp() }, { merge: true });
     patchMyEventsCache(eventId, { finished });
   }
 
@@ -3090,9 +3110,16 @@ body.gourmet-open #gFrame {
         const code = await runTransaction(db, async (tx) => {
           const snap = await tx.get(ref);
           const existing = snap.exists() ? String(snap.data().code || '') : '';
-          if (existing) return existing;
+          // ttl_at：イベント本体が消えた後にこの非公開データだけ残らないよう、同じ1年の期限に乗せる
+          // （TTLはサブコレクションへ波及しないため、ここにも明示的に必要）。
+          // ホストがこの画面を開くたびに期限が延びる。1年以上開かれなければコードは失効し、
+          // 次に開いた時に新しいホスト用URLが発行される。
+          if (existing) {
+            tx.set(ref, { ttl_at: ttlTimestamp() }, { merge: true });
+            return existing;
+          }
           const fresh = randomId(20);
-          tx.set(ref, { code: fresh, createdAt: Date.now() });
+          tx.set(ref, { code: fresh, createdAt: Date.now(), ttl_at: ttlTimestamp() });
           return fresh;
         });
         return `${location.origin}${location.pathname}?event=${encodeURIComponent(eventId)}&hostcode=${code}`;
@@ -3193,7 +3220,9 @@ body.gourmet-open #gFrame {
     // 一覧に出る内容（名前・公開画面・開催日）かホスト権限が変わった時だけ書く。
     // ロールだけで判定していると、開催日を確定しても索引が古いままになる。
     // 一方 onSnapshot のたびに書くと更新1回ごとに無駄な書き込みが増えるため、署名で差分を見る。
-    const sig = JSON.stringify([role, data.name || '', summary]);
+    // 月が変わったら署名も変わるようにして、索引の保存期限(ttl_at)が最低でも月1回は延びるようにする
+    const ttlBucket = Math.floor(Date.now() / EVENT_TTL_REFRESH_SLACK_MS);
+    const sig = JSON.stringify([role, data.name || '', summary, ttlBucket]);
     if (myEventSavedSig === sig) return;
     // 署名は書き込み成功後に確定する（失敗したら次の snapshot/再評価で自動的に再試行される）
     addMyEvent(eventId, data.name, role, summary)
@@ -3252,12 +3281,25 @@ body.gourmet-open #gFrame {
       evaluateHost(data);
       applyEventView();
       pushVenueStateToTabel(); // 会場変更をお店検索カードの「✓ 設定しました」表示に反映
+      touchEventTtl(data);     // 開いたので保存期限を1年先へ延ばす（月1回程度に間引き）
     }, (err) => {
       // リスナーがエラーで停止すると、以降の更新（他人の投票・公開切替）が一切反映されず
       // 画面が古いまま静かに凍結する。明示して再読み込みを促す。
       console.error('イベント購読が停止しました:', err);
       showToast('サーバーとの接続が切れました。ページを再読み込みしてください');
     });
+
+    // 保存期限の延長。onSnapshot は更新のたびに発火するため、同一セッションでの二重送信を
+    // フラグで防ぎ、さらに needsTtlRefresh で「前回延長から十分経った時」だけ書き込む。
+    // 失敗しても表示には影響しないので握りつぶす（次に開いた時に再試行される）。
+    let ttlTouched = false;
+    function touchEventTtl(data) {
+      if (ttlTouched) return;
+      if (!needsTtlRefresh(tsMillis(data && data.ttl_at), Date.now())) return;
+      ttlTouched = true;
+      updateDoc(eventRef, { ttl_at: ttlTimestamp() })
+        .catch(e => { ttlTouched = false; console.warn('保存期限の更新に失敗:', e); });
+    }
 
     // latestEventData と isHost/hostView から表示を確定。onSnapshot とログイン後再評価の両方から呼ぶ。
     function applyEventView() {
