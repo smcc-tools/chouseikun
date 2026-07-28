@@ -3632,7 +3632,7 @@ body.gourmet-open #gFrame {
         // 参加者の追加/削除/名前変更を即座に精算表・幹事セレクタへ反映する（リロード不要）。
         // 注: 「0人で開いて精算画面から最初の1人を追加する」ケースを反映できるよう、
         //     旧実装の settleNames.length > 0 ガードは置かない（0人→0人なら差分なしでどのみち走らない）
-        const freshNames = getSortedNames(data);
+        const freshNames = viewMembers(data, 'settle');
         if (JSON.stringify(freshNames) !== JSON.stringify(settleNames)) {
           settleNames = freshNames;
           // 幹事が削除されていたら未設定に戻す
@@ -4453,38 +4453,27 @@ body.gourmet-open #gFrame {
   }
 
   // 精算のみ：メンバー編集画面（精算メニューの作成画面と同じ見た目）
-  async function addSettleMemberName(name) {
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, 'events', eventId);
-      const d = (await tx.get(ref)).data();
-      const ps = { ...(d.participants || {}) };
-      if (Object.keys(ps).some(n => normalizeName(n) === normalizeName(name))) throw new Error('DUP');
-      ps[name] = { _note: '', _joinedAt: Date.now() };
-      const order = [...(d.participantOrder || []), name];
-      tx.update(ref, { participants: ps, participantOrder: order });
-    });
-  }
-  async function renameSettleMemberName(oldName, newName) {
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, 'events', eventId);
-      const d = (await tx.get(ref)).data();
-      const ps = { ...(d.participants || {}) };
-      if (!ps[oldName]) throw new Error('GONE');
-      if (Object.keys(ps).some(n => n !== oldName && normalizeName(n) === normalizeName(newName))) throw new Error('DUP');
-      ps[newName] = ps[oldName]; delete ps[oldName];
-      const order = (d.participantOrder || []).map(n => n === oldName ? newName : n);
-      tx.update(ref, { participants: ps, participantOrder: order });
-    });
-  }
-  async function deleteSettleMemberName(name) {
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, 'events', eventId);
-      const d = (await tx.get(ref)).data();
-      const ps = { ...(d.participants || {}) };
-      delete ps[name];
-      const order = (d.participantOrder || []).filter(n => n !== name);
-      tx.update(ref, { participants: ps, participantOrder: order });
-    });
+  // 座席・割り勘・精算のメンバー編集ハンドラ。土台(日程の参加者)は書き換えず、
+  // その画面の差分だけを更新するので、前のナビには変更が戻らない。
+  // 改名は「元の名前を消して新しい名前を足す」として差分に記録する。
+  function memberDiffHandlers(view) {
+    return {
+      onAdd: async (name) => {
+        try { await mutateMemberDiff(view, 'add', name); showToast(`${name} を追加しました`); }
+        catch (e) { showToast('追加に失敗しました'); console.error(e); }
+      },
+      onRename: async (old, nn) => {
+        try {
+          await mutateMemberDiff(view, 'remove', old);
+          await mutateMemberDiff(view, 'add', nn);
+          showToast('変更しました');
+        } catch (e) { showToast('変更に失敗しました'); console.error(e); }
+      },
+      onDelete: async (nm) => {
+        try { await mutateMemberDiff(view, 'remove', nm); showToast(`${nm} を削除しました`); }
+        catch (e) { showToast('削除に失敗しました'); console.error(e); }
+      },
+    };
   }
 
   // 精算のメンバーリスト（作成画面・メンバー編集画面で共通のデザイン）
@@ -4532,33 +4521,6 @@ body.gourmet-open #gFrame {
     }));
   }
 
-  // メンバー編集画面（既存イベント：変更は即保存）
-  function renderSettleMembers(data) {
-    const wrap = document.getElementById('tableWrap');
-    if (!wrap) return;
-    const members = getSortedNames(data);
-    wrap.innerHTML = `
-      <div class="field" style="margin-bottom:4px;">
-        <label>メンバー</label>
-        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;font-weight:400;text-transform:none;letter-spacing:0;">割り勘の対象者を編集できます（変更は自動保存されます）。</p>
-        <div id="settleMemberBox"></div>
-      </div>`;
-    renderBoxedMemberList(wrap.querySelector('#settleMemberBox'), members, {
-      onAdd: async (name) => {
-        try { await addSettleMemberName(name); showToast(`${name} を追加しました`); }
-        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '追加に失敗しました'); console.error(e); }
-      },
-      onRename: async (old, nn) => {
-        try { await renameSettleMemberName(old, nn); showToast('変更しました'); }
-        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '変更に失敗しました'); console.error(e); }
-      },
-      onDelete: async (nm) => {
-        try { await deleteSettleMemberName(nm); showToast(`${nm} を削除しました`); }
-        catch (e) { showToast('削除に失敗しました'); console.error(e); }
-      },
-    });
-  }
-
   // ══════════ 立替・割り勘（Walica式） ══════════
   // 各人の収支から最小回数の送金を求める
   function computeWalicaSettlement(expenses) {
@@ -4594,26 +4556,13 @@ body.gourmet-open #gFrame {
   }
 
   function renderWalicaBoard(data) {
-    const members = getSortedNames(data);
+    const members = viewMembers(data, 'walica');
     document.getElementById('walicaTitle').textContent = data.name || '立替・割り勘';
     const editBtn = document.getElementById('walicaEditTitleBtn');
     if (editBtn) editBtn.style.display = isHost ? 'inline-block' : 'none';
 
     // メンバー（誰でも編集可・即保存）
-    renderBoxedMemberList(document.getElementById('walicaMemberBox'), members, {
-      onAdd: async (name) => {
-        try { await addSettleMemberName(name); showToast(`${name} を追加しました`); }
-        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '追加に失敗しました'); console.error(e); }
-      },
-      onRename: async (old, nn) => {
-        try { await renameSettleMemberName(old, nn); showToast('変更しました'); }
-        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '変更に失敗しました'); console.error(e); }
-      },
-      onDelete: async (nm) => {
-        try { await deleteSettleMemberName(nm); showToast(`${nm} を削除しました`); }
-        catch (e) { showToast('削除に失敗しました'); console.error(e); }
-      },
-    });
+    renderBoxedMemberList(document.getElementById('walicaMemberBox'), members, memberDiffHandlers('walica'));
 
     renderWalicaExpenses(data);
     renderWalicaSettlement(data);
@@ -4671,7 +4620,7 @@ body.gourmet-open #gFrame {
   }
 
   function openWalicaExpenseForm(data, existing) {
-    const members = getSortedNames(data);
+    const members = viewMembers(data, 'walica');
     const form = document.getElementById('walicaExpenseForm');
     const ex = existing || { title: '', amount: '', payer: members[0] || '', sharedWith: members.slice() };
     form.innerHTML = `
@@ -4904,7 +4853,7 @@ body.gourmet-open #gFrame {
   function activeParty(data) { const ps = getParties(data); return ps[clampActiveIdx(ps)]; }
   function roundMembers(data, party) {
     const absent = new Set(party.absent || []);
-    return getSortedNames(data).filter(n => !absent.has(n));
+    return viewMembers(data, 'seating').filter(n => !absent.has(n));
   }
   function updateParties(parties) { updateSeating({ seatParties: parties }); }
   function updateActiveParty(patch) {
@@ -4936,7 +4885,7 @@ body.gourmet-open #gFrame {
   function buildAvoidance(data, prevParties) {
     const coTable = new Map(), adj = new Map();
     const bump = (m, a, b) => { if (!a || !b || a === b) return; const k = pairKey(a, b); m.set(k, (m.get(k) || 0) + 1); };
-    const allNames = getSortedNames(data);
+    const allNames = viewMembers(data, 'seating');
     prevParties.forEach(p => {
       const assigns = [p.assignment, ...(p.assignmentHistory || [])].filter(Boolean);
       assigns.forEach(assignment => {
@@ -5080,7 +5029,7 @@ body.gourmet-open #gFrame {
   function renderSeatingBoard(data) {
     document.getElementById('seatingTitle').textContent = data.name || '座席決め';
     const keishoNote = document.getElementById('seatingKeishoNote');
-    if (keishoNote) keishoNote.style.display = noHonorificsInNames(getSortedNames(data)) ? '' : 'none';
+    if (keishoNote) keishoNote.style.display = noHonorificsInNames(viewMembers(data, 'seating')) ? '' : 'none';
     document.querySelectorAll('.seating-host').forEach(el => el.style.display = isHost ? '' : 'none');
     const editBtn = document.getElementById('seatingEditTitleBtn');
     if (editBtn) editBtn.style.display = isHost ? 'inline-block' : 'none';
@@ -5141,7 +5090,7 @@ body.gourmet-open #gFrame {
   function renderSeatingAttendance(data) {
     const box = document.getElementById('seatingAttendanceBox');
     if (!box) return;
-    const base = getSortedNames(data);
+    const base = viewMembers(data, 'seating');
     const party = activeParty(data);
     const absent = new Set(party.absent || []);
     if (!base.length) { box.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);">メンバーがいません。下で追加してください。</div>'; return; }
@@ -5387,7 +5336,7 @@ body.gourmet-open #gFrame {
   function renderSeatingMembers(data) {
     const box = document.getElementById('seatingMemberBox');
     if (!box) return;
-    const members = getSortedNames(data);
+    const members = viewMembers(data, 'seating');
     box.innerHTML = members.map(n => {
       const cur = seatColorOf(data, n);
       const swatches = SEAT_TAG_COLORS.map(c =>
@@ -5419,37 +5368,45 @@ body.gourmet-open #gFrame {
     box.querySelector('#seatAddMemberBtn')?.addEventListener('click', addFn);
     box.querySelector('#seatNewMember')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addFn(); } });
   }
+  // 座席のメンバー編集は日程の参加者(土台)を書き換えず、座席画面の差分だけを更新する。
+  // 座席で消した人は割り勘・精算にも反映されるが、日程の回答表からは消えない。
   async function seatingAddMember(name) {
-    const data = latestEventData;
-    const ps = { ...(data.participants || {}) };
-    if (Object.keys(ps).some(n => normalizeName(n) === normalizeName(name))) { showToast('同じ名前が既に登録されています'); return; }
-    ps[name] = { _note: '', _joinedAt: Date.now() };
-    await updateSeating({ participants: ps, participantOrder: [...(data.participantOrder || []), name] });
-    showToast(`${name} を追加しました`);
+    if (viewMembers(latestEventData, 'seating').some(n => normalizeName(n) === normalizeName(name))) {
+      showToast('同じ名前が既に登録されています'); return;
+    }
+    try { await mutateMemberDiff('seating', 'add', name); showToast(`${name} を追加しました`); }
+    catch (e) { showToast('追加に失敗しました'); console.error(e); }
   }
   async function seatingDeleteMember(name) {
     const data = latestEventData;
-    const ps = { ...(data.participants || {}) }; delete ps[name];
+    // 色タグ・席の割り当て・欠席は座席画面固有のデータなので、ここで併せて掃除する
     const tags = { ...(data.seatTags || {}) }; delete tags[name];
     const parties = getParties(data).map(p => ({
       ...p,
       assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)])) : p.assignment,
       absent: (p.absent || []).filter(n => n !== name),
     }));
-    await updateSeating({ participants: ps, participantOrder: (data.participantOrder || []).filter(n => n !== name), seatTags: tags, seatParties: parties });
+    try {
+      await mutateMemberDiff('seating', 'remove', name);
+      await updateSeating({ seatTags: tags, seatParties: parties });
+    } catch (e) { showToast('削除に失敗しました'); console.error(e); }
   }
   async function seatingRenameMember(old, nn) {
     const data = latestEventData;
-    const ps = { ...(data.participants || {}) };
-    if (Object.keys(ps).some(n => n !== old && normalizeName(n) === normalizeName(nn))) { showToast('同じ名前が既に登録されています'); return; }
-    ps[nn] = ps[old]; delete ps[old];
+    if (viewMembers(data, 'seating').some(n => n !== old && normalizeName(n) === normalizeName(nn))) {
+      showToast('同じ名前が既に登録されています'); return;
+    }
     const tags = { ...(data.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
     const parties = getParties(data).map(p => ({
       ...p,
       assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)])) : p.assignment,
       absent: (p.absent || []).map(n => n === old ? nn : n),
     }));
-    await updateSeating({ participants: ps, participantOrder: (data.participantOrder || []).map(n => n === old ? nn : n), seatTags: tags, seatParties: parties });
+    try {
+      await mutateMemberDiff('seating', 'remove', old);
+      await mutateMemberDiff('seating', 'add', nn);
+      await updateSeating({ seatTags: tags, seatParties: parties });
+    } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
   async function seatingSetColor(name, key) {
     const data = latestEventData;
@@ -6339,6 +6296,49 @@ body.gourmet-open #gFrame {
   }
   let settleOrganizer = '';      // 幹事の名前（並び順の最下段・支払済チェック非表示）
 
+  // ── 画面ごとのメンバー差分 ──
+  // メンバーを持つ画面をホストナビの並び順に並べたもの。先頭(schedule)が土台で、
+  // 以降の画面は「前の画面までの結果」に自分の差分(add/remove)を重ねた一覧を持つ。
+  // 前の画面での追加・削除は後続に伝わるが、後ろの画面での変更は前に戻らない。
+  const MEMBER_VIEW_CHAIN = ['schedule', 'seating', 'walica', 'settle'];
+
+  // baseNames（日程の参加者）に、view までの各画面の差分を順に適用した一覧を返す。
+  // memberDiff = { seating: {add:[], remove:[]}, walica: {...}, settle: {...} }
+  // チェーンに無い画面（お店・お知らせ等）は土台をそのまま返す。
+  function membersForView(baseNames, memberDiff, view) {
+    let names = (baseNames || []).slice();
+    const idx = MEMBER_VIEW_CHAIN.indexOf(view);
+    if (idx <= 0) return names;
+    for (let i = 1; i <= idx; i++) {
+      const d = (memberDiff || {})[MEMBER_VIEW_CHAIN[i]] || {};
+      const removed = new Set((d.remove || []).map(normalizeName));
+      names = names.filter(n => !removed.has(normalizeName(n)));
+      (d.add || []).forEach(n => {
+        if (!names.some(x => normalizeName(x) === normalizeName(n))) names.push(n);
+      });
+    }
+    return names;
+  }
+
+  // 1画面ぶんの差分に追加/削除を反映した新しい差分を返す（純粋関数）。
+  // 「前の画面から来た人を消す」と「この画面で足した人を取り消す」を区別する必要があるため、
+  // add に居る人の削除は remove に積まず add から取り除くだけにする（逆も同様）。
+  function updateMemberDiffEntry(entry, op, name) {
+    const add = ((entry || {}).add || []).slice();
+    const remove = ((entry || {}).remove || []).slice();
+    const same = n => normalizeName(n) === normalizeName(name);
+    if (op === 'add') {
+      const i = remove.findIndex(same);
+      if (i >= 0) remove.splice(i, 1);          // 前の画面から消していた人を戻す
+      else if (!add.some(same)) add.push(name); // この画面だけの新規メンバー
+    } else if (op === 'remove') {
+      const i = add.findIndex(same);
+      if (i >= 0) add.splice(i, 1);             // この画面で足した人の取り消し
+      else if (!remove.some(same)) remove.push(name);
+    }
+    return { add, remove };
+  }
+
   function getSortedNames(data) {
     const participants = data.participants || {};
     const order = data.participantOrder || [];
@@ -6347,6 +6347,24 @@ body.gourmet-open #gFrame {
       if (ai === -1 && bi === -1) return (participants[a]._joinedAt||0) - (participants[b]._joinedAt||0);
       if (ai === -1) return 1; if (bi === -1) return -1;
       return ai - bi;
+    });
+  }
+
+  // その画面で見えるメンバー一覧。座席・割り勘・精算はこちらを使う（日程は土台なので getSortedNames）。
+  function viewMembers(data, view) {
+    return membersForView(getSortedNames(data), (data || {}).memberDiff, view);
+  }
+
+  // 画面ごとの差分を1件更新する。日程(schedule)は土台なので、この関数ではなく
+  // participants を直接書き換える既存の経路を使う。
+  async function mutateMemberDiff(view, op, name) {
+    if (MEMBER_VIEW_CHAIN.indexOf(view) <= 0) throw new Error('BASE_VIEW');
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data();
+      const diff = { ...(d.memberDiff || {}) };
+      diff[view] = updateMemberDiffEntry(diff[view], op, name);
+      tx.update(ref, { memberDiff: diff });
     });
   }
 
@@ -6371,21 +6389,8 @@ body.gourmet-open #gFrame {
   function renderSettleInlineMembers(data) {
     const box = document.getElementById('settleInlineMemberBox');
     if (!box) return;
-    const members = getSortedNames(data);
-    renderBoxedMemberList(box, members, {
-      onAdd: async (name) => {
-        try { await addSettleMemberName(name); showToast(`${name} を追加しました`); }
-        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '追加に失敗しました'); console.error(e); }
-      },
-      onRename: async (old, nn) => {
-        try { await renameSettleMemberName(old, nn); showToast('変更しました'); }
-        catch (e) { showToast(e.message === 'DUP' ? '同じ名前が既に登録されています' : '変更に失敗しました'); console.error(e); }
-      },
-      onDelete: async (nm) => {
-        try { await deleteSettleMemberName(nm); showToast(`${nm} を削除しました`); }
-        catch (e) { showToast('削除に失敗しました'); console.error(e); }
-      },
-    });
+    const members = viewMembers(data, 'settle');
+    renderBoxedMemberList(box, members, memberDiffHandlers('settle'));
   }
 
   // ── 振込先口座をGoogleアカウント(uid)に紐づけ ──
@@ -6453,7 +6458,7 @@ body.gourmet-open #gFrame {
   }
 
   function openSettlePage(data, readOnly) {
-    settleNames = getSortedNames(data);
+    settleNames = viewMembers(data, 'settle');
     settleReadOnly = readOnly;
     amountsCustomized = !!(data.settle?.amounts && Object.keys(data.settle.amounts).length);
     settleOrganizer = (data.settle?.organizer || '').trim();

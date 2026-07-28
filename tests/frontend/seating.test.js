@@ -22,6 +22,11 @@ const {
     'clampActiveIdx',
     'roundMembers',
     'getSortedNames',
+    // 座席は「日程の参加者＋画面ごとの差分」で決まるようになったため、解決関数も必要
+    'membersForView',
+    'viewMembers',
+    'normalizeName',
+    'MEMBER_VIEW_CHAIN',
     'normalizeAssignment',
     'buildAvoidance',
     'computeSeating',
@@ -329,6 +334,7 @@ test('席替え履歴: 2次会は1次会の現在配置と履歴(前回の席)�
   const { computeSeating: cs } = loadFunctions(
     ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'tableTopCount', 'seatNeighborPairs',
      'arrangeTableSeats', 'getParties', 'clampActiveIdx', 'roundMembers', 'getSortedNames',
+     'membersForView', 'viewMembers', 'normalizeName', 'MEMBER_VIEW_CHAIN',
      'normalizeAssignment', 'buildAvoidance', 'computeSeating'],
     { seatingActiveParty: 1 } // 2次会をアクティブに
   );
