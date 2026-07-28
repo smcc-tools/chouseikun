@@ -4744,6 +4744,7 @@ body.gourmet-open #gFrame {
   let tableMoveSel = null;         // 卓の位置入れ替え選択（卓id）
   let seatingAnimating = false;
   let seatingActiveParty = 0;      // 表示中の次会インデックス
+  let seatAdjustMode = false;      // 「配置を調整」モード（画面の一時状態・保存しない）
 
   // 座席タグ：Olive Lounge に馴染む5色
   // Olive Lounge のブランドトークンに揃えた色タグ（key は保存データ互換のため不変）。
@@ -5186,19 +5187,23 @@ body.gourmet-open #gFrame {
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
       : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
     // 卓の並び（列数）。ホストが設定し、参加者も同じ位置関係で見る
-    const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, 3, tables.length || 1));
+    // 調整モード中は卓数を超える列も選べる（卓の間に隙間を作るため）
+    const maxCols = seatAdjustMode ? 6 : Math.max(1, Math.min(3, tables.length || 1));
+    const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, maxCols));
     if (isHost && tables.length > 1) {
-      html += `<div class="seat-cols-ctrl">卓の並び：${[1, 2, 3].filter(n => n <= tables.length).map(n =>
-        `<button type="button" class="seat-cols-btn${cols === n ? ' selected' : ''}" data-cols="${n}">${n}列</button>`).join('')}
+      const colBtns = Array.from({ length: maxCols }, (_, i) => i + 1).map(n =>
+        `<button type="button" class="seat-cols-btn${cols === n ? ' selected' : ''}" data-cols="${n}">${n}列</button>`).join('');
+      html += `<div class="seat-cols-ctrl">卓の並び：${colBtns}
+        <button type="button" class="seat-cols-btn${seatAdjustMode ? ' selected' : ''}" id="seatAdjustBtn">${seatAdjustMode ? '調整を終える' : '配置を調整'}</button>
         <span>／「⇄ 移動」で卓の位置を入れ替え</span></div>`;
     }
     // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する
-    const slotArr = normalizeTableSlots(tables, cols);
+    const slotArr = normalizeTableSlots(tables, cols, party.freeLayout);
     const slotOf = {}; slotArr.forEach((t, i) => { if (t) slotOf[t.id] = i; });
     let tablesHtml = '';
     slotArr.forEach((t, si) => {
       if (!t) {
-        tablesHtml += isHost
+        tablesHtml += (isHost && seatAdjustMode)
           ? `<div class="seat-empty-slot${tableMoveSel ? ' active' : ''}" data-slot="${si}">${tableMoveSel ? 'ここへ移動' : '空きスペース'}</div>`
           : `<div class="seat-empty-slot ghost"></div>`;
         return;
@@ -5278,9 +5283,18 @@ body.gourmet-open #gFrame {
       const side = btn.dataset.ent;
       updateActiveParty({ entrance: cur === side ? null : side });
     }));
+    // 配置の調整モード。画面の一時状態なので保存せず、再描画だけする
+    el.querySelector('#seatAdjustBtn')?.addEventListener('click', () => {
+      seatAdjustMode = !seatAdjustMode;
+      renderSeatingResult(latestEventData);
+    });
     // 卓の並び（列数・位置入れ替え）。プレビュー中でも設定可能
     el.querySelectorAll('.seat-cols-btn').forEach(btn => btn.addEventListener('click', () => {
-      updateActiveParty({ tableCols: parseInt(btn.dataset.cols) || 1 });
+      if (!btn.dataset.cols) return; // 調整ボタンは別ハンドラで処理する
+      // 調整モード中の変更は「ホストが意図して並べた」印を残す（隙間を詰めなくなる）
+      const patch = { tableCols: parseInt(btn.dataset.cols) || 1 };
+      if (seatAdjustMode) patch.freeLayout = true;
+      updateActiveParty(patch);
     }));
     el.querySelectorAll('.seat-move-btn').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -5292,7 +5306,7 @@ body.gourmet-open #gFrame {
       const applySlots = (mutate) => {
         const ts = (activeParty(latestEventData).tables || []).map(x => ({ ...x, slot: slotOf[x.id] }));
         mutate(ts);
-        updateActiveParty({ tables: ts });
+        updateActiveParty({ tables: ts, freeLayout: true });
       };
       // 卓ブロックのタップ＝位置の入れ替え。capture で席チップ等のハンドラより先に奪う
       el.querySelectorAll('.seat-table-block').forEach(blk => blk.addEventListener('click', e => {
