@@ -5086,7 +5086,7 @@ body.gourmet-open #gFrame {
     }
     box.innerHTML = html;
     box.querySelectorAll('[data-party]').forEach(b => b.addEventListener('click', () => {
-      seatingActiveParty = parseInt(b.dataset.party); seatSel = null;
+      seatingActiveParty = parseInt(b.dataset.party); seatSel = null; seatAdjustMode = false;
       renderSeatingBoard(latestEventData);
     }));
     document.getElementById('seatingRenamePartyBtn')?.addEventListener('click', renameSeatingParty);
@@ -5107,8 +5107,8 @@ body.gourmet-open #gFrame {
   function addSeatingParty() {
     const parties = getParties(latestEventData).map(p => ({ ...p }));
     const src = parties[clampActiveIdx(parties)];
-    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
-    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1 });
+    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
+    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, freeLayout: !!src.freeLayout });
     seatingActiveParty = parties.length - 1;
     updateParties(parties);
     showToast(`${parties.length}次会を追加しました（卓は前回をコピー）`);
@@ -5191,7 +5191,9 @@ body.gourmet-open #gFrame {
       : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
     // 卓の並び（列数）。ホストが設定し、参加者も同じ位置関係で見る
     // 調整モード中は卓数を超える列も選べる（卓の間に隙間を作るため）
-    const maxCols = seatAdjustMode ? 6 : Math.max(1, Math.min(3, tables.length || 1));
+    // 調整済みの次会(freeLayout)は、調整モードを抜けても保存した列数をそのまま使う。
+    // ここで従来の上限(3・卓数以下)に丸めると、せっかく空けた隙間の位置がずれてしまう。
+    const maxCols = (seatAdjustMode || party.freeLayout) ? 6 : Math.max(1, Math.min(3, tables.length || 1));
     const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, maxCols));
     if (isHost && tables.length > 1) {
       const colBtns = Array.from({ length: maxCols }, (_, i) => i + 1).map(n =>
@@ -5199,6 +5201,12 @@ body.gourmet-open #gFrame {
       html += `<div class="seat-cols-ctrl">卓の並び：${colBtns}
         <button type="button" class="seat-cols-btn${seatAdjustMode ? ' selected' : ''}" id="seatAdjustBtn">${seatAdjustMode ? '調整を終える' : '配置を調整'}</button>
         <span>／「⇄ 移動」で卓の位置を入れ替え</span></div>`;
+    } else if (isHost && tables.length <= 1) {
+      // 卓が1つ以下の場合は列の選択肢がないため、配置調整ボタンだけを同じ枠で出す
+      // （freeLayoutで stray な slot が残っていても、ここから調整モードに入って抜け出せるようにする）
+      html += `<div class="seat-cols-ctrl">
+        <button type="button" class="seat-cols-btn${seatAdjustMode ? ' selected' : ''}" id="seatAdjustBtn">${seatAdjustMode ? '調整を終える' : '配置を調整'}</button>
+      </div>`;
     }
     // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する
     const slotArr = normalizeTableSlots(tables, cols, party.freeLayout);
@@ -5288,6 +5296,12 @@ body.gourmet-open #gFrame {
     }));
     // 配置の調整モード。画面の一時状態なので保存せず、再描画だけする
     el.querySelector('#seatAdjustBtn')?.addEventListener('click', () => {
+      // 卓が1つだけの状態で調整モードに入るときは、迷子になった slot をリセットして
+      // stray な空きマスから抜け出せるようにする（⇄移動が使えないための救済）
+      if (tables.length <= 1 && !seatAdjustMode) {
+        updateActiveParty({ tables: (party.tables || []).map(t => ({ ...t, slot: 0 })), freeLayout: false });
+        showToast('卓が1つのため配置をリセットしました');
+      }
       seatAdjustMode = !seatAdjustMode;
       renderSeatingResult(latestEventData);
     });
@@ -5309,7 +5323,9 @@ body.gourmet-open #gFrame {
       const applySlots = (mutate) => {
         const ts = (activeParty(latestEventData).tables || []).map(x => ({ ...x, slot: slotOf[x.id] }));
         mutate(ts);
-        updateActiveParty({ tables: ts, freeLayout: true });
+        // 調整モード中の操作だけを「意図した配置」として記録する。
+        // 通常の⇄移動でフラグを立てると、卓を削除したときに消えない空白が残る。
+        updateActiveParty({ tables: ts, ...(seatAdjustMode ? { freeLayout: true } : {}) });
       };
       // 卓ブロックのタップ＝位置の入れ替え。capture で席チップ等のハンドラより先に奪う
       el.querySelectorAll('.seat-table-block').forEach(blk => blk.addEventListener('click', e => {
