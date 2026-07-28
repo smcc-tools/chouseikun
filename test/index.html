@@ -424,6 +424,14 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* 卓の位置関係：列数指定のグリッド＋「⇄ 移動」で卓を入れ替え（参加者にも同じ配置で表示） */
 .seat-tables-grid { display: grid; gap: 0 10px; align-items: start; }
 .seat-tables-grid .seat-table-block { min-width: 0; }
+/* 卓が複数あるときは、人数に関わらず卓のボックスを同じ大きさに揃える。
+   幅は grid の 1fr で既に均等なので、高さを行いっぱいに伸ばして中身を上下中央に置く。
+   （卓が1つだけの時は伸ばす相手がいないので付けない） */
+.seat-tables-grid.uniform { align-items: stretch; grid-auto-rows: 1fr; }
+.seat-tables-grid.uniform .seat-table-block { display: flex; flex-direction: column; }
+.seat-tables-grid.uniform .seat-longtable { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+/* 円卓は aspect-ratio を持つので flex で潰さず、auto マージンで天地左右の中央に置く */
+.seat-tables-grid.uniform .seat-round { margin: auto; }
 .seat-table-block.move-sel { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
 .seat-move-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
   border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
@@ -5263,7 +5271,8 @@ body.gourmet-open #gFrame {
       }
       tablesHtml += `</div>`;
     });
-    tablesHtml = `<div class="seat-tables-grid${party.freeLayout ? ' free' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
+    // uniform：卓が複数あるときだけ、人数に関わらず卓のボックスを同じ大きさに揃える
+    tablesHtml = `<div class="seat-tables-grid${party.freeLayout ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
     // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
     const entrance = party.entrance || null;
     if (isHost || entrance) {
