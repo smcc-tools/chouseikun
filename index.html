@@ -5055,6 +5055,8 @@ body.gourmet-open #gFrame {
     const active = clampActiveIdx(parties);
     let html = parties.map((p, i) => `<button class="my-event-tab${i === active ? ' active' : ''}" data-party="${i}">${escHtml(p.name || (i + 1) + '次会')}</button>`).join('');
     if (isHost) {
+      // 名称の変更は表示中の次会に対して行う（タブごとにボタンを並べると横に伸びるため）
+      html += `<button class="my-event-tab" id="seatingRenamePartyBtn" style="flex:0 0 auto;">名称を変更</button>`;
       html += `<button class="my-event-tab" id="seatingAddPartyBtn" style="flex:0 0 auto;">＋次会</button>`;
       if (parties.length > 1) html += `<button class="my-event-tab" id="seatingDelPartyBtn" style="flex:0 0 auto;color:var(--clay);">この次会を削除</button>`;
     }
@@ -5063,8 +5065,20 @@ body.gourmet-open #gFrame {
       seatingActiveParty = parseInt(b.dataset.party); seatSel = null;
       renderSeatingBoard(latestEventData);
     }));
+    document.getElementById('seatingRenamePartyBtn')?.addEventListener('click', renameSeatingParty);
     document.getElementById('seatingAddPartyBtn')?.addEventListener('click', addSeatingParty);
     document.getElementById('seatingDelPartyBtn')?.addEventListener('click', deleteSeatingParty);
+  }
+  function renameSeatingParty() {
+    const parties = getParties(latestEventData).map(p => ({ ...p }));
+    const i = clampActiveIdx(parties);
+    const cur = parties[i].name || `${i + 1}次会`;
+    const nn = (prompt('この会の名称', cur) || '').trim();
+    if (!nn || nn === cur) return;
+    if (nn.length > 20) { showToast('名称は20文字以内で入力してください'); return; }
+    parties[i] = { ...parties[i], name: nn };
+    updateParties(parties);
+    showToast('名称を変更しました');
   }
   function addSeatingParty() {
     const parties = getParties(latestEventData).map(p => ({ ...p }));
