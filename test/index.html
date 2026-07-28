@@ -5008,7 +5008,9 @@ body.gourmet-open #gFrame {
   // 卓のグリッド位置（slot: 行優先の通し番号）を正規化し「slot順の配列（空きマスは null）」を返す。
   // slot未設定・重複・不正値の卓は、卓配列の順に空いているスロットへ詰める。
   // 配列長は列数の倍数に切り上げるので、末尾に半端な空きマスが並ぶ（そこへも卓を移動できる）。
-  function normalizeTableSlots(tables, cols) {
+  // freeLayout=true（ホストが「配置を調整」で並べた次会）では、卓数が列数で
+  // 割り切れても詰めない。意図して空けた隙間が消えてしまうため。
+  function normalizeTableSlots(tables, cols, freeLayout) {
     const c = Math.max(1, parseInt(cols) || 1);
     const bySlot = new Map();
     const pending = [];
@@ -5022,7 +5024,7 @@ body.gourmet-open #gFrame {
     // 卓数が列数で割り切れる場合（例：2卓×2列）は空きマスを作らず詰めて表示。
     // 割り切れない場合（例：3卓×2列＝1マス余る）のみ、余りマスの位置(slotの隙間)を保持する
     const entries = [...bySlot.entries()].sort((a, b) => a[0] - b[0]);
-    if (entries.length % c === 0) return entries.map(e => e[1]);
+    if (!freeLayout && entries.length % c === 0) return entries.map(e => e[1]);
     const maxSlot = entries[entries.length - 1][0];
     const total = Math.ceil((maxSlot + 1) / c) * c;
     return Array.from({ length: total }, (_, i) => bySlot.get(i) || null);
