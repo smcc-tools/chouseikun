@@ -1027,6 +1027,18 @@ body.gourmet-open #gFrame {
     <div class="btn-row" style="margin-top:8px">
       <button class="btn btn-ghost" id="addDateBtn">＋ 手動で追加</button>
     </div>
+    <!-- 範囲指定での追加。ホスト画面の「日程を追加」と同じ操作感に揃える -->
+    <div id="createRangeWrap" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
+      <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;letter-spacing:0.04em;">＋ 範囲でまとめて追加</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input type="date" id="createDateFrom" style="width:auto;padding:7px 10px;font-size:0.85rem;margin-bottom:0;background:#fafafa;">
+        <span style="font-size:0.85rem;color:var(--text-muted);">〜</span>
+        <input type="date" id="createDateTo" style="width:auto;padding:7px 10px;font-size:0.85rem;margin-bottom:0;background:#fafafa;">
+        <input type="time" id="createRangeTime" style="width:auto;padding:7px 10px;font-size:0.85rem;margin-bottom:0;background:#fafafa;display:none;" title="時刻（任意）">
+        <button class="btn btn-secondary" id="createRangeAddBtn" style="white-space:nowrap;font-size:0.85rem;padding:7px 16px;">追加</button>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">※ 同じ日を指定すると1日だけ追加されます。すでにある日付は追加されません。</div>
+    </div>
   </div>
 
   <div class="field">
@@ -1984,6 +1996,47 @@ body.gourmet-open #gFrame {
       el.style.display = checked ? 'inline-block' : 'none';
       if (!checked) el.value = '';
     });
+    // 範囲追加の時刻欄も同じ扱い（時刻を使わない設定のときに出ていると誤解を生む）
+    const rangeTimeEl = document.getElementById('createRangeTime');
+    if (rangeTimeEl) {
+      rangeTimeEl.style.display = checked ? 'inline-block' : 'none';
+      if (!checked) rangeTimeEl.value = '';
+    }
+  });
+
+  // 範囲でまとめて追加（作成画面）。ホスト画面の「日程を追加」と同じ expandDateRange を使う。
+  document.getElementById('createRangeAddBtn')?.addEventListener('click', () => {
+    const fromEl = document.getElementById('createDateFrom');
+    const toEl   = document.getElementById('createDateTo');
+    const timeEl = document.getElementById('createRangeTime');
+    const fromVal = fromEl.value;
+    const toVal   = toEl.value || fromVal;   // 終了日未入力なら1日だけ
+    if (!fromVal) { showToast('開始日を選択してください'); return; }
+    if (toVal < fromVal) { showToast('終了日は開始日以降を選択してください'); return; }
+
+    const useTime = document.getElementById('useTime').checked;
+    // 時刻は「範囲欄の指定」→「一括時刻」の順に採用。時刻を使わない設定なら付けない。
+    const timeVal = useTime ? (timeEl.value || document.getElementById('defaultTime').value || '') : '';
+
+    const candidates = expandDateRange(fromVal, toVal, timeVal);
+    if (candidates.length === 0) { showToast('日程を追加できませんでした'); return; }
+
+    // すでに一覧にある日付は追加しない（時刻の有無に関わらず日付で判定する）
+    const existing = new Set(
+      Array.from(document.querySelectorAll('#dateList .date-row input[type=date]'))
+        .map(el => el.value).filter(Boolean)
+    );
+    let added = 0;
+    candidates.forEach(c => {
+      const [d, t] = c.split(' ');
+      if (existing.has(d)) return;
+      existing.add(d);
+      addDateRow(d, t || '');
+      added++;
+    });
+    if (added === 0) { showToast('指定した日程はすべて追加済みです'); return; }
+    showToast(`${added}件の日程を追加しました`);
+    fromEl.value = ''; toEl.value = ''; if (timeEl) timeEl.value = '';
   });
 
   // 一括時刻を全候補日に適用
@@ -1992,6 +2045,30 @@ body.gourmet-open #gFrame {
       el.value = e.target.value;
     });
   });
+
+  // 開始日〜終了日の全日付を "YYYY-MM-DD"（時刻ありなら "YYYY-MM-DD HH:MM"）で列挙する。
+  // 作成画面とホスト画面の「日程を追加」から共通で使う。
+  // 両方に同じ生成ロジックを置くと、片方だけ直したときに挙動がずれて気づけないため。
+  // 終了日が開始日より前、日付が不正な場合は空配列（呼び出し側でエラー表示する）。
+  function expandDateRange(fromVal, toVal, timeVal) {
+    if (!fromVal) return [];
+    const end = toVal || fromVal;   // 終了日未入力なら1日だけ
+    if (end < fromVal) return [];
+    const cur = new Date(fromVal + 'T00:00:00');
+    const last = new Date(end + 'T00:00:00');
+    if (isNaN(cur.getTime()) || isNaN(last.getTime())) return [];
+    const out = [];
+    while (cur <= last) {
+      const yyyy = cur.getFullYear();
+      const mm = String(cur.getMonth() + 1).padStart(2, '0');
+      const dd = String(cur.getDate()).padStart(2, '0');
+      out.push(timeVal ? `${yyyy}-${mm}-${dd} ${timeVal}` : `${yyyy}-${mm}-${dd}`);
+      cur.setDate(cur.getDate() + 1);
+      // 年単位の誤指定でブラウザが固まる・大量書き込みが走るのを防ぐ上限
+      if (out.length >= 400) break;
+    }
+    return out;
+  }
 
   function getDates() {
     const useTime = document.getElementById('useTime').checked;
@@ -6035,17 +6112,8 @@ body.gourmet-open #gFrame {
               if (uniqueTimes.length === 1 && uniqueTimes[0]) timeVal = uniqueTimes[0];
             }
 
-            // 開始〜終了の全日付を生成
-            const candidates = [];
-            const cur = new Date(fromVal + 'T00:00:00');
-            const end = new Date(toVal   + 'T00:00:00');
-            while (cur <= end) {
-              const yyyy = cur.getFullYear();
-              const mm = String(cur.getMonth()+1).padStart(2,'0');
-              const dd = String(cur.getDate()).padStart(2,'0');
-              candidates.push(timeVal ? `${yyyy}-${mm}-${dd} ${timeVal}` : `${yyyy}-${mm}-${dd}`);
-              cur.setDate(cur.getDate() + 1);
-            }
+            // 開始〜終了の全日付を生成（作成画面と共通）
+            const candidates = expandDateRange(fromVal, toVal, timeVal);
 
             // 重複を除いて追加対象を絞る（最新dates基準）
             const toAdd = candidates.filter(d => !existingDates.includes(d));
