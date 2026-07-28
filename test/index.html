@@ -476,9 +476,6 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   font-size: 0.72rem; font-weight: 700; color: var(--green); text-align: center; padding: 6px;
 }
 .seat-swap-hint { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 10px; background: var(--green-light); border: 1px solid var(--green-mid); border-radius: 8px; padding: 7px 12px; }
-/* 次会タブの操作説明。タブ行は flex-wrap なので幅100%で自分の行に落とす */
-.seat-tab-hint { flex: 0 0 100%; margin-top: 8px; font-size: 0.74rem; color: var(--text-muted);
-  background: var(--green-light); border: 1px solid var(--green-mid); border-radius: 8px; padding: 6px 11px; }
 .seat-unassigned-zone { margin-top: 4px; }
 
 /* ── ボタン ── */
@@ -5084,24 +5081,20 @@ body.gourmet-open #gFrame {
     if (!box) return;
     const parties = getParties(data);
     const active = clampActiveIdx(parties);
-    // 名称の変更は「表示中のタブをもう一度タップ」。記号だけでは何ができるか伝わらないため、
-    // ホストにはタブの下に操作方法を文章で出す（対象の名前も入れて具体的に示す）。
-    const activeName = (parties[active] && parties[active].name) || (active + 1) + '次会';
     let html = parties.map((p, i) =>
       `<button class="my-event-tab${i === active ? ' active' : ''}" data-party="${i}">${escHtml(p.name || (i + 1) + '次会')}</button>`).join('');
     if (isHost) {
+      // 名称の変更は表示中の次会に対して行う（タブごとにボタンを並べると横に伸びるため）
+      html += `<button class="my-event-tab" id="seatingRenamePartyBtn" style="flex:0 0 auto;">名称を変更</button>`;
       html += `<button class="my-event-tab" id="seatingAddPartyBtn" style="flex:0 0 auto;">＋次会</button>`;
       if (parties.length > 1) html += `<button class="my-event-tab" id="seatingDelPartyBtn" style="flex:0 0 auto;color:var(--clay);">この次会を削除</button>`;
-      html += `<div class="seat-tab-hint">✏️ 表示中の「${escHtml(activeName)}」をもう一度タップすると名称を変更できます</div>`;
     }
     box.innerHTML = html;
     box.querySelectorAll('[data-party]').forEach(b => b.addEventListener('click', () => {
-      const idx = parseInt(b.dataset.party);
-      // 表示中の次会をもう一度タップ＝名称変更（ホストのみ）。別の次会なら切り替え。
-      if (isHost && idx === active) { renameSeatingParty(); return; }
-      seatingActiveParty = idx; seatSel = null; seatAdjustMode = false;
+      seatingActiveParty = parseInt(b.dataset.party); seatSel = null; seatAdjustMode = false;
       renderSeatingBoard(latestEventData);
     }));
+    document.getElementById('seatingRenamePartyBtn')?.addEventListener('click', renameSeatingParty);
     document.getElementById('seatingAddPartyBtn')?.addEventListener('click', addSeatingParty);
     document.getElementById('seatingDelPartyBtn')?.addEventListener('click', deleteSeatingParty);
   }
