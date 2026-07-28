@@ -15,7 +15,9 @@ test('schedule: 事前参加者は全候補日を未回答(空文字)で初期�
   const doc = buildEventDoc('schedule', {
     name: '飲み会', memo: 'メモ', dates: ['2026-08-01', '2026-08-02'], presetNames: ['太郎', '花子'],
   }, ctx());
-  assert.equal(doc.activeView, 'scheduleCreate');
+  // 作成直後から回答受付を開始する。'scheduleCreate'（準備中）にすると
+  // ホストに不要な「作成」ナビが残り、参加者にはURLを開いても「準備中です」としか出ない。
+  assert.equal(doc.activeView, 'schedule');
   assert.deepEqual(doc.dates, ['2026-08-01', '2026-08-02']);
   assert.equal(doc.memo, 'メモ');
   assert.deepEqual(doc.participantOrder, ['太郎', '花子']);

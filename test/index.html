@@ -2986,7 +2986,11 @@ body.gourmet-open #gFrame {
           dates.forEach((_, di) => { votes[di] = ''; });
           participants[pName] = votes;
         });
-        return { ...base, dates, memo: p.memo || '', participants, participantOrder: presetNames, activeView: 'scheduleCreate' };
+        // 作成した時点で候補日は確定しているので、いきなり日程調整（回答受付）から始める。
+        // 以前の 'scheduleCreate'（準備中）だと、ホストに不要な「作成」ナビが残り、
+        // 参加者にはURLを開いても「準備中です」としか出ず、公開操作を挟む必要があった。
+        // ※ 既存イベントには 'scheduleCreate' が残るため、その表示処理は互換のため維持する。
+        return { ...base, dates, memo: p.memo || '', participants, participantOrder: presetNames, activeView: 'schedule' };
       }
       case 'settle':
         return { ...base, participants: membersToParticipants(p.members), participantOrder: (p.members || []).slice(), settleOnly: true, activeView: 'settle' };
