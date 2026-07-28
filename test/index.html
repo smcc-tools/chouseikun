@@ -5450,19 +5450,31 @@ body.gourmet-open #gFrame {
     const tables = party.tables || [];
     box.innerHTML = tables.map(t => {
       const cap = parseInt(t.capacity) || 0;
-      // 長机×奇数定員のときだけ、上下どちらを多くするか選べる（例：7人→上4・下3 / 上3・下4）
-      const oddSplit = ((t.shape || 'rect') === 'rect' && cap % 2 === 1 && cap > 1)
-        ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の上下の振り分け">
-            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>上${Math.ceil(cap / 2)}・下${Math.floor(cap / 2)}</option>
-            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>上${Math.floor(cap / 2)}・下${Math.ceil(cap / 2)}</option>
+      const isRect = (t.shape || 'rect') === 'rect';
+      const vert = isRect && t.orient === 'v';
+      // 長机のみ向きを選べる（円卓は回転しても同じなので出さない）
+      const orientSel = isRect
+        ? `<select class="stori" style="width:auto;margin-bottom:0;padding:8px 8px;" title="卓の向き">
+            <option value="h" ${!vert ? 'selected' : ''}>横向き</option>
+            <option value="v" ${vert ? 'selected' : ''}>縦向き</option>
+          </select>` : '';
+      // 長机×奇数定員のときだけ、多い側をどちらにするか選べる（例：7人→上4・下3 / 上3・下4）
+      // 縦向きでは「上下」ではなく「左右」と表示する
+      const rc = tableRowCounts({ ...t, split: 'top' });
+      const [a, b] = vert ? ['左', '右'] : ['上', '下'];
+      const oddSplit = (isRect && cap % 2 === 1 && cap > 1)
+        ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の振り分け">
+            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first}・${b}${rc.second}</option>
+            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second}・${b}${rc.first}</option>
           </select>` : '';
       return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
         <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
         <input type="number" class="stcap" min="0" value="${cap}" placeholder="定員">
         <select class="stshape" style="width:auto;margin-bottom:0;padding:8px 8px;">
-          <option value="rect" ${(t.shape || 'rect') === 'rect' ? 'selected' : ''}>長机</option>
+          <option value="rect" ${isRect ? 'selected' : ''}>長机</option>
           <option value="round" ${t.shape === 'round' ? 'selected' : ''}>円卓</option>
         </select>
+        ${orientSel}
         ${oddSplit}
         <button type="button" class="btn-remove st-del" data-id="${escHtml(t.id)}" aria-label="卓を削除">✕</button>
       </div>`;
@@ -5480,11 +5492,12 @@ body.gourmet-open #gFrame {
         const name = row.querySelector('.stn').value.trim() || '卓';
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
         const shape = row.querySelector('.stshape').value === 'round' ? 'round' : 'rect';
+        const orient = row.querySelector('.stori')?.value === 'v' ? 'v' : 'h';
         const splitEl = row.querySelector('.stsplit');
         const party = activeParty(latestEventData);
         const prevT = (party.tables || []).find(t => t.id === id);
         const next = (party.tables || []).map(t => t.id === id
-          ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
+          ? { ...t, name, capacity, shape, orient, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
           : t);
         const patch = { tables: next };
         // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
@@ -5501,6 +5514,7 @@ body.gourmet-open #gFrame {
       row.querySelector('.stn').addEventListener('blur', save);
       row.querySelector('.stcap').addEventListener('blur', save);
       row.querySelector('.stshape').addEventListener('change', save);
+      row.querySelector('.stori')?.addEventListener('change', save);
       row.querySelector('.stsplit')?.addEventListener('change', save);
     });
     box.querySelectorAll('.st-del').forEach(b => b.addEventListener('click', () => {
