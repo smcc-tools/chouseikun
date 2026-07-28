@@ -5,7 +5,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
-const { myEventSummary } = loadFunctions(['myEventSummary']);
+const { myEventSummary, tsMillis } = loadFunctions(['myEventSummary', 'tsMillis']);
 
 const ts = ymd => new Date(ymd + 'T00:00:00').getTime();
 
@@ -80,5 +80,24 @@ test('data が null/undefined でも落ちない', () => {
     assert.equal(s.type, 'schedule');
     assert.equal(s.confirmedTs, null);
     assert.equal(s.orphan, false);
+  }
+});
+
+// 索引キャッシュの水位(watermark)は tsMillis で算出する。ここがズレると差分同期が
+// 取りこぼす（古すぎる水位＝毎回全件、新しすぎる水位＝更新を見落とす）。
+test('Firestore の Timestamp をミリ秒に変換する', () => {
+  const t = { toMillis: () => 1767225600000 };
+  assert.equal(tsMillis(t), 1767225600000);
+});
+
+test('数値はそのまま返す（ローカル更新でキャッシュに入れた値）', () => {
+  assert.equal(tsMillis(1767225600000), 1767225600000);
+});
+
+test('未設定・不正値は0（＝全同期に倒す）', () => {
+  // NaN/Infinity を水位にすると Timestamp.fromMillis が投げて一覧が固まる
+  for (const [label, v] of [['undefined', undefined], ['null', null], ['空文字', ''],
+                            ['オブジェクト', {}], ['文字列', 'abc'], ['NaN', NaN], ['Infinity', Infinity]]) {
+    assert.equal(tsMillis(v), 0, `${label} が0にならなかった`);
   }
 });

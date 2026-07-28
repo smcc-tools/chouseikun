@@ -1676,7 +1676,7 @@ body.gourmet-open #gFrame {
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField, query, where, getCountFromServer, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
   import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-functions.js";
@@ -2372,21 +2372,125 @@ body.gourmet-open #gFrame {
   async function addMyEvent(eventId, name, isHostEvent = false, summary = null) {
     if (!currentUser) return;
     const ref = doc(db, 'users', currentUser.uid, 'events', eventId);
-    const patch = { name, host: isHostEvent, createdAt: Date.now() };
+    const patch = { name, host: isHostEvent, createdAt: Date.now(), updatedAt: serverTimestamp() };
     // サマリが分かっている時だけ索引に複製する（無い時は既存の値を残す）
     if (summary) Object.assign(patch, summary, { summaryAt: Date.now(), missing: false });
     await setDoc(ref, patch, { merge: true });
+    patchMyEventsCache(eventId, patch);
+  }
+
+  // ── マイイベント索引のローカルキャッシュと差分同期 ──
+  // Firestore のクエリは「返ってきたドキュメント数」ぶん読み取りが課金される。
+  // 一覧のたびに索引を全件取ると、登録件数に比例して読み取りが増え続ける。
+  // 索引を端末に保持し、前回以降に変わった分だけを取りに行くことで、
+  // 通常時の読み取りを（件数に関係なく）件数カウント1回＋差分クエリ1回に固定する。
+  const MY_EVENTS_CACHE_KEY = 'chouseikun_myEventsCache_v1';
+  const MY_EVENTS_FULL_RESYNC_MS = 7 * 24 * 3600 * 1000; // 取りこぼし対策の全同期間隔
+
+  // Firestore の Timestamp / 数値 / 未設定 を一律ミリ秒に均す（キャッシュはJSONで持つため）
+  function tsMillis(v) {
+    if (v && typeof v.toMillis === 'function') return v.toMillis();
+    // NaN/Infinity をそのまま水位にすると Timestamp.fromMillis が例外を投げ、
+    // 一覧が「読み込みに失敗しました」で固まるため 0（＝全同期）に倒す
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    return 0;
+  }
+
+  function readMyEventsCache(uid) {
+    try {
+      const c = JSON.parse(localStorage.getItem(MY_EVENTS_CACHE_KEY) || 'null');
+      // 別アカウントのキャッシュを混ぜない
+      if (!c || c.uid !== uid || !c.items) return null;
+      return c;
+    } catch (_) { return null; }
+  }
+
+  function writeMyEventsCache(cache) {
+    try { localStorage.setItem(MY_EVENTS_CACHE_KEY, JSON.stringify(cache)); } catch (_) {}
+  }
+
+  // 自端末の書き込みを即キャッシュへ反映する（patch=null で削除）。
+  // これをしないと、削除・終了切替のたびに件数が食い違って全同期に落ちる。
+  function patchMyEventsCache(eventId, patch) {
+    if (!currentUser) return;
+    const c = readMyEventsCache(currentUser.uid);
+    if (!c) return;
+    if (patch === null) delete c.items[eventId];
+    else {
+      // serverTimestamp() はローカルでは値が無いので、キャッシュには現在時刻を入れておく。
+      // 実際のサーバ値は次回の差分同期で上書きされる。
+      c.items[eventId] = { ...(c.items[eventId] || {}), ...patch, updatedAt: Date.now() };
+    }
+    writeMyEventsCache(c);
+  }
+
+  async function myEventsFullSync(uid) {
+    const snap = await getDocs(userEventsRef(uid));
+    const items = {};
+    let watermark = 0;
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const ms = tsMillis(data.updatedAt);
+      items[d.id] = { ...data, updatedAt: ms };
+      if (ms > watermark) watermark = ms;
+    });
+    const cache = { uid, items, watermark, fullAt: Date.now() };
+    writeMyEventsCache(cache);
+    return cache;
+  }
+
+  async function myEventsDeltaSync(uid, cache) {
+    // 他端末での削除は差分クエリに現れないため、件数の一致で検知して全同期に切り替える。
+    // 件数集計は最大1000件ごとに読み取り1回なので、全件取得よりはるかに安い。
+    const [countSnap, deltaSnap] = await Promise.all([
+      getCountFromServer(userEventsRef(uid)),
+      getDocs(query(userEventsRef(uid), where('updatedAt', '>', Timestamp.fromMillis(cache.watermark)))),
+    ]);
+    const items = { ...cache.items };
+    let watermark = cache.watermark;
+    deltaSnap.docs.forEach(d => {
+      const data = d.data();
+      const ms = tsMillis(data.updatedAt);
+      items[d.id] = { ...data, updatedAt: ms };
+      if (ms > watermark) watermark = ms;
+    });
+    if (countSnap.data().count !== Object.keys(items).length) return await myEventsFullSync(uid);
+    const next = { uid, items, watermark, fullAt: cache.fullAt };
+    writeMyEventsCache(next);
+    return next;
+  }
+
+  let myEventsSyncedAt = 0;  // 直近に同期した時刻（タブ切替の連打で毎回問い合わせないため）
+  const MY_EVENTS_SYNC_MIN_INTERVAL_MS = 30 * 1000;
+
+  async function loadMyEventsIndex(uid) {
+    const cache = readMyEventsCache(uid);
+    // watermark が無い＝updatedAt を持つ索引がまだ無い（初回・旧データのみ）ので全件取る
+    const stale = !cache || !cache.watermark || (Date.now() - (cache.fullAt || 0)) > MY_EVENTS_FULL_RESYNC_MS;
+    if (stale) {
+      const full = await myEventsFullSync(uid);
+      myEventsSyncedAt = Date.now();
+      return full;
+    }
+    // ホスト／参加／終了のタブ切替でも renderMyEvents が走るため、直後の再同期は省く
+    if (Date.now() - myEventsSyncedAt < MY_EVENTS_SYNC_MIN_INTERVAL_MS) return cache;
+    const next = await myEventsDeltaSync(uid, cache);
+    myEventsSyncedAt = Date.now();
+    return next;
   }
 
 
   async function removeMyEvent(eventId) {
     if (!currentUser) return;
     await deleteDoc(doc(db, 'users', currentUser.uid, 'events', eventId));
+    patchMyEventsCache(eventId, null);
   }
 
   async function setMyEventFinished(eventId, finished) {
     if (!currentUser) return;
-    await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId), { finished }, { merge: true });
+    await setDoc(doc(db, 'users', currentUser.uid, 'events', eventId),
+      { finished, updatedAt: serverTimestamp() }, { merge: true });
+    patchMyEventsCache(eventId, { finished });
   }
 
   let myEventsRole = 'host';     // 'host' | 'part' | 'finished'
@@ -2412,9 +2516,9 @@ body.gourmet-open #gFrame {
     list.innerHTML = '<div style="text-align:center;color:#bbb;padding:16px;font-size:0.85rem;">読み込み中…</div>';
     card.style.display = 'block';
 
-    let snap;
+    let cache;
     try {
-      snap = await getDocs(userEventsRef(currentUser.uid));
+      cache = await loadMyEventsIndex(currentUser.uid);
     } catch (err) {
       // 「読み込み中…」が永久表示にならないよう、失敗を明示して再試行できるようにする
       console.error('マイイベント一覧の取得に失敗:', err);
@@ -2424,7 +2528,7 @@ body.gourmet-open #gFrame {
       document.getElementById('myEventsRetryBtn')?.addEventListener('click', () => renderMyEvents());
       return;
     }
-    const events = snap.docs.map(d => ({ eventId: d.id, ...d.data() }));
+    const events = Object.entries(cache.items).map(([eventId, v]) => ({ eventId, ...v }));
 
     if (events.length === 0) {
       list.innerHTML = '<div style="text-align:center;color:#bbb;padding:16px;font-size:0.85rem;">まだイベントがありません</div>';
@@ -2451,7 +2555,9 @@ body.gourmet-open #gFrame {
         if (!ev.exists()) {
           e.notFound = true;
           // 次回以降このイベントを読み直さないよう、索引にも「不存在」を記録する
-          await setDoc(myEventRef(e.eventId), { missing: true, summaryAt: Date.now() }, { merge: true })
+          const miss = { missing: true, summaryAt: Date.now() };
+          await setDoc(myEventRef(e.eventId), { ...miss, updatedAt: serverTimestamp() }, { merge: true })
+            .then(() => patchMyEventsCache(e.eventId, miss))
             .catch(err => console.warn('マイイベント索引の更新に失敗:', e.eventId, err));
           return;
         }
@@ -2475,7 +2581,8 @@ body.gourmet-open #gFrame {
         // サマリを索引に複製 → 次回からこのイベントは読まない
         const patch = { ...s, missing: false, summaryAt: Date.now() };
         if (e.hostKey) patch.hostKeyMigrated = migrated;
-        await setDoc(myEventRef(e.eventId), patch, { merge: true })
+        await setDoc(myEventRef(e.eventId), { ...patch, updatedAt: serverTimestamp() }, { merge: true })
+          .then(() => patchMyEventsCache(e.eventId, patch))
           .catch(err => console.warn('マイイベント索引の更新に失敗:', e.eventId, err));
       } catch (err) {
         e.fetchFailed = true;
