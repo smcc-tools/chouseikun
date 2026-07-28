@@ -326,10 +326,14 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* display:block化でflex中央寄せが失われるため、TABLEの文字はテキスト＋行高で天地左右中央に置く */
 .seat-longtable-inner .seat-table-bar { display: block; text-align: center; line-height: 35px; }
 /* 縦向きの長机：席を左右の列に分け、TABLEの帯を縦にする */
-.seat-longtable-inner.vert { display: flex; align-items: flex-start; gap: 6px; }
+/* align-items:stretch にして、TABLEの帯を席の列と同じ長さまで伸ばす。
+   flex-start だと帯が min-height のまま固定され、席が増えても短いままになる
+   （横向きの帯が席の行いっぱいに広がるのと同じ見え方に揃える）。 */
+.seat-longtable-inner.vert { display: flex; align-items: stretch; gap: 6px; }
 .seat-longtable-inner.vert .seat-col { display: flex; flex-direction: column; gap: 6px; min-height: 34px; }
 .seat-longtable-inner.vert .seat-table-bar {
-  writing-mode: vertical-rl; height: auto; min-height: 120px; width: 38px;
+  /* min-height は席が1人ずつの時の下限。通常は stretch で席の列と同じ長さになる */
+  writing-mode: vertical-rl; height: auto; min-height: 38px; width: 38px;
   line-height: normal; display: flex; align-items: center; justify-content: center;
 }
 .seat-table-bar {
