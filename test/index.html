@@ -516,9 +516,6 @@ td.input-col { background: #F6F9F0; border-left: 1px solid var(--green-mid); tex
 /* ── 回答テーブル ── */
 .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--border); background: #fff; }
 /* 回答入力への導線CTA（表が横スクロールするときだけ表示） */
-.jump-input-cta { display:block; width:100%; margin-bottom:10px; padding:11px 14px; background:var(--green); color:#fff; border:none; border-radius:10px; font-size:0.9rem; font-weight:700; cursor:pointer; box-shadow:0 3px 10px rgba(45,66,40,0.18); }
-.jump-input-cta:hover { background:var(--green-dark); }
-.jump-input-cta:active { transform:scale(0.99); }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 300px; }
 thead tr { background: #F4F2EA; }
 th { padding: 13px 6px; text-align: center; color: #5A6B4E; font-weight: 700; white-space: nowrap; font-size: 0.8rem; border-bottom: 1.5px solid var(--green-mid); letter-spacing: 0.02em; }
@@ -5825,7 +5822,6 @@ body.gourmet-open #gFrame {
     });
 
     wrap.innerHTML = `
-      <button type="button" id="jumpToInputBtn" class="jump-input-cta" style="display:none;">＋ あなたの回答を入力</button>
       <div class="table-wrap">
         <table>
           <thead><tr>
@@ -5888,23 +5884,6 @@ body.gourmet-open #gFrame {
     attachNoteHandlers(wrap);
     attachDeleteHandlers(wrap, dates);
     if (isHost) attachDateEditHandlers(wrap, dates);
-
-    // 回答入力への導線：参加者が多く表が横スクロールするとき、入力列（右端）が画面外になり
-    // 初見参加者が自分の回答欄を見つけづらい。表が実際にはみ出す時だけCTAを出し、
-    // タップで入力列までスクロール＋名前欄にフォーカスする。
-    (function setupJumpToInput() {
-      const cta = wrap.querySelector('#jumpToInputBtn');
-      const tw = wrap.querySelector('.table-wrap');
-      if (!cta || !tw) return;
-      const overflow = tw.scrollWidth - tw.clientWidth > 24;
-      cta.style.display = overflow ? '' : 'none';
-      if (!overflow) return;
-      cta.addEventListener('click', () => {
-        tw.scrollTo({ left: tw.scrollWidth, behavior: 'smooth' });
-        const nameInput = wrap.querySelector('#newName');
-        if (nameInput) setTimeout(() => nameInput.focus({ preventScroll: true }), 350);
-      });
-    })();
 
     // ── ホスト専用：日程確定ボタン ──
     if (isHost) {
