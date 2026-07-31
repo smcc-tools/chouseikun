@@ -438,8 +438,10 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* 円卓は aspect-ratio を持つので flex で潰さず、auto マージンで天地左右の中央に置く */
 .seat-tables-grid.uniform .seat-round { margin: auto; }
 .seat-table-block.move-sel { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
+/* 「⟳ 縦にする」と「⇄ 移動」は文字数が違うと幅がばらつくので、最小幅を揃えて同じ大きさにする */
 .seat-move-btn, .seat-ori-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
-  border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+  border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap;
+  min-width: 78px; text-align: center; }
 .seat-move-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
 .seat-empty-slot { border: 1.5px dashed var(--border); border-radius: 12px; min-height: 90px;
   display: flex; align-items: center; justify-content: center; color: #c9c4b4;
