@@ -449,6 +449,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-cols-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
   border-radius: 6px; font-size: 0.72rem; padding: 2px 9px; cursor: pointer; }
 .seat-cols-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
+.seat-grid-sel { width: auto; margin-bottom: 0; padding: 2px 6px; font-size: 0.74rem;
+  border: 1px solid var(--border); border-radius: 6px; background: #fafaf6; color: var(--text); }
 /* シャッフル中バナー（グラデのきらめき＋波打つドット） */
 .seat-shuffle-banner {
   position: relative; overflow: hidden; text-align: center;
@@ -5033,17 +5035,36 @@ body.gourmet-open #gFrame {
   // 配列長は列数の倍数に切り上げるので、末尾に半端な空きマスが並ぶ（そこへも卓を移動できる）。
   // freeLayout=true（ホストが「配置を調整」で並べた次会）では、卓数が列数で
   // 割り切れても詰めない。意図して空けた隙間が消えてしまうため。
-  function normalizeTableSlots(tables, cols, freeLayout) {
+  const SEAT_GRID_MAX = 6; // 縦・横それぞれの上限（スマホで見られる範囲）
+
+  // 表示する行数を決める。ホストが縦×横で指定していればその値、未指定なら
+  // 卓が収まる最小の行数（＝これまでの見た目のまま）。卓が入り切らない指定は切り上げて救う。
+  function seatGridRows(party, tableCount, cols) {
     const c = Math.max(1, parseInt(cols) || 1);
+    const need = Math.max(1, Math.ceil(Math.max(0, tableCount) / c));
+    const r = parseInt(party && party.tableRows);
+    if (!Number.isInteger(r) || r < 1) return need;
+    return Math.max(need, Math.min(r, SEAT_GRID_MAX));
+  }
+
+  // rows を渡すと盤面を rows×cols のマス目に固定する（ホストが縦×横で指定した場合）。
+  // その際、盤面からはみ出す slot の卓は空いているマスへ移す。卓が消えるのを防ぐため。
+  function normalizeTableSlots(tables, cols, freeLayout, rows) {
+    const c = Math.max(1, parseInt(cols) || 1);
+    const r = parseInt(rows);
+    const cap = (Number.isInteger(r) && r > 0) ? r * c : null; // 盤面のマス数（null=自動）
     const bySlot = new Map();
     const pending = [];
     (tables || []).forEach(t => {
       const s = parseInt(t && t.slot);
-      if (Number.isInteger(s) && s >= 0 && !bySlot.has(s)) bySlot.set(s, t); else pending.push(t);
+      const inRange = Number.isInteger(s) && s >= 0 && (cap === null || s < cap);
+      if (inRange && !bySlot.has(s)) bySlot.set(s, t); else pending.push(t);
     });
     let free = 0;
     pending.forEach(t => { while (bySlot.has(free)) free++; bySlot.set(free, t); });
-    if (!bySlot.size) return [];
+    if (!bySlot.size) return cap === null ? [] : Array.from({ length: cap }, () => null);
+    // 縦×横が指定されていれば、そのマス数ちょうどの盤面を返す
+    if (cap !== null) return Array.from({ length: cap }, (_, i) => bySlot.get(i) || null);
     // 卓数が列数で割り切れる場合（例：2卓×2列）は空きマスを作らず詰めて表示。
     // 割り切れない場合（例：3卓×2列＝1マス余る）のみ、余りマスの位置(slotの隙間)を保持する
     const entries = [...bySlot.entries()].sort((a, b) => a[0] - b[0]);
@@ -5121,7 +5142,7 @@ body.gourmet-open #gFrame {
     const parties = getParties(latestEventData).map(p => ({ ...p }));
     const src = parties[clampActiveIdx(parties)];
     const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
-    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, freeLayout: !!src.freeLayout });
+    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, tableRows: src.tableRows || null, freeLayout: !!src.freeLayout });
     seatingActiveParty = parties.length - 1;
     updateParties(parties);
     showToast(`${parties.length}次会を追加しました（卓は前回をコピー）`);
@@ -5202,16 +5223,20 @@ body.gourmet-open #gFrame {
     let html = isPreview
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
       : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
-    // 卓の並び（列数）。ホストが設定し、参加者も同じ位置関係で見る
-    // 調整モード中は卓数を超える列も選べる（卓の間に隙間を作るため）
-    // 調整済みの次会(freeLayout)は、調整モードを抜けても保存した列数をそのまま使う。
-    // ここで従来の上限(3・卓数以下)に丸めると、せっかく空けた隙間の位置がずれてしまう。
-    const maxCols = (seatAdjustMode || party.freeLayout) ? 6 : Math.max(1, Math.min(3, tables.length || 1));
-    const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, maxCols));
+    // 卓の並びは「縦○×横○」でホストが盤面の大きさを直接決める。参加者も同じ位置関係で見る。
+    // tableRows 未設定の次会は、これまでどおり列数から行数を導いた見た目のまま（移行不要）。
+    const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, SEAT_GRID_MAX));
+    const rows = seatGridRows(party, tables.length, cols);
     if (isHost && tables.length > 1) {
-      const colBtns = Array.from({ length: maxCols }, (_, i) => i + 1).map(n =>
-        `<button type="button" class="seat-cols-btn${cols === n ? ' selected' : ''}" data-cols="${n}">${n}列</button>`).join('');
-      html += `<div class="seat-cols-ctrl">卓の並び：${colBtns}
+      // 卓が入り切らない組み合わせは選ばせない（選べると卓が消えたように見えるため）
+      const optFor = (val, other) => Array.from({ length: SEAT_GRID_MAX }, (_, i) => i + 1)
+        .filter(n => n * other >= tables.length)
+        .map(n => `<option value="${n}" ${n === val ? 'selected' : ''}>${n}</option>`).join('');
+      html += `<div class="seat-cols-ctrl">卓の並び：
+        <select class="seat-grid-sel" id="seatRowsSel" title="縦（行）の数">${optFor(rows, cols)}</select>
+        <span>行 ×</span>
+        <select class="seat-grid-sel" id="seatColsSel" title="横（列）の数">${optFor(cols, rows)}</select>
+        <span>列</span>
         <button type="button" class="seat-cols-btn${seatAdjustMode ? ' selected' : ''}" id="seatAdjustBtn">${seatAdjustMode ? '調整を終える' : '配置を調整'}</button>
         <span>／「⇄ 移動」で卓の位置を入れ替え</span></div>`;
     } else if (isHost && tables.length <= 1) {
@@ -5221,8 +5246,11 @@ body.gourmet-open #gFrame {
         <button type="button" class="seat-cols-btn${seatAdjustMode ? ' selected' : ''}" id="seatAdjustBtn">${seatAdjustMode ? '調整を終える' : '配置を調整'}</button>
       </div>`;
     }
-    // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する
-    const slotArr = normalizeTableSlots(tables, cols, party.freeLayout);
+    // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する。
+    // 縦×横が明示されている次会だけ盤面をそのマス数に固定する。未設定の次会に rows を渡すと
+    // freeLayout で保っていた隙間が詰め直されてしまうため、渡さず従来の判定に任せる。
+    const explicitRows = Number.isInteger(parseInt(party.tableRows)) && parseInt(party.tableRows) >= 1;
+    const slotArr = normalizeTableSlots(tables, cols, party.freeLayout, explicitRows ? rows : undefined);
     const slotOf = {}; slotArr.forEach((t, i) => { if (t) slotOf[t.id] = i; });
     let tablesHtml = '';
     slotArr.forEach((t, si) => {
@@ -5272,7 +5300,8 @@ body.gourmet-open #gFrame {
       tablesHtml += `</div>`;
     });
     // uniform：卓が複数あるときだけ、人数に関わらず卓のボックスを同じ大きさに揃える
-    tablesHtml = `<div class="seat-tables-grid${party.freeLayout ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
+    // free：空けたマスが通常表示でも高さを保つ。縦×横を明示した次会でも空行が潰れないよう含める
+    tablesHtml = `<div class="seat-tables-grid${(party.freeLayout || explicitRows) ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
     // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
     const entrance = party.entrance || null;
     if (isHost || entrance) {
@@ -5319,14 +5348,15 @@ body.gourmet-open #gFrame {
       seatAdjustMode = !seatAdjustMode;
       renderSeatingResult(latestEventData);
     });
-    // 卓の並び（列数・位置入れ替え）。プレビュー中でも設定可能
-    el.querySelectorAll('.seat-cols-btn').forEach(btn => btn.addEventListener('click', () => {
-      if (!btn.dataset.cols) return; // 調整ボタンは別ハンドラで処理する
-      // 調整モード中の変更は「ホストが意図して並べた」印を残す（隙間を詰めなくなる）
-      const patch = { tableCols: parseInt(btn.dataset.cols) || 1 };
-      if (seatAdjustMode) patch.freeLayout = true;
-      updateActiveParty(patch);
-    }));
+    // 卓の並び（縦×横）。プレビュー中でも設定可能。
+    // 縦横のどちらを変えても、盤面のマス数が確定するよう両方まとめて保存する。
+    const applyGrid = () => {
+      const r = parseInt(el.querySelector('#seatRowsSel')?.value) || 1;
+      const c = parseInt(el.querySelector('#seatColsSel')?.value) || 1;
+      updateActiveParty({ tableRows: r, tableCols: c });
+    };
+    el.querySelector('#seatRowsSel')?.addEventListener('change', applyGrid);
+    el.querySelector('#seatColsSel')?.addEventListener('change', applyGrid);
     el.querySelectorAll('.seat-move-btn').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation();
       tableMoveSel = (tableMoveSel === btn.dataset.move) ? null : btn.dataset.move;
