@@ -5551,12 +5551,6 @@ body.gourmet-open #gFrame {
       const cap = parseInt(t.capacity) || 0;
       const isRect = (t.shape || 'rect') === 'rect';
       const vert = isRect && t.orient === 'v';
-      // 長机のみ向きを選べる（円卓は回転しても同じなので出さない）
-      const orientSel = isRect
-        ? `<select class="stori" style="width:auto;margin-bottom:0;padding:8px 8px;" title="卓の向き">
-            <option value="h" ${!vert ? 'selected' : ''}>横向き</option>
-            <option value="v" ${vert ? 'selected' : ''}>縦向き</option>
-          </select>` : '';
       // 長机×奇数定員のときだけ、多い側をどちらにするか選べる（例：7人→上4・下3 / 上3・下4）
       // 縦向きでは「上下」ではなく「左右」と表示する
       const rc = tableRowCounts({ ...t, split: 'top' });
@@ -5573,7 +5567,6 @@ body.gourmet-open #gFrame {
           <option value="rect" ${isRect ? 'selected' : ''}>長机</option>
           <option value="round" ${t.shape === 'round' ? 'selected' : ''}>円卓</option>
         </select>
-        ${orientSel}
         ${oddSplit}
         <button type="button" class="btn-remove st-del" data-id="${escHtml(t.id)}" aria-label="卓を削除">✕</button>
       </div>`;
@@ -5591,12 +5584,12 @@ body.gourmet-open #gFrame {
         const name = row.querySelector('.stn').value.trim() || '卓';
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
         const shape = row.querySelector('.stshape').value === 'round' ? 'round' : 'rect';
-        const orient = row.querySelector('.stori')?.value === 'v' ? 'v' : 'h';
         const splitEl = row.querySelector('.stsplit');
         const party = activeParty(latestEventData);
         const prevT = (party.tables || []).find(t => t.id === id);
         const next = (party.tables || []).map(t => t.id === id
-          ? { ...t, name, capacity, shape, orient, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
+          // orient は含めない：卓の図で切り替えた向きを、ここでの編集で上書きしないため
+          ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
           : t);
         const patch = { tables: next };
         // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
@@ -5613,7 +5606,6 @@ body.gourmet-open #gFrame {
       row.querySelector('.stn').addEventListener('blur', save);
       row.querySelector('.stcap').addEventListener('blur', save);
       row.querySelector('.stshape').addEventListener('change', save);
-      row.querySelector('.stori')?.addEventListener('change', save);
       row.querySelector('.stsplit')?.addEventListener('change', save);
     });
     box.querySelectorAll('.st-del').forEach(b => b.addEventListener('click', () => {
