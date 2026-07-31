@@ -284,8 +284,11 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-unassigned { margin-top: 12px; background: #F7EAE6; border: 1px solid #E6C6BC; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; color: var(--clay); }
 
 /* 卓設定行・タグ行・条件行 */
-.seat-table-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.seat-table-row input.stn { flex: 1; margin-bottom: 0; }
+/* 行ごとに操作の数が違う（奇数定員なら「上◯・下◯」、長机なら向き）ため、
+   flex:1 の名前欄が余りを吸収すると行ごとに幅がバラバラになり、
+   狭い画面では潰れて行がはみ出す。名前欄は一定幅にし、入り切らない分は折り返す。 */
+.seat-table-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.seat-table-row input.stn { flex: 0 1 150px; min-width: 110px; margin-bottom: 0; }
 .seat-table-row input.stcap { width: 74px; margin-bottom: 0; text-align: center; }
 .seat-member-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
 .seat-member-row .smn { flex: 1; font-weight: 600; min-width: 0; word-break: break-word; }
@@ -317,6 +320,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   font-family: var(--font-display); font-weight: 700; color: var(--green);
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line-soft);
+  /* 2列以上に並べた狭いセルでは、卓名と操作ボタンが1行に収まらずはみ出すため折り返す */
+  flex-wrap: wrap; gap: 6px;
 }
 .seat-row { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; min-height: 34px; margin: 6px 0; }
 /* 長机：席は折り返さず、はみ出す場合は横スクロール（2行に崩れない） */
@@ -325,6 +330,17 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-longtable-inner .seat-row { flex-wrap: nowrap; justify-content: flex-start; }
 /* display:block化でflex中央寄せが失われるため、TABLEの文字はテキスト＋行高で天地左右中央に置く */
 .seat-longtable-inner .seat-table-bar { display: block; text-align: center; line-height: 35px; }
+/* 縦向きの長机：席を左右の列に分け、TABLEの帯を縦にする */
+/* align-items:stretch にして、TABLEの帯を席の列と同じ長さまで伸ばす。
+   flex-start だと帯が min-height のまま固定され、席が増えても短いままになる
+   （横向きの帯が席の行いっぱいに広がるのと同じ見え方に揃える）。 */
+.seat-longtable-inner.vert { display: flex; align-items: stretch; gap: 6px; }
+.seat-longtable-inner.vert .seat-col { display: flex; flex-direction: column; gap: 6px; min-height: 34px; }
+.seat-longtable-inner.vert .seat-table-bar {
+  /* min-height は席が1人ずつの時の下限。通常は stretch で席の列と同じ長さになる */
+  writing-mode: vertical-rl; height: auto; min-height: 38px; width: 38px;
+  line-height: normal; display: flex; align-items: center; justify-content: center;
+}
 .seat-table-bar {
   height: 38px; background: var(--green-light); border: 1.5px solid var(--green-mid);
   border-radius: 10px; display: flex; align-items: center; justify-content: center;
@@ -413,20 +429,35 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* 卓の位置関係：列数指定のグリッド＋「⇄ 移動」で卓を入れ替え（参加者にも同じ配置で表示） */
 .seat-tables-grid { display: grid; gap: 0 10px; align-items: start; }
 .seat-tables-grid .seat-table-block { min-width: 0; }
+/* 卓が複数あるときは、人数に関わらず卓のボックスを同じ大きさに揃える。
+   幅は grid の 1fr で既に均等なので、高さを行いっぱいに伸ばして中身を上下中央に置く。
+   （卓が1つだけの時は伸ばす相手がいないので付けない） */
+.seat-tables-grid.uniform { align-items: stretch; grid-auto-rows: 1fr; }
+.seat-tables-grid.uniform .seat-table-block { display: flex; flex-direction: column; }
+.seat-tables-grid.uniform .seat-longtable { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+/* 円卓は aspect-ratio を持つので flex で潰さず、auto マージンで天地左右の中央に置く */
+.seat-tables-grid.uniform .seat-round { margin: auto; }
 .seat-table-block.move-sel { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
-.seat-move-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
-  border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+/* 「⟳ 縦にする」と「⇄ 移動」は文字数が違うと幅がばらつくので、最小幅を揃えて同じ大きさにする */
+.seat-move-btn, .seat-ori-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
+  border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap;
+  min-width: 78px; text-align: center; }
 .seat-move-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
 .seat-empty-slot { border: 1.5px dashed var(--border); border-radius: 12px; min-height: 90px;
   display: flex; align-items: center; justify-content: center; color: #c9c4b4;
   font-size: 0.74rem; margin-bottom: 14px; align-self: stretch; }
 .seat-empty-slot.active { border-color: var(--green); color: var(--green); cursor: pointer; background: #f7faf0; }
 .seat-empty-slot.ghost { border: none; min-height: 0; margin: 0; }
+/* ホストが配置を調整した次会では、空けたマスが通常表示でも高さを保つ。
+   min-height:0 のままだと空きマスだけの行が潰れ、意図して空けた行が消えてしまう。 */
+.seat-tables-grid.free .seat-empty-slot.ghost { min-height: 90px; margin-bottom: 14px; }
 .seat-cols-ctrl { display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
   font-size: 0.74rem; color: var(--text-muted); flex-wrap: wrap; }
 .seat-cols-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
   border-radius: 6px; font-size: 0.72rem; padding: 2px 9px; cursor: pointer; }
 .seat-cols-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
+.seat-grid-sel { width: auto; margin-bottom: 0; padding: 2px 6px; font-size: 0.74rem;
+  border: 1px solid var(--border); border-radius: 6px; background: #fafaf6; color: var(--text); }
 /* シャッフル中バナー（グラデのきらめき＋波打つドット） */
 .seat-shuffle-banner {
   position: relative; overflow: hidden; text-align: center;
@@ -4772,6 +4803,17 @@ body.gourmet-open #gFrame {
     return (t && t.split === 'bottom') ? Math.floor(cap / 2) : Math.ceil(cap / 2);
   }
 
+  // 卓の席を「先に描く側」と「後に描く側」に分ける。
+  // 横向きなら first=上段 / second=下段、縦向きなら first=左列 / second=右列。
+  // 向きは見た目の90度回転にすぎず配分は変えないため、orient は参照しない。
+  // 円卓は分割しないので first に全席を入れる。
+  function tableRowCounts(t) {
+    const cap = Math.max(0, parseInt(t && t.capacity) || 0);
+    if (((t && t.shape) || 'rect') === 'round') return { first: cap, second: 0 };
+    const first = (t && t.split === 'bottom') ? Math.floor(cap / 2) : Math.ceil(cap / 2);
+    return { first, second: cap - first };
+  }
+
   // 上下の振り分け(split)変更時：配置済みの参加者を「行ごと・並びそのまま」入れ替えるパッチを作る。
   // 旧上段(oldTopCount人)が新しい下段に、旧下段が新しい上段になる。🔒ロック位置も同じ席の人に追従する。
   function flipTableRowsPatch(party, tid, oldTopCount) {
@@ -4997,21 +5039,42 @@ body.gourmet-open #gFrame {
   // 卓のグリッド位置（slot: 行優先の通し番号）を正規化し「slot順の配列（空きマスは null）」を返す。
   // slot未設定・重複・不正値の卓は、卓配列の順に空いているスロットへ詰める。
   // 配列長は列数の倍数に切り上げるので、末尾に半端な空きマスが並ぶ（そこへも卓を移動できる）。
-  function normalizeTableSlots(tables, cols) {
+  // freeLayout=true（ホストが「配置を調整」で並べた次会）では、卓数が列数で
+  // 割り切れても詰めない。意図して空けた隙間が消えてしまうため。
+  const SEAT_GRID_MAX = 6; // 縦・横それぞれの上限（スマホで見られる範囲）
+
+  // 表示する行数を決める。ホストが縦×横で指定していればその値、未指定なら
+  // 卓が収まる最小の行数（＝これまでの見た目のまま）。卓が入り切らない指定は切り上げて救う。
+  function seatGridRows(party, tableCount, cols) {
     const c = Math.max(1, parseInt(cols) || 1);
+    const need = Math.max(1, Math.ceil(Math.max(0, tableCount) / c));
+    const r = parseInt(party && party.tableRows);
+    if (!Number.isInteger(r) || r < 1) return need;
+    return Math.max(need, Math.min(r, SEAT_GRID_MAX));
+  }
+
+  // rows を渡すと盤面を rows×cols のマス目に固定する（ホストが縦×横で指定した場合）。
+  // その際、盤面からはみ出す slot の卓は空いているマスへ移す。卓が消えるのを防ぐため。
+  function normalizeTableSlots(tables, cols, freeLayout, rows) {
+    const c = Math.max(1, parseInt(cols) || 1);
+    const r = parseInt(rows);
+    const cap = (Number.isInteger(r) && r > 0) ? r * c : null; // 盤面のマス数（null=自動）
     const bySlot = new Map();
     const pending = [];
     (tables || []).forEach(t => {
       const s = parseInt(t && t.slot);
-      if (Number.isInteger(s) && s >= 0 && !bySlot.has(s)) bySlot.set(s, t); else pending.push(t);
+      const inRange = Number.isInteger(s) && s >= 0 && (cap === null || s < cap);
+      if (inRange && !bySlot.has(s)) bySlot.set(s, t); else pending.push(t);
     });
     let free = 0;
     pending.forEach(t => { while (bySlot.has(free)) free++; bySlot.set(free, t); });
-    if (!bySlot.size) return [];
+    if (!bySlot.size) return cap === null ? [] : Array.from({ length: cap }, () => null);
+    // 縦×横が指定されていれば、そのマス数ちょうどの盤面を返す
+    if (cap !== null) return Array.from({ length: cap }, (_, i) => bySlot.get(i) || null);
     // 卓数が列数で割り切れる場合（例：2卓×2列）は空きマスを作らず詰めて表示。
     // 割り切れない場合（例：3卓×2列＝1マス余る）のみ、余りマスの位置(slotの隙間)を保持する
     const entries = [...bySlot.entries()].sort((a, b) => a[0] - b[0]);
-    if (entries.length % c === 0) return entries.map(e => e[1]);
+    if (!freeLayout && entries.length % c === 0) return entries.map(e => e[1]);
     const maxSlot = entries[entries.length - 1][0];
     const total = Math.ceil((maxSlot + 1) / c) * c;
     return Array.from({ length: total }, (_, i) => bySlot.get(i) || null);
@@ -5053,7 +5116,8 @@ body.gourmet-open #gFrame {
     if (!box) return;
     const parties = getParties(data);
     const active = clampActiveIdx(parties);
-    let html = parties.map((p, i) => `<button class="my-event-tab${i === active ? ' active' : ''}" data-party="${i}">${escHtml(p.name || (i + 1) + '次会')}</button>`).join('');
+    let html = parties.map((p, i) =>
+      `<button class="my-event-tab${i === active ? ' active' : ''}" data-party="${i}">${escHtml(p.name || (i + 1) + '次会')}</button>`).join('');
     if (isHost) {
       // 名称の変更は表示中の次会に対して行う（タブごとにボタンを並べると横に伸びるため）
       html += `<button class="my-event-tab" id="seatingRenamePartyBtn" style="flex:0 0 auto;">名称を変更</button>`;
@@ -5083,8 +5147,8 @@ body.gourmet-open #gFrame {
   function addSeatingParty() {
     const parties = getParties(latestEventData).map(p => ({ ...p }));
     const src = parties[clampActiveIdx(parties)];
-    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
-    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1 });
+    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
+    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, tableRows: src.tableRows || null, freeLayout: !!src.freeLayout });
     seatingActiveParty = parties.length - 1;
     updateParties(parties);
     showToast(`${parties.length}次会を追加しました（卓は前回をコピー）`);
@@ -5165,15 +5229,27 @@ body.gourmet-open #gFrame {
     let html = isPreview
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
       : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
-    // 卓の並び（列数）。ホストが設定し、参加者も同じ位置関係で見る
-    const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, 3, tables.length || 1));
+    // 卓の並びは「縦○×横○」でホストが盤面の大きさを直接決める。参加者も同じ位置関係で見る。
+    // tableRows 未設定の次会は、これまでどおり列数から行数を導いた見た目のまま（移行不要）。
+    const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, SEAT_GRID_MAX));
+    const rows = seatGridRows(party, tables.length, cols);
     if (isHost && tables.length > 1) {
-      html += `<div class="seat-cols-ctrl">卓の並び：${[1, 2, 3].filter(n => n <= tables.length).map(n =>
-        `<button type="button" class="seat-cols-btn${cols === n ? ' selected' : ''}" data-cols="${n}">${n}列</button>`).join('')}
-        <span>／「⇄ 移動」で卓の位置を入れ替え</span></div>`;
+      // 卓が入り切らない組み合わせは選ばせない（選べると卓が消えたように見えるため）
+      const optFor = (val, other) => Array.from({ length: SEAT_GRID_MAX }, (_, i) => i + 1)
+        .filter(n => n * other >= tables.length)
+        .map(n => `<option value="${n}" ${n === val ? 'selected' : ''}>${n}</option>`).join('');
+      html += `<div class="seat-cols-ctrl">卓の並び：
+        <select class="seat-grid-sel" id="seatRowsSel" title="縦（行）の数">${optFor(rows, cols)}</select>
+        <span>行 ×</span>
+        <select class="seat-grid-sel" id="seatColsSel" title="横（列）の数">${optFor(cols, rows)}</select>
+        <span>列</span>
+        <span>／「⇄ 移動」→ 置きたいマスをタップで卓を動かせます</span></div>`;
     }
-    // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する
-    const slotArr = normalizeTableSlots(tables, cols);
+    // 卓をグリッド位置(slot)順に描画。空きマスはホストには移動先として見せ、参加者には同じ空間だけ確保する。
+    // 縦×横が明示されている次会だけ盤面をそのマス数に固定する。未設定の次会に rows を渡すと
+    // freeLayout で保っていた隙間が詰め直されてしまうため、渡さず従来の判定に任せる。
+    const explicitRows = Number.isInteger(parseInt(party.tableRows)) && parseInt(party.tableRows) >= 1;
+    const slotArr = normalizeTableSlots(tables, cols, party.freeLayout, explicitRows ? rows : undefined);
     const slotOf = {}; slotArr.forEach((t, i) => { if (t) slotOf[t.id] = i; });
     let tablesHtml = '';
     slotArr.forEach((t, si) => {
@@ -5185,12 +5261,18 @@ body.gourmet-open #gFrame {
       }
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
-      const filled = arr.filter(Boolean).length;
+
       // 参加者には満席数カウント（4/4等）もヘッダバーも出さない。ホストは卓名＋移動＋カウント
       const moveBtn = (isHost && tables.length > 1)
         ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
+      // 向きの切り替えは卓の図の上で行えるようにする（長机のみ。円卓は回しても同じ）。
+      // ラベルは「押すとどうなるか」を出す（今が横向きなら「縦にする」）。
+      const isRectT = (t.shape || 'rect') === 'rect';
+      const vertT = isRectT && t.orient === 'v';
+      const oriBtn = (isHost && isRectT)
+        ? `<button type="button" class="seat-ori-btn" data-orient="${escHtml(t.id)}" title="卓の向きを変える">⟳ ${vertT ? '横にする' : '縦にする'}</button>` : '';
       const headBar = isHost
-        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${moveBtn}<span class="stc-count">${filled}/${cap}</span></span></div>`
+        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">${oriBtn}${moveBtn}</span></div>`
         : '';
       tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
       if ((t.shape || 'rect') === 'round') {
@@ -5204,16 +5286,27 @@ body.gourmet-open #gFrame {
         });
         tablesHtml += `</div>`;
       } else {
-        const half = tableTopCount(t); // 奇数定員はホスト設定(split)で上下どちらを多くするか決まる
-        tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner">
-          <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, t.id, i)).join('')}</div>
-          <div class="seat-table-bar">TABLE</div>
-          <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, t.id, half + i)).join('')}</div>
-        </div></div>`;
+        // 奇数定員はホスト設定(split)で多い側が決まる。first=先に描く側（横向き＝上段／縦向き＝左列）
+        const { first } = tableRowCounts(t);
+        if (t.orient === 'v') {
+          tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner vert">
+            <div class="seat-col">${arr.slice(0, first).map((n, i) => chip(n, t.id, i)).join('')}</div>
+            <div class="seat-table-bar">TABLE</div>
+            <div class="seat-col">${arr.slice(first).map((n, i) => chip(n, t.id, first + i)).join('')}</div>
+          </div></div>`;
+        } else {
+          tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner">
+            <div class="seat-row">${arr.slice(0, first).map((n, i) => chip(n, t.id, i)).join('')}</div>
+            <div class="seat-table-bar">TABLE</div>
+            <div class="seat-row">${arr.slice(first).map((n, i) => chip(n, t.id, first + i)).join('')}</div>
+          </div></div>`;
+        }
       }
       tablesHtml += `</div>`;
     });
-    tablesHtml = `<div class="seat-tables-grid" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
+    // uniform：卓が複数あるときだけ、人数に関わらず卓のボックスを同じ大きさに揃える
+    // free：空けたマスが通常表示でも高さを保つ。縦×横を明示した次会でも空行が潰れないよう含める
+    tablesHtml = `<div class="seat-tables-grid${(party.freeLayout || explicitRows) ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
     // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
     const entrance = party.entrance || null;
     if (isHost || entrance) {
@@ -5249,10 +5342,26 @@ body.gourmet-open #gFrame {
       const side = btn.dataset.ent;
       updateActiveParty({ entrance: cur === side ? null : side });
     }));
-    // 卓の並び（列数・位置入れ替え）。プレビュー中でも設定可能
-    el.querySelectorAll('.seat-cols-btn').forEach(btn => btn.addEventListener('click', () => {
-      updateActiveParty({ tableCols: parseInt(btn.dataset.cols) || 1 });
-    }));
+    // 卓の並び（縦×横）。プレビュー中でも設定可能。
+    // 縦横のどちらを変えても、盤面のマス数が確定するよう両方まとめて保存する。
+    const applyGrid = () => {
+      const r = parseInt(el.querySelector('#seatRowsSel')?.value) || 1;
+      const c = parseInt(el.querySelector('#seatColsSel')?.value) || 1;
+      updateActiveParty({ tableRows: r, tableCols: c });
+    };
+    el.querySelector('#seatRowsSel')?.addEventListener('change', applyGrid);
+    el.querySelector('#seatColsSel')?.addEventListener('change', applyGrid);
+    // 卓の図の上で向きを切り替える。席の並び順は変えず見た目だけ90度回る。
+    // capture で席チップのハンドラより先に受け取る（卓ブロック全体が移動用のタップ対象のため）
+    el.querySelectorAll('.seat-ori-btn').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation(); e.preventDefault();
+      const tid = btn.dataset.orient;
+      const cur = (activeParty(latestEventData).tables || []).find(t => t.id === tid);
+      if (!cur) return;
+      const next = (activeParty(latestEventData).tables || []).map(t =>
+        t.id === tid ? { ...t, orient: t.orient === 'v' ? 'h' : 'v' } : t);
+      updateActiveParty({ tables: next });
+    }, { capture: true }));
     el.querySelectorAll('.seat-move-btn').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation();
       tableMoveSel = (tableMoveSel === btn.dataset.move) ? null : btn.dataset.move;
@@ -5263,7 +5372,9 @@ body.gourmet-open #gFrame {
       const applySlots = (mutate) => {
         const ts = (activeParty(latestEventData).tables || []).map(x => ({ ...x, slot: slotOf[x.id] }));
         mutate(ts);
-        updateActiveParty({ tables: ts });
+        // 卓を動かしたら「ホストが意図して並べた」印を残す（隙間を詰めなくなる）。
+        // 空きマスは常に見えていて動かし直せるので、意図しない空白が残っても直せる。
+        updateActiveParty({ tables: ts, freeLayout: true });
       };
       // 卓ブロックのタップ＝位置の入れ替え。capture で席チップ等のハンドラより先に奪う
       el.querySelectorAll('.seat-table-block').forEach(blk => blk.addEventListener('click', e => {
@@ -5437,19 +5548,31 @@ body.gourmet-open #gFrame {
     const tables = party.tables || [];
     box.innerHTML = tables.map(t => {
       const cap = parseInt(t.capacity) || 0;
-      // 長机×奇数定員のときだけ、上下どちらを多くするか選べる（例：7人→上4・下3 / 上3・下4）
-      const oddSplit = ((t.shape || 'rect') === 'rect' && cap % 2 === 1 && cap > 1)
-        ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の上下の振り分け">
-            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>上${Math.ceil(cap / 2)}・下${Math.floor(cap / 2)}</option>
-            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>上${Math.floor(cap / 2)}・下${Math.ceil(cap / 2)}</option>
+      const isRect = (t.shape || 'rect') === 'rect';
+      const vert = isRect && t.orient === 'v';
+      // 長机のみ向きを選べる（円卓は回転しても同じなので出さない）
+      const orientSel = isRect
+        ? `<select class="stori" style="width:auto;margin-bottom:0;padding:8px 8px;" title="卓の向き">
+            <option value="h" ${!vert ? 'selected' : ''}>横向き</option>
+            <option value="v" ${vert ? 'selected' : ''}>縦向き</option>
+          </select>` : '';
+      // 長机×奇数定員のときだけ、多い側をどちらにするか選べる（例：7人→上4・下3 / 上3・下4）
+      // 縦向きでは「上下」ではなく「左右」と表示する
+      const rc = tableRowCounts({ ...t, split: 'top' });
+      const [a, b] = vert ? ['左', '右'] : ['上', '下'];
+      const oddSplit = (isRect && cap % 2 === 1 && cap > 1)
+        ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の振り分け">
+            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first}・${b}${rc.second}</option>
+            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second}・${b}${rc.first}</option>
           </select>` : '';
       return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
         <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
         <input type="number" class="stcap" min="0" value="${cap}" placeholder="定員">
         <select class="stshape" style="width:auto;margin-bottom:0;padding:8px 8px;">
-          <option value="rect" ${(t.shape || 'rect') === 'rect' ? 'selected' : ''}>長机</option>
+          <option value="rect" ${isRect ? 'selected' : ''}>長机</option>
           <option value="round" ${t.shape === 'round' ? 'selected' : ''}>円卓</option>
         </select>
+        ${orientSel}
         ${oddSplit}
         <button type="button" class="btn-remove st-del" data-id="${escHtml(t.id)}" aria-label="卓を削除">✕</button>
       </div>`;
@@ -5467,11 +5590,12 @@ body.gourmet-open #gFrame {
         const name = row.querySelector('.stn').value.trim() || '卓';
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
         const shape = row.querySelector('.stshape').value === 'round' ? 'round' : 'rect';
+        const orient = row.querySelector('.stori')?.value === 'v' ? 'v' : 'h';
         const splitEl = row.querySelector('.stsplit');
         const party = activeParty(latestEventData);
         const prevT = (party.tables || []).find(t => t.id === id);
         const next = (party.tables || []).map(t => t.id === id
-          ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
+          ? { ...t, name, capacity, shape, orient, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
           : t);
         const patch = { tables: next };
         // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
@@ -5488,6 +5612,7 @@ body.gourmet-open #gFrame {
       row.querySelector('.stn').addEventListener('blur', save);
       row.querySelector('.stcap').addEventListener('blur', save);
       row.querySelector('.stshape').addEventListener('change', save);
+      row.querySelector('.stori')?.addEventListener('change', save);
       row.querySelector('.stsplit')?.addEventListener('change', save);
     });
     box.querySelectorAll('.st-del').forEach(b => b.addEventListener('click', () => {
@@ -5527,7 +5652,7 @@ body.gourmet-open #gFrame {
         const dot = colHex ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
         return `<div class="seat-chip${n ? '' : ' empty'} ${state}"><span class="sc-name">${dot}${n ? escHtml(n) : '空'}</span></div>`;
       };
-      html += `<div class="seat-table-block"><div class="stb-name" style="justify-content:flex-end;"><span class="stc-count">${arr.filter(Boolean).length}/${cap}</span></div>`;
+      html += `<div class="seat-table-block">`;
       if ((t.shape || 'rect') === 'round') {
         // 人数が多いほど円周半径を広げ、頂点付近のチップの重なりを防ぐ（10人以下は従来通り）
         const R = Math.min(48, 44 + Math.max(0, cap - 10) * 2);
