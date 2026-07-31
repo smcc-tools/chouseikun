@@ -5278,7 +5278,7 @@ body.gourmet-open #gFrame {
       const oriBtn = (isHost && isRectT)
         ? `<button type="button" class="seat-ori-btn" data-orient="${escHtml(t.id)}" title="卓の向きを変える">⟳ ${vertT ? '横にする' : '縦にする'}</button>` : '';
       const headBar = isHost
-        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${oriBtn}${moveBtn}</span></div>`
+        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">${oriBtn}${moveBtn}</span></div>`
         : '';
       tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
       if ((t.shape || 'rect') === 'round') {
