@@ -320,6 +320,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   font-family: var(--font-display); font-weight: 700; color: var(--green);
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line-soft);
+  /* 2列以上に並べた狭いセルでは、卓名と操作ボタンが1行に収まらずはみ出すため折り返す */
+  flex-wrap: wrap; gap: 6px;
 }
 .seat-row { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; min-height: 34px; margin: 6px 0; }
 /* 長机：席は折り返さず、はみ出す場合は横スクロール（2行に崩れない） */
