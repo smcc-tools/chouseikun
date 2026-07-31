@@ -284,12 +284,20 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-unassigned { margin-top: 12px; background: #F7EAE6; border: 1px solid #E6C6BC; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; color: var(--clay); }
 
 /* 卓設定行・タグ行・条件行 */
-/* 行ごとに操作の数が違う（奇数定員なら「上◯・下◯」、長机なら向き）ため、
-   flex:1 の名前欄が余りを吸収すると行ごとに幅がバラバラになり、
-   狭い画面では潰れて行がはみ出す。名前欄は一定幅にし、入り切らない分は折り返す。 */
-.seat-table-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.seat-table-row input.stn { flex: 0 1 150px; min-width: 110px; margin-bottom: 0; }
-.seat-table-row input.stcap { width: 74px; margin-bottom: 0; text-align: center; }
+/* 卓の設定は必ず1行に収める（「上◯・下◯」が2行目に落ちると対応関係が分かりにくい）。
+   折り返しも横スクロールもさせないので、狭い画面では各要素を詰めて収める。 */
+.seat-table-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: nowrap; }
+.seat-table-row input.stn { flex: 0 0 150px; min-width: 0; margin-bottom: 0; }
+.seat-table-row input.stcap { width: 74px; margin-bottom: 0; flex: 0 0 auto; text-align: center; }
+.seat-table-row select.stshape, .seat-table-row select.stsplit { flex: 0 0 auto; }
+.seat-table-row .st-del { flex: 0 0 auto; }
+/* 狭い画面：1行に収めるため各要素を詰める。卓名は全行同じ幅を保つ（行ごとにバラつかせない） */
+@media (max-width: 560px) {
+  .seat-table-row { gap: 5px; }
+  .seat-table-row input.stn { flex: 0 0 84px; padding-left: 8px; padding-right: 8px; }
+  .seat-table-row input.stcap { width: 48px; padding-left: 4px; padding-right: 4px; }
+  .seat-table-row select.stshape, .seat-table-row select.stsplit { padding: 8px 2px !important; font-size: 0.76rem; }
+}
 .seat-member-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
 .seat-member-row .smn { flex: 1; font-weight: 600; min-width: 0; word-break: break-word; }
 .seat-color-picker { display: flex; gap: 5px; flex-shrink: 0; }
