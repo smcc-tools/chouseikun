@@ -433,7 +433,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* 円卓は aspect-ratio を持つので flex で潰さず、auto マージンで天地左右の中央に置く */
 .seat-tables-grid.uniform .seat-round { margin: auto; }
 .seat-table-block.move-sel { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
-.seat-move-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
+.seat-move-btn, .seat-ori-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
   border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
 .seat-move-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
 .seat-empty-slot { border: 1.5px dashed var(--border); border-radius: 12px; min-height: 90px;
@@ -5266,8 +5266,14 @@ body.gourmet-open #gFrame {
       // 参加者には満席数カウント（4/4等）もヘッダバーも出さない。ホストは卓名＋移動＋カウント
       const moveBtn = (isHost && tables.length > 1)
         ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
+      // 向きの切り替えは卓の図の上で行えるようにする（長机のみ。円卓は回しても同じ）。
+      // ラベルは「押すとどうなるか」を出す（今が横向きなら「縦にする」）。
+      const isRectT = (t.shape || 'rect') === 'rect';
+      const vertT = isRectT && t.orient === 'v';
+      const oriBtn = (isHost && isRectT)
+        ? `<button type="button" class="seat-ori-btn" data-orient="${escHtml(t.id)}" title="卓の向きを変える">⟳ ${vertT ? '横にする' : '縦にする'}</button>` : '';
       const headBar = isHost
-        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${moveBtn}<span class="stc-count">${filled}/${cap}</span></span></div>`
+        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:8px;align-items:center;">${oriBtn}${moveBtn}<span class="stc-count">${filled}/${cap}</span></span></div>`
         : '';
       tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
       if ((t.shape || 'rect') === 'round') {
@@ -5357,6 +5363,17 @@ body.gourmet-open #gFrame {
     };
     el.querySelector('#seatRowsSel')?.addEventListener('change', applyGrid);
     el.querySelector('#seatColsSel')?.addEventListener('change', applyGrid);
+    // 卓の図の上で向きを切り替える。席の並び順は変えず見た目だけ90度回る。
+    // capture で席チップのハンドラより先に受け取る（卓ブロック全体が移動用のタップ対象のため）
+    el.querySelectorAll('.seat-ori-btn').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation(); e.preventDefault();
+      const tid = btn.dataset.orient;
+      const cur = (activeParty(latestEventData).tables || []).find(t => t.id === tid);
+      if (!cur) return;
+      const next = (activeParty(latestEventData).tables || []).map(t =>
+        t.id === tid ? { ...t, orient: t.orient === 'v' ? 'h' : 'v' } : t);
+      updateActiveParty({ tables: next });
+    }, { capture: true }));
     el.querySelectorAll('.seat-move-btn').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation();
       tableMoveSel = (tableMoveSel === btn.dataset.move) ? null : btn.dataset.move;
