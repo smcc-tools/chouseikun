@@ -5262,7 +5262,7 @@ body.gourmet-open #gFrame {
       const cap = parseInt(t.capacity) || 0;
       const arr = assignment[t.id] || [];
 
-      // 参加者には満席数カウント（4/4等）もヘッダバーも出さない。ホストは卓名＋移動＋カウント
+      // 卓名はホスト・参加者の両方に出す。操作ボタン（向き・移動）はホストのみ。
       const moveBtn = (isHost && tables.length > 1)
         ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
       // 向きの切り替えは卓の図の上で行えるようにする（長机のみ。円卓は回しても同じ）。
@@ -5271,9 +5271,10 @@ body.gourmet-open #gFrame {
       const vertT = isRectT && t.orient === 'v';
       const oriBtn = (isHost && isRectT)
         ? `<button type="button" class="seat-ori-btn" data-orient="${escHtml(t.id)}" title="卓の向きを変える">⟳ ${vertT ? '横にする' : '縦にする'}</button>` : '';
+      const tblName = `<span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span>`;
       const headBar = isHost
-        ? `<div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">${oriBtn}${moveBtn}</span></div>`
-        : '';
+        ? `<div class="stb-name">${tblName}<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">${oriBtn}${moveBtn}</span></div>`
+        : `<div class="stb-name">${tblName}</div>`;
       tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
       if ((t.shape || 'rect') === 'round') {
         // 人数が多いほど円周半径を広げ、頂点付近のチップの重なりを防ぐ（10人以下は従来通り）
@@ -5652,7 +5653,7 @@ body.gourmet-open #gFrame {
         const dot = colHex ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
         return `<div class="seat-chip${n ? '' : ' empty'} ${state}"><span class="sc-name">${dot}${n ? escHtml(n) : '空'}</span></div>`;
       };
-      html += `<div class="seat-table-block">`;
+      html += `<div class="seat-table-block"><div class="stb-name"><span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span></div>`;
       if ((t.shape || 'rect') === 'round') {
         // 人数が多いほど円周半径を広げ、頂点付近のチップの重なりを防ぐ（10人以下は従来通り）
         const R = Math.min(48, 44 + Math.max(0, cap - 10) * 2);
