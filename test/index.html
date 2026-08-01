@@ -293,14 +293,15 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-table-row .st-del { flex: 0 0 auto; }
 /* 狭い画面：1行に収めるため各要素を詰める。卓名は全行同じ幅を保つ（行ごとにバラつかせない） */
 @media (max-width: 560px) {
-  .seat-table-row { gap: 7px; }
-  .seat-table-row input.stn { flex: 0 0 92px; padding-left: 10px; padding-right: 10px; }
-  .seat-table-row input.stcap { width: 54px; padding-left: 6px; padding-right: 6px; }
+  .seat-table-row { gap: 6px; }
+  .seat-table-row input.stn { flex: 0 0 84px; padding-left: 9px; padding-right: 9px; }
+  .seat-table-row input.stcap { width: 48px; padding-left: 5px; padding-right: 5px; }
+  .seat-table-row .st-del { width: 26px; height: 26px; padding: 0; }
   /* ネイティブの▼は20px前後を占めるので、狭い画面では自前の小さい▼に置き換えて
      浮いた分を入力欄の余白に回す（1行を保ったままゆとりを出すため） */
   .seat-table-row select.stshape, .seat-table-row select.stsplit {
     appearance: none; -webkit-appearance: none;
-    padding: 8px 14px 8px 7px !important; font-size: 0.76rem;
+    padding: 8px 13px 8px 6px !important; font-size: 0.75rem;
     background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
                       linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
     background-position: right 6px top 52%, right 2px top 52%;
@@ -5574,8 +5575,8 @@ body.gourmet-open #gFrame {
       const [a, b] = vert ? ['左', '右'] : ['上', '下'];
       const oddSplit = (isRect && cap % 2 === 1 && cap > 1)
         ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の振り分け">
-            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first}・${b}${rc.second}</option>
-            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second}・${b}${rc.first}</option>
+            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first} ${b}${rc.second}</option>
+            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second} ${b}${rc.first}</option>
           </select>` : '';
       return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
         <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
