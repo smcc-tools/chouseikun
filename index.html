@@ -284,12 +284,33 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-unassigned { margin-top: 12px; background: #F7EAE6; border: 1px solid #E6C6BC; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; color: var(--clay); }
 
 /* 卓設定行・タグ行・条件行 */
-/* 行ごとに操作の数が違う（奇数定員なら「上◯・下◯」、長机なら向き）ため、
-   flex:1 の名前欄が余りを吸収すると行ごとに幅がバラバラになり、
-   狭い画面では潰れて行がはみ出す。名前欄は一定幅にし、入り切らない分は折り返す。 */
-.seat-table-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.seat-table-row input.stn { flex: 0 1 150px; min-width: 110px; margin-bottom: 0; }
+/* 卓の設定：設定欄全体を1つのグリッドにして、各行の要素を同じ列に並べる。
+   行ごとに独立した flex だと「余白を埋める」と「行ごとに名前欄の幅を揃える」が両立しない
+   （伸びる要素が行ごとに違う量を吸収するため）。列を共有すれば両方成り立つ。
+   卓名の列を 1fr にして余りを吸収させ、右端に空きが残らないようにする。 */
+#seatingTableBox { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto auto;
+  gap: 8px; align-items: center; }
+.seat-table-row { display: contents; }
+.seat-table-row input.stn { width: 100%; min-width: 0; margin-bottom: 0; }
 .seat-table-row input.stcap { width: 74px; margin-bottom: 0; text-align: center; }
+/* 振り分けが無い行でも列がずれないよう、空のマスを置く */
+.seat-table-row .stsplit-blank { display: block; }
+@media (max-width: 560px) {
+  #seatingTableBox { gap: 6px; }
+  .seat-table-row input.stn { padding-left: 9px; padding-right: 9px; }
+  .seat-table-row input.stcap { width: 48px; padding-left: 5px; padding-right: 5px; }
+  .seat-table-row .st-del { width: 26px; height: 26px; padding: 0; }
+  /* ネイティブの▼は20px前後を占めるので、狭い画面では自前の小さい▼に置き換えて
+     浮いた分を入力欄の余白に回す（1行を保ったままゆとりを出すため） */
+  .seat-table-row select.stshape, .seat-table-row select.stsplit {
+    appearance: none; -webkit-appearance: none;
+    padding: 8px 13px 8px 6px !important; font-size: 0.75rem;
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                      linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+    background-position: right 6px top 52%, right 2px top 52%;
+    background-size: 4px 4px, 4px 4px; background-repeat: no-repeat;
+  }
+}
 .seat-member-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
 .seat-member-row .smn { flex: 1; font-weight: 600; min-width: 0; word-break: break-word; }
 .seat-color-picker { display: flex; gap: 5px; flex-shrink: 0; }
@@ -5557,9 +5578,10 @@ body.gourmet-open #gFrame {
       const [a, b] = vert ? ['左', '右'] : ['上', '下'];
       const oddSplit = (isRect && cap % 2 === 1 && cap > 1)
         ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の振り分け">
-            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first}・${b}${rc.second}</option>
-            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second}・${b}${rc.first}</option>
-          </select>` : '';
+            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first} ${b}${rc.second}</option>
+            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second} ${b}${rc.first}</option>
+          </select>`
+        : `<span class="stsplit-blank"></span>`;
       return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
         <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
         <input type="number" class="stcap" min="0" value="${cap}" placeholder="定員">
