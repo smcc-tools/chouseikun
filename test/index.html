@@ -284,17 +284,20 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-unassigned { margin-top: 12px; background: #F7EAE6; border: 1px solid #E6C6BC; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; color: var(--clay); }
 
 /* 卓設定行・タグ行・条件行 */
-/* 卓の設定は必ず1行に収める（「上◯・下◯」が2行目に落ちると対応関係が分かりにくい）。
-   折り返しも横スクロールもさせないので、狭い画面では各要素を詰めて収める。 */
-.seat-table-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: nowrap; }
-.seat-table-row input.stn { flex: 0 0 150px; min-width: 0; margin-bottom: 0; }
-.seat-table-row input.stcap { width: 74px; margin-bottom: 0; flex: 0 0 auto; text-align: center; }
-.seat-table-row select.stshape, .seat-table-row select.stsplit { flex: 0 0 auto; }
-.seat-table-row .st-del { flex: 0 0 auto; }
-/* 狭い画面：1行に収めるため各要素を詰める。卓名は全行同じ幅を保つ（行ごとにバラつかせない） */
+/* 卓の設定：設定欄全体を1つのグリッドにして、各行の要素を同じ列に並べる。
+   行ごとに独立した flex だと「余白を埋める」と「行ごとに名前欄の幅を揃える」が両立しない
+   （伸びる要素が行ごとに違う量を吸収するため）。列を共有すれば両方成り立つ。
+   卓名の列を 1fr にして余りを吸収させ、右端に空きが残らないようにする。 */
+#seatingTableBox { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto auto;
+  gap: 8px; align-items: center; }
+.seat-table-row { display: contents; }
+.seat-table-row input.stn { width: 100%; min-width: 0; margin-bottom: 0; }
+.seat-table-row input.stcap { width: 74px; margin-bottom: 0; text-align: center; }
+/* 振り分けが無い行でも列がずれないよう、空のマスを置く */
+.seat-table-row .stsplit-blank { display: block; }
 @media (max-width: 560px) {
-  .seat-table-row { gap: 6px; }
-  .seat-table-row input.stn { flex: 0 0 84px; padding-left: 9px; padding-right: 9px; }
+  #seatingTableBox { gap: 6px; }
+  .seat-table-row input.stn { padding-left: 9px; padding-right: 9px; }
   .seat-table-row input.stcap { width: 48px; padding-left: 5px; padding-right: 5px; }
   .seat-table-row .st-del { width: 26px; height: 26px; padding: 0; }
   /* ネイティブの▼は20px前後を占めるので、狭い画面では自前の小さい▼に置き換えて
@@ -5577,7 +5580,8 @@ body.gourmet-open #gFrame {
         ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の振り分け">
             <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first} ${b}${rc.second}</option>
             <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second} ${b}${rc.first}</option>
-          </select>` : '';
+          </select>`
+        : `<span class="stsplit-blank"></span>`;
       return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
         <input type="text" class="stn" value="${escHtml(t.name || '')}" placeholder="卓名">
         <input type="number" class="stcap" min="0" value="${cap}" placeholder="定員">
