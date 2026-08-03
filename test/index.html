@@ -1275,14 +1275,14 @@ body.gourmet-open #gFrame {
        共同ホストの解除UIが再度必要になったら class="host-only" を戻せば復活する -->
   <div id="coHostWrap" style="display:none;background:#fff8f0;border:1px solid #f5d5a0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
     <div style="font-size:0.8rem;font-weight:600;color:#b8860b;margin-bottom:8px;">共同ホスト管理</div>
-    <div style="font-size:0.75rem;color:#8a6d3b;margin-bottom:8px;line-height:1.5;">共同ホストにしたい人には下の「ホスト専用URL」を共有してください。開いた人がホストになります（Googleログイン不要）。</div>
+    <div style="font-size:0.75rem;color:#8a6d3b;margin-bottom:8px;line-height:1.5;">共同ホストにしたい人には下の「ホスト専用URL」を共有してください。開いた人がホストになります（ログイン不要）。</div>
     <div id="coHostUrlList"></div>
     <div class="host-url-row" style="display:none;margin-top:10px;">
       <div style="display:flex;gap:8px;">
         <input type="text" class="host-url-input" readonly style="flex:1;font-size:0.78rem;background:white;color:#333;margin-bottom:0;">
         <button class="btn btn-secondary host-url-copy" style="white-space:nowrap;">コピー</button>
       </div>
-      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">このURLを開いた人は<strong>Googleログイン不要でホスト</strong>になれます。取り扱いにご注意ください（URLは固定で、後から無効化できません）。</p>
+      <p style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;line-height:1.6;">このURLを開いた人は<strong>ログイン不要でホスト</strong>になれます。取り扱いにご注意ください（URLは固定で、後から無効化できません）。</p>
     </div>
   </div>
 
@@ -1763,7 +1763,7 @@ body.gourmet-open #gFrame {
 
   // ── 環境判定：本番=ルート / テスト=/test/ サブフォルダ ──
   const APP_ENV = location.pathname.includes('/test/') ? 'test' : 'prod';
-  // 共通プロジェクト chouseikun-tabel（Tabelと統合。同一プロジェクトなのでGoogleログインが共有される）
+  // 共通プロジェクト chouseikun-tabel（Tabelと統合。同一プロジェクトなのでログイン状態が共有される）
   const FB_CONFIGS = {
     prod: {
       apiKey: "AIzaSyB10T96ACZP9OZOZDOdoX0-jzNFhRmyQCs",
@@ -2424,7 +2424,7 @@ body.gourmet-open #gFrame {
 
 
   // ── Tabel(お店検索)への自動ログイン連携（同一Firebaseプロジェクト chouseikun-tabel） ──
-  // 調整くんでGoogleログイン済みなら、Tabel iframe に IDトークンを渡して同一アカウントで自動ログインさせる。
+  // 調整くんでログイン済みなら、Tabel iframe に IDトークンを渡して同一アカウントで自動ログインさせる。
   async function pushAuthToTabel() {
     try {
       const f = document.getElementById('gFrame');
