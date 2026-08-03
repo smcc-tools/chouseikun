@@ -825,6 +825,10 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .menu-cta-icon { width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .menu-cta-title { font-family:var(--font-display); font-weight:700; font-size:1.1rem; }
 .menu-cta-desc { font-size:0.75rem; opacity:0.92; margin-top:3px; line-height:1.45; }
+/* 日本語は既定だと単語の途中で折り返される（「傾／斜精算」「卓分／け」など）。
+   keep-all で自動分割を止め、本文に置いた <wbr> の位置だけで改行させる。
+   1文節が幅を超える場合の保険として overflow-wrap は残す。 */
+.menu-cta-desc, .menu-tile .mt-desc { word-break: keep-all; overflow-wrap: break-word; }
 .menu-tools-title { font-size:0.95rem !important; margin-bottom:4px !important; }
 .menu-tools-sub { font-size:0.76rem; color:var(--text-muted); margin-bottom:14px; }
 /* 単体ツールの並び順：お店検索→お知らせ→座席決め→割り勘→精算 */
@@ -954,7 +958,7 @@ body.gourmet-open #gFrame {
     </div>
     <div>
       <div class="menu-cta-title">＋ 新しい会を作成</div>
-      <div class="menu-cta-desc">日程調整からスタート。作成後は下部ナビで精算・お店・座席などへ</div>
+      <div class="menu-cta-desc">日程調整からスタート。<wbr>作成後は下部ナビで<wbr>精算・お店・座席などへ</div>
     </div>
   </div>
 
@@ -966,7 +970,7 @@ body.gourmet-open #gFrame {
         <span style="color:#EFE5CD;font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
       </div>
       <div class="mt-title">精算</div>
-      <div class="mt-desc">日程調整なしで割り勘・傾斜精算</div>
+      <div class="mt-desc">日程調整なしで<wbr>割り勘・傾斜精算</div>
     </div>
     <div class="menu-tile" id="menuWalicaBtn" role="button" tabindex="0">
       <div class="mt-icon">
@@ -981,7 +985,7 @@ body.gourmet-open #gFrame {
         </svg>
       </div>
       <div class="mt-title">割り勘</div>
-      <div class="mt-desc">誰が何を立て替えたか記録し、最小回数で精算</div>
+      <div class="mt-desc">誰が何を立て替えたか<wbr>記録し、<wbr>最小回数で精算</div>
     </div>
     <div class="menu-tile" id="menuSeatingBtn" role="button" tabindex="0">
       <div class="mt-icon">
@@ -994,7 +998,7 @@ body.gourmet-open #gFrame {
         </svg>
       </div>
       <div class="mt-title">座席決め</div>
-      <div class="mt-desc">条件付きランダムで卓分け・席決め</div>
+      <div class="mt-desc">条件付きランダムで<wbr>卓分け・席決め</div>
     </div>
     <div class="menu-tile" id="menuGourmetBtn" role="button" tabindex="0">
       <div class="mt-icon">
@@ -1011,7 +1015,7 @@ body.gourmet-open #gFrame {
         </svg>
       </div>
       <div class="mt-title">お店検索</div>
-      <div class="mt-desc">駅・エリアから飲食店を探す（食べログ）</div>
+      <div class="mt-desc">駅・エリアから<wbr>飲食店を探す<wbr>（食べログ）</div>
     </div>
     <div class="menu-tile" id="menuAnnounceBtn" role="button" tabindex="0">
       <div class="mt-icon">
@@ -1021,7 +1025,7 @@ body.gourmet-open #gFrame {
         </svg>
       </div>
       <div class="mt-title">お知らせ</div>
-      <div class="mt-desc">集合時間・場所・お店を参加者に知らせる</div>
+      <div class="mt-desc">集合時間・場所・お店を<wbr>参加者に知らせる</div>
     </div>
     <div class="menu-tile" id="menuOrderAiBtn" role="button" tabindex="0">
       <div class="mt-icon">
@@ -1034,7 +1038,7 @@ body.gourmet-open #gFrame {
         </svg>
       </div>
       <div class="mt-title">注文提案</div>
-      <div class="mt-desc">お店で迷ったらAIが注文プランを提案</div>
+      <div class="mt-desc">お店で迷ったら<wbr>AIが注文プランを提案</div>
     </div>
   </div>
 </div>
