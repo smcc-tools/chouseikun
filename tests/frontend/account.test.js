@@ -81,6 +81,14 @@ test('メール形式：一般的なアドレスは通る', () => {
   }
 });
 
+test('メール形式：@の重複や連続・末尾のドットを弾く（正規表現が緩んだら落ちる）', () => {
+  // ここは「今の正規表現でしか通らない」ケース。ドメイン部を \S+ 等に緩めると素通りする
+  for (const bad of ['a@b@example.com', 'a@example..com', 'a@example.com.', 'a@.example.com', 'a@example.']) {
+    const r = validateAccountInput('signup', { email: bad, password: 'password1', password2: 'password1' });
+    assert.equal(r.ok, false, `${bad} が通ってしまった`);
+  }
+});
+
 test('入力が欠けていても落ちない', () => {
   for (const input of [undefined, null, {}]) {
     const r = validateAccountInput('signup', input);
