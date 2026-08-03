@@ -211,6 +211,25 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .day-badge.weekend { background: var(--clay); } /* 白文字が読めるよう淡いlimeから濃いテラコッタへ（コントラスト確保） */
 /* 作成ボタン下のログイン必須注記（未ログイン時のみ表示） */
 .login-note { margin-top: 8px; font-size: 0.78rem; color: var(--clay); line-height: 1.6; text-align: center; }
+/* ログイン／新規登録モーダル。既存の外部ブラウザ案内と同じ重ね方に揃える */
+.auth-ov { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px; }
+.auth-box { background: #fff; border-radius: 14px; padding: 20px; max-width: 360px; width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
+.auth-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between; }
+.auth-close { background: none; border: none; font-size: 1.1rem; color: var(--text-muted); cursor: pointer; padding: 0 4px; }
+.auth-sep { display: flex; align-items: center; gap: 10px; margin: 14px 0;
+  font-size: 0.74rem; color: var(--text-muted); }
+.auth-sep::before, .auth-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.auth-field { margin-bottom: 10px; }
+.auth-field label { display: block; font-size: 0.74rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+.auth-field input { width: 100%; margin-bottom: 0; }
+.auth-err { font-size: 0.78rem; color: var(--clay); line-height: 1.6; margin-bottom: 10px; min-height: 0; }
+.auth-links { margin-top: 12px; font-size: 0.78rem; color: var(--text-muted); text-align: center; line-height: 1.9; }
+.auth-links button { background: none; border: none; color: var(--green); font-size: 0.78rem;
+  text-decoration: underline; cursor: pointer; padding: 0; font-weight: 600; }
+.auth-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.6; margin-top: 8px; }
 .btn-remove {
   background: none; border: none; color: #B6B3A2; font-size: 1.1rem;
   cursor: pointer; padding: 4px 8px; border-radius: 6px;
@@ -1738,7 +1757,7 @@ body.gourmet-open #gFrame {
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, getDocs, deleteDoc, runTransaction, deleteField, query, where, getCountFromServer, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
   import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-functions.js";
 
@@ -3030,6 +3049,97 @@ body.gourmet-open #gFrame {
         console.error(e);
       }
     }
+  }
+
+  // ── ログイン／新規登録モーダル ──
+  // 入口はヘッダ・作成画面の注記・作成ボタン押下・AI注文提案の4箇所あるが、
+  // 方式が2つになったのですべてここに集約する。
+  function openAuthModal(mode) {
+    if (document.getElementById('authModal')) return;
+    let cur = mode === 'signup' ? 'signup' : 'login';
+    const ov = document.createElement('div');
+    ov.id = 'authModal';
+    ov.className = 'auth-ov';
+    const render = () => {
+      const isSignup = cur === 'signup';
+      ov.innerHTML = `
+        <div class="auth-box">
+          <div class="auth-title"><span>${isSignup ? '新規登録' : 'ログイン'}</span>
+            <button type="button" class="auth-close" id="authCloseBtn" aria-label="閉じる">✕</button></div>
+          <button type="button" class="btn btn-secondary" id="authGoogleBtn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:16px;height:16px;">Googleで${isSignup ? '登録' : 'ログイン'}
+          </button>
+          <div class="auth-sep">または</div>
+          ${isSignup ? `<div class="auth-field"><label>表示名（任意）</label><input type="text" id="authName2" placeholder="例：田中" autocomplete="nickname"></div>` : ''}
+          <div class="auth-field"><label>メールアドレス</label><input type="email" id="authEmail" placeholder="例：taro@example.com" autocomplete="email"></div>
+          <div class="auth-field"><label>パスワード</label><input type="password" id="authPw" autocomplete="${isSignup ? 'new-password' : 'current-password'}"></div>
+          ${isSignup ? `<div class="auth-field"><label>パスワード（確認）</label><input type="password" id="authPw2" autocomplete="new-password"></div>` : ''}
+          <div class="auth-err" id="authErr"></div>
+          <button type="button" class="btn btn-primary" id="authSubmitBtn" style="width:100%;">${isSignup ? '登録する' : 'ログイン'}</button>
+          <div class="auth-links">
+            ${isSignup
+              ? `すでにアカウントをお持ちの方は <button type="button" id="authSwitchBtn">ログイン</button>`
+              : `<button type="button" id="authResetBtn">パスワードを忘れた方</button><br>
+                 アカウントをお持ちでない方は <button type="button" id="authSwitchBtn">新規登録</button>`}
+          </div>
+          ${isSignup ? `<div class="auth-note">確認メールは送りません。パスワードを忘れたときの再設定メールがこのアドレスに届くので、間違いがないかご確認ください。</div>` : ''}
+        </div>`;
+      bind();
+    };
+    const setErr = msg => { const e = ov.querySelector('#authErr'); if (e) e.textContent = msg || ''; };
+    const busy = on => {
+      const b = ov.querySelector('#authSubmitBtn');
+      if (b) { b.disabled = on; b.textContent = on ? '処理中…' : (cur === 'signup' ? '登録する' : 'ログイン'); }
+    };
+    const submit = async () => {
+      const input = {
+        email: ov.querySelector('#authEmail')?.value,
+        password: ov.querySelector('#authPw')?.value,
+        password2: ov.querySelector('#authPw2')?.value,
+        displayName: ov.querySelector('#authName2')?.value,
+      };
+      const v = validateAccountInput(cur, input);
+      if (!v.ok) { setErr(v.error); return; }
+      setErr(''); busy(true);
+      try {
+        if (cur === 'signup') {
+          const cred = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
+          // 確認メールは送らない（設計の方針）。表示名だけ保存する
+          if (v.displayName) await updateProfile(cred.user, { displayName: v.displayName });
+          showToast('アカウントを作成しました');
+        } else {
+          await signInWithEmailAndPassword(auth, input.email.trim(), input.password);
+          showToast('ログインしました');
+        }
+        ov.remove();
+      } catch (e) {
+        busy(false);
+        setErr(authErrorToJa(e && e.code));
+        console.warn('認証に失敗:', e && e.code);
+      }
+    };
+    const bind = () => {
+      ov.querySelector('#authCloseBtn')?.addEventListener('click', () => ov.remove());
+      ov.querySelector('#authGoogleBtn')?.addEventListener('click', () => { ov.remove(); signIn(); });
+      ov.querySelector('#authSubmitBtn')?.addEventListener('click', submit);
+      ov.querySelector('#authSwitchBtn')?.addEventListener('click', () => { cur = (cur === 'signup' ? 'login' : 'signup'); render(); });
+      ov.querySelector('#authResetBtn')?.addEventListener('click', async () => {
+        const email = (ov.querySelector('#authEmail')?.value || '').trim();
+        if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) { setErr('再設定メールの送り先となるメールアドレスを入力してください'); return; }
+        try {
+          await sendPasswordResetEmail(auth, email);
+          setErr('');
+          showToast('再設定メールを送りました');
+        } catch (e) { setErr(authErrorToJa(e && e.code)); }
+      });
+      // Enter で送信できるようにする（パスワード欄からの送信は自然な操作）
+      ov.querySelectorAll('#authEmail, #authPw, #authPw2, #authName2').forEach(el =>
+        el.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); submit(); } }));
+    };
+    render();
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    ov.querySelector('#authEmail')?.focus();
   }
 
   document.getElementById('signInBtn').addEventListener('click', signIn);
