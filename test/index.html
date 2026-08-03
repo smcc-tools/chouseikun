@@ -211,6 +211,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .day-badge.weekend { background: var(--clay); } /* 白文字が読めるよう淡いlimeから濃いテラコッタへ（コントラスト確保） */
 /* 作成ボタン下のログイン必須注記（未ログイン時のみ表示） */
 .login-note { margin-top: 8px; font-size: 0.78rem; color: var(--clay); line-height: 1.6; text-align: center; }
+.login-note-btn { margin-top: 6px; background: var(--green-light); border: 1px solid var(--green-mid);
+  border-radius: 6px; padding: 4px 14px; font-size: 0.78rem; color: var(--green); cursor: pointer; font-weight: 700; }
 /* ログイン／新規登録モーダル。既存の外部ブラウザ案内と同じ重ね方に揃える */
 .auth-ov { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.55);
   display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -931,9 +933,7 @@ body.gourmet-open #gFrame {
         <span id="authName" style="font-size:0.8rem;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
         <button id="signOutBtn" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">ログアウト</button>
       </div>
-      <button id="signInBtn" style="display:none;background:white;border:1.5px solid var(--border);border-radius:6px;padding:5px 14px;font-size:0.82rem;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:600;">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:16px;height:16px;"> Googleでログイン
-      </button>
+      <button id="signInBtn" style="display:none;background:white;border:1.5px solid var(--border);border-radius:6px;padding:5px 14px;font-size:0.82rem;color:var(--text);cursor:pointer;align-items:center;gap:6px;font-weight:600;">ログイン / 新規登録</button>
     </div>
   </div>
 </header>
@@ -1124,7 +1124,7 @@ body.gourmet-open #gFrame {
   <button class="btn btn-primary btn-full" id="createBtn" style="padding:14px;">
     イベントを作成してリンクを発行
   </button>
-  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
+  <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 
 </div>
 
@@ -1146,7 +1146,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
-  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
+  <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
 
 <!-- お知らせ 作成カード（日程調整なしで集合・お店を告知） -->
@@ -1159,7 +1159,7 @@ body.gourmet-open #gFrame {
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
   </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
-  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
+  <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
   <p style="font-size:0.78rem;color:var(--text-muted);margin-top:10px;line-height:1.6;">※ 開催日・集合時間・お店は、作成後の「お知らせ」画面で入力します。</p>
 </div>
 
@@ -1212,7 +1212,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createWalicaBtn" style="padding:14px;">割り勘を作成</button>
-  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
+  <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
 
 <!-- 座席決め 作成カード -->
@@ -1234,7 +1234,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <button class="btn btn-primary btn-full" id="createSeatingBtn" style="padding:14px;">座席決めを作成</button>
-  <p class="login-note" style="display:none;">🔑 作成にはGoogleログインが必要です（未ログインのときはログイン後そのまま作成されます）</p>
+  <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
 
 <!-- お店検索カード（食べログ検索API連携） -->
@@ -1869,7 +1869,7 @@ body.gourmet-open #gFrame {
       [/SHOP_EMPTY|INVALID_ARG|invalid-argument/i, '入力内容を確認してください（お店の名前またはURLは必須です）'],
       [/NO_RESULTS/, 'このお店のメニュー情報が見つかりませんでした。店名や食べログURLを見直してください'],
       [/PERMISSION_DENIED|permission-denied/i, 'この操作はホストのみ実行できます'],
-      [/UNAUTHENTICATED|unauthenticated/i, 'Googleログインが必要です'],
+      [/UNAUTHENTICATED|unauthenticated/i, 'ログインが必要です'],
       [/GEMINI_TIMEOUT|deadline/i, 'AIの応答が時間内に返りませんでした。しばらくしてから再試行してください'],
       [/SAFETY/, 'AIが内容の生成を控えました。店名の表記を変えて試してください'],
       [/Gemini 429|quota/i, 'AIの利用枠が一時的に上限に達しています。時間をおいて再試行してください'],
@@ -2465,7 +2465,7 @@ body.gourmet-open #gFrame {
   // ── AI注文提案 ──
   let lastOrderPlanDishes = [];   // 「別の案」用: 直前プランの品名
   async function invokeSuggestOrderPlan(excludeDishes) {
-    if (!currentUser || currentUser.isAnonymous) { showToast('Googleログインが必要です'); await signIn(); return; }
+    if (!currentUser || currentUser.isAnonymous) { showToast('ログインが必要です'); openAuthModal('login'); return; }
     const shop = (document.getElementById('orderShopInput')?.value || '').trim();
     if (!shop) { showToast('お店の名前またはURLを入力してください'); return; }
     const partySize = parseInt(document.getElementById('orderPartySizeInput')?.value) || 2;
@@ -3164,7 +3164,7 @@ body.gourmet-open #gFrame {
     ov.querySelector('#authEmail')?.focus();
   }
 
-  document.getElementById('signInBtn').addEventListener('click', signIn);
+  document.getElementById('signInBtn').addEventListener('click', () => openAuthModal('login'));
 
   document.getElementById('signOutBtn').addEventListener('click', async () => {
     await signOut(auth);
@@ -3264,7 +3264,7 @@ body.gourmet-open #gFrame {
     if (currentUser && !currentUser.isAnonymous) { writeCreatedEvent(actionId, payload); return; }
     try { sessionStorage.setItem(PENDING_CREATE_KEY, JSON.stringify({ actionId, payload, path: location.pathname, ts: Date.now() })); } catch (_) {}
     showToast('ログインすると作成できます。ログイン後そのまま続行します');
-    signIn();
+    openAuthModal('login');
   }
 
   // 作成ボタン下の「ログインが必要です」注記を、未ログイン（またはホスト権限のない匿名）のときだけ表示
@@ -3272,6 +3272,10 @@ body.gourmet-open #gFrame {
     const show = !currentUser || currentUser.isAnonymous;
     document.querySelectorAll('.login-note').forEach(el => { el.style.display = show ? 'block' : 'none'; });
   }
+
+  // 作成画面の注記からもモーダルを開けるようにする（注記は静的なので初回に一括配線）
+  document.querySelectorAll('.login-note-btn').forEach(b =>
+    b.addEventListener('click', () => openAuthModal('login')));
 
   // ログイン確定時（onAuthStateChangedから呼ぶ）：保留中の作成があれば自動実行
   function resumePendingCreate() {
