@@ -2923,6 +2923,19 @@ body.gourmet-open #gFrame {
     }
   }
 
+  // ヘッダのアカウント表示。メール登録では updateProfile が onAuthStateChanged より後に効くため、
+  // 表示名を保存したあとにもう一度呼べるように切り出す（呼ばないとメールアドレスが出たままになる）。
+  function renderAuthUser(user) {
+    if (!user) return;
+    const nameEl = document.getElementById('authName');
+    const avatarEl = document.getElementById('authAvatar');
+    if (nameEl) nameEl.textContent = user.displayName || user.email || '';
+    if (avatarEl) {
+      avatarEl.src = user.photoURL || '';
+      avatarEl.style.display = user.photoURL ? 'block' : 'none';
+    }
+  }
+
   onAuthStateChanged(auth, async user => {
     currentUser = user;
     updateLoginNotes(); // 作成ボタン下のログイン必須注記を表示/非表示
@@ -2936,9 +2949,7 @@ body.gourmet-open #gFrame {
       // ログイン済み
       signInBtn.style.display  = 'none';
       authUser.style.display   = 'flex';
-      document.getElementById('authName').textContent   = user.displayName || user.email || '';
-      document.getElementById('authAvatar').src = user.photoURL || '';
-      document.getElementById('authAvatar').style.display = user.photoURL ? 'block' : 'none';
+      renderAuthUser(user);
       // Tabel iframe が既に開いていれば、この時点でログイン情報を引き継ぐ
       pushAuthToTabel();
       // 未ログインで作成しようとして保留していた操作を、ログイン確定後に自動実行
@@ -3117,7 +3128,10 @@ body.gourmet-open #gFrame {
         if (cur === 'signup') {
           const cred = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
           // 確認メールは送らない（設計の方針）。表示名だけ保存する
-          if (v.displayName) await updateProfile(cred.user, { displayName: v.displayName });
+          if (v.displayName) {
+            await updateProfile(cred.user, { displayName: v.displayName });
+            renderAuthUser(cred.user);   // onAuthStateChanged は uid 変化時のみ発火するのでここで反映する
+          }
           showToast('アカウントを作成しました');
         } else {
           await signInWithEmailAndPassword(auth, input.email.trim(), input.password);
@@ -3126,6 +3140,7 @@ body.gourmet-open #gFrame {
         ov.remove();
       } catch (e) {
         if (seq !== renderSeq) return;   // 応答が返る前にフォームが切り替わっていたら何もしない
+        if (!ov.isConnected) { showToast(authErrorToJa(e && e.code)); return; }
         busy(false);
         setErr(authErrorToJa(e && e.code));
         console.warn('認証に失敗:', e && e.code);
@@ -3133,7 +3148,7 @@ body.gourmet-open #gFrame {
     };
     const bind = () => {
       ov.querySelector('#authCloseBtn')?.addEventListener('click', () => ov.remove());
-      ov.querySelector('#authGoogleBtn')?.addEventListener('click', () => { ov.remove(); signIn(); });
+      ov.querySelector('#authGoogleBtn')?.addEventListener('click', () => { if (busyNow) return; ov.remove(); signIn(); });
       ov.querySelector('#authSubmitBtn')?.addEventListener('click', submit);
       ov.querySelector('#authSwitchBtn')?.addEventListener('click', () => { cur = (cur === 'signup' ? 'login' : 'signup'); render(); });
       ov.querySelector('#authResetBtn')?.addEventListener('click', async () => {
@@ -3141,7 +3156,7 @@ body.gourmet-open #gFrame {
         const email = (ov.querySelector('#authEmail')?.value || '').trim();
         if (!isValidEmail(email)) { setErr('再設定メールの送り先となるメールアドレスを入力してください'); return; }
         const seq = renderSeq;
-        busyNow = true;
+        busy(true);
         try {
           await sendPasswordResetEmail(auth, email);
           if (seq !== renderSeq) return;
@@ -3149,9 +3164,12 @@ body.gourmet-open #gFrame {
           showToast('再設定メールを送りました');
         } catch (e) {
           if (seq !== renderSeq) return;
+          // 未登録アドレスでも「送りました」と返す。ここで区別すると、
+          // 登録済みアドレスを総当たりで特定できてしまう（ログイン側で避けている問題と同じ）
+          if (e && e.code === 'auth/user-not-found') { setErr(''); showToast('再設定メールを送りました'); return; }
           setErr(authErrorToJa(e && e.code));
         } finally {
-          busyNow = false;
+          busy(false);
         }
       });
       // Enter で送信できるようにする（パスワード欄からの送信は自然な操作）
