@@ -1921,6 +1921,43 @@ body.gourmet-open #gFrame {
     return name.trim().normalize('NFKC').toLowerCase();
   }
 
+  // ── メールアカウントの入力チェック ──
+  // mode: 'login' | 'signup'。DOMに触れない純粋関数として切り出し、テストで固定する。
+  // ログイン時は文字数を見ない：既存アカウントが8文字未満でも締め出さないため。
+  const ACCOUNT_MIN_PASSWORD = 8;
+  function validateAccountInput(mode, input) {
+    const v = input || {};
+    const email = String(v.email || '').trim();
+    const password = String(v.password || '');
+    const password2 = String(v.password2 || '');
+    const name = String(v.displayName || '').trim();
+    const fail = msg => ({ ok: false, error: msg, displayName: '' });
+    // 記号を許しつつ、@の前後とドメインのドットを必須にする
+    if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) return fail('メールアドレスの形式が正しくありません');
+    if (!password) return fail('パスワードを入力してください');
+    if (mode === 'signup') {
+      if (password.length < ACCOUNT_MIN_PASSWORD) return fail(`パスワードは${ACCOUNT_MIN_PASSWORD}文字以上にしてください`);
+      if (password !== password2) return fail('確認用のパスワードが一致しません');
+    }
+    return { ok: true, error: '', displayName: name || email.split('@')[0] };
+  }
+
+  // Firebase の認証エラーを日本語にする。
+  // invalid-credential / wrong-password / user-not-found は意図的に同じ文言にする
+  // （分けると総当たりで登録済みアドレスを特定できるため＝アカウント列挙）。
+  function authErrorToJa(code) {
+    const c = String(code || '');
+    if (c === 'auth/email-already-in-use') return 'このメールアドレスは既に登録されています（Googleで登録済みの場合も含みます）';
+    if (c === 'auth/invalid-email') return 'メールアドレスの形式が正しくありません';
+    if (c === 'auth/weak-password') return `パスワードは${ACCOUNT_MIN_PASSWORD}文字以上にしてください`;
+    if (c === 'auth/invalid-credential' || c === 'auth/wrong-password' || c === 'auth/user-not-found') {
+      return 'メールアドレスまたはパスワードが違います';
+    }
+    if (c === 'auth/too-many-requests') return '試行が多すぎます。しばらく待ってからお試しください';
+    if (c === 'auth/network-request-failed') return '通信に失敗しました。接続を確認してください';
+    return 'ログインに失敗しました。しばらくしてからお試しください';
+  }
+
   // 参加者名のバリデーション（Firestoreフィールドパスに使うため危険文字・予約名を弾く）
   // 戻り値：問題なければ ''、あればエラーメッセージ
   function validateParticipantName(name) {
