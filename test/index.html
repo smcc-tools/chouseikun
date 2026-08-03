@@ -1944,6 +1944,11 @@ body.gourmet-open #gFrame {
   // mode: 'login' | 'signup'。DOMに触れない純粋関数として切り出し、テストで固定する。
   // ログイン時は文字数を見ない：既存アカウントが8文字未満でも締め出さないため。
   const ACCOUNT_MIN_PASSWORD = 8;
+  // メールアドレスの形式判定。入力チェックと再設定メールの両方から使う（正規表現の二重管理を避ける）
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(String(email || '').trim());
+  }
+
   function validateAccountInput(mode, input) {
     const v = input || {};
     const email = String(v.email || '').trim();
@@ -1952,7 +1957,7 @@ body.gourmet-open #gFrame {
     const name = String(v.displayName || '').trim();
     const fail = msg => ({ ok: false, error: msg, displayName: '' });
     // 記号を許しつつ、@の前後とドメインのドットを必須にする
-    if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) return fail('メールアドレスの形式が正しくありません');
+    if (!isValidEmail(email)) return fail('メールアドレスの形式が正しくありません');
     if (!password) return fail('パスワードを入力してください');
     if (mode === 'signup') {
       if (password.length < ACCOUNT_MIN_PASSWORD) return fail(`パスワードは${ACCOUNT_MIN_PASSWORD}文字以上にしてください`);
@@ -3057,10 +3062,14 @@ body.gourmet-open #gFrame {
   function openAuthModal(mode) {
     if (document.getElementById('authModal')) return;
     let cur = mode === 'signup' ? 'signup' : 'login';
+    let busyNow = false;   // 送信中フラグ。Enter連打・モード切替・再設定の二重送信を防ぐ
+    let renderSeq = 0;     // 再描画のたびに増やす。古い応答が新しいフォームを触らないようにする
     const ov = document.createElement('div');
     ov.id = 'authModal';
     ov.className = 'auth-ov';
     const render = () => {
+      renderSeq++;
+      busyNow = false;
       const isSignup = cur === 'signup';
       ov.innerHTML = `
         <div class="auth-box">
@@ -3088,10 +3097,13 @@ body.gourmet-open #gFrame {
     };
     const setErr = msg => { const e = ov.querySelector('#authErr'); if (e) e.textContent = msg || ''; };
     const busy = on => {
+      busyNow = on;
       const b = ov.querySelector('#authSubmitBtn');
       if (b) { b.disabled = on; b.textContent = on ? '処理中…' : (cur === 'signup' ? '登録する' : 'ログイン'); }
     };
     const submit = async () => {
+      if (busyNow) return;
+      const seq = renderSeq;
       const input = {
         email: ov.querySelector('#authEmail')?.value,
         password: ov.querySelector('#authPw')?.value,
@@ -3113,6 +3125,7 @@ body.gourmet-open #gFrame {
         }
         ov.remove();
       } catch (e) {
+        if (seq !== renderSeq) return;   // 応答が返る前にフォームが切り替わっていたら何もしない
         busy(false);
         setErr(authErrorToJa(e && e.code));
         console.warn('認証に失敗:', e && e.code);
@@ -3124,13 +3137,22 @@ body.gourmet-open #gFrame {
       ov.querySelector('#authSubmitBtn')?.addEventListener('click', submit);
       ov.querySelector('#authSwitchBtn')?.addEventListener('click', () => { cur = (cur === 'signup' ? 'login' : 'signup'); render(); });
       ov.querySelector('#authResetBtn')?.addEventListener('click', async () => {
+        if (busyNow) return;
         const email = (ov.querySelector('#authEmail')?.value || '').trim();
-        if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) { setErr('再設定メールの送り先となるメールアドレスを入力してください'); return; }
+        if (!isValidEmail(email)) { setErr('再設定メールの送り先となるメールアドレスを入力してください'); return; }
+        const seq = renderSeq;
+        busyNow = true;
         try {
           await sendPasswordResetEmail(auth, email);
+          if (seq !== renderSeq) return;
           setErr('');
           showToast('再設定メールを送りました');
-        } catch (e) { setErr(authErrorToJa(e && e.code)); }
+        } catch (e) {
+          if (seq !== renderSeq) return;
+          setErr(authErrorToJa(e && e.code));
+        } finally {
+          busyNow = false;
+        }
       });
       // Enter で送信できるようにする（パスワード欄からの送信は自然な操作）
       ov.querySelectorAll('#authEmail, #authPw, #authPw2, #authName2').forEach(el =>

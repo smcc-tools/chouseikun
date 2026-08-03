@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
 const { validateAccountInput, authErrorToJa } =
-  loadFunctions(['validateAccountInput', 'authErrorToJa'], { ACCOUNT_MIN_PASSWORD: 8 });
+  loadFunctions(['validateAccountInput', 'authErrorToJa', 'isValidEmail'], { ACCOUNT_MIN_PASSWORD: 8 });
 
 const ok = (mode, input) => validateAccountInput(mode, input);
 
