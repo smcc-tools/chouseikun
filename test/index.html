@@ -1879,6 +1879,16 @@ body.gourmet-open #gFrame {
     _toastTimer = setTimeout(() => t.classList.remove('show'), dur);
   }
 
+  // リロードを挟む操作（ログアウト等）のトーストを、再読込後に1回だけ表示する
+  (function showPendingToast() {
+    try {
+      const msg = sessionStorage.getItem('chouseikun_toast');
+      if (!msg) return;
+      sessionStorage.removeItem('chouseikun_toast');
+      setTimeout(() => showToast(msg), 300); // DOM描画が落ち着いてから出す
+    } catch (_) {}
+  })();
+
   // AI機能（venue-brief / 注文提案）のエラーコードをユーザー向けの日本語に変換
   function aiErrorToJa(raw) {
     const rules = [
@@ -2953,7 +2963,17 @@ body.gourmet-open #gFrame {
     }
   }
 
+  // ログイン/ログアウトで uid が変わったらページを作り直す。
+  // 手動でのUIリセット（.host-only / #hostNav / iframe への伝播等）は漏れが起きやすく
+  // 「ログアウトしたのにホストUIが残る」類の不具合の温床だったため、リロードで確実に初期化する。
+  let _lastAuthUid = undefined; // undefined=初回判定前（初回は再読込しない）
   onAuthStateChanged(auth, async user => {
+    const uid = user ? user.uid : null;
+    if (_lastAuthUid !== undefined && _lastAuthUid !== uid) {
+      location.reload();
+      return;
+    }
+    _lastAuthUid = uid;
     currentUser = user;
     updateLoginNotes(); // 作成ボタン下のログイン必須注記を表示/非表示
     // ホスト専用URL（?hostcode=）の引き換え。認証状態が確定してから1回だけ実行
@@ -3202,8 +3222,9 @@ body.gourmet-open #gFrame {
   document.getElementById('signInBtn').addEventListener('click', () => openAuthModal('login'));
 
   document.getElementById('signOutBtn').addEventListener('click', async () => {
+    // 直後に onAuthStateChanged がリロードするため、トーストは再読込後に出す
+    try { sessionStorage.setItem('chouseikun_toast', 'ログアウトしました'); } catch (_) {}
     await signOut(auth);
-    showToast('ログアウトしました');
   });
 
   // ヘッダーの「マイイベント」ボタン：トップページ（クエリなし）へ遷移
