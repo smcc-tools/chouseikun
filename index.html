@@ -2491,8 +2491,49 @@ body.gourmet-open #gFrame {
 
   // ── AI注文提案 ──
   let lastOrderPlanDishes = [];   // 「別の案」用: 直前プランの品名
+
+  // 未ログインで提案を押したときの入力退避。ログイン直後は onAuthStateChanged が
+  // ページを再読込するため、DOM に置いたままでは入力が失われる。Googleログインが
+  // ポップアップ不可でリダイレクトへフォールバックした場合も同様なので、
+  // 再読込を跨いで残る sessionStorage に逃がして復帰後に続行する。
+  const PENDING_ORDER_KEY = 'chouseikun_pendingOrder';
+  const ORDER_FIELD_IDS = ['orderShopInput', 'orderPartySizeInput', 'orderBudgetInput', 'orderMoodInput'];
+  function savePendingOrder(excludeDishes) {
+    const values = {};
+    ORDER_FIELD_IDS.forEach(id => { values[id] = document.getElementById(id)?.value || ''; });
+    try {
+      sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify({
+        values, exclude: excludeDishes || [], path: location.pathname, ts: Date.now(),
+      }));
+    } catch (_) {}
+  }
+  // ログイン確定時（onAuthStateChangedから呼ぶ）：保留中の提案があれば画面と入力を戻して続行
+  function resumePendingOrder() {
+    if (!currentUser || currentUser.isAnonymous) return;
+    if (new URLSearchParams(location.search).get('event')) return; // 単体ツールなのでトップページ限定
+    let pend = null;
+    try {
+      const raw = sessionStorage.getItem(PENDING_ORDER_KEY);
+      sessionStorage.removeItem(PENDING_ORDER_KEY); // 復元は1回だけ。失敗しても再試行で無限に走らせない
+      if (raw) pend = JSON.parse(raw);
+    } catch (_) {}
+    if (!pend || pend.path !== location.pathname) return;
+    if (Date.now() - (pend.ts || 0) > 10 * 60 * 1000) return; // 放置された古い保留は勝手に実行しない
+    goToOrderAi();
+    ORDER_FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && pend.values && pend.values[id] !== undefined) el.value = pend.values[id];
+    });
+    invokeSuggestOrderPlan(pend.exclude);
+  }
+
   async function invokeSuggestOrderPlan(excludeDishes) {
-    if (!currentUser || currentUser.isAnonymous) { showToast('ログインが必要です'); openAuthModal('login'); return; }
+    if (!currentUser || currentUser.isAnonymous) {
+      savePendingOrder(excludeDishes);
+      showToast('ログインすると提案できます。ログイン後そのまま続行します');
+      openAuthModal('login');
+      return;
+    }
     const shop = (document.getElementById('orderShopInput')?.value || '').trim();
     if (!shop) { showToast('お店の名前またはURLを入力してください'); return; }
     const partySize = parseInt(document.getElementById('orderPartySizeInput')?.value) || 2;
@@ -2967,11 +3008,22 @@ body.gourmet-open #gFrame {
   // 手動でのUIリセット（.host-only / #hostNav / iframe への伝播等）は漏れが起きやすく
   // 「ログアウトしたのにホストUIが残る」類の不具合の温床だったため、リロードで確実に初期化する。
   let _lastAuthUid = undefined; // undefined=初回判定前（初回は再読込しない）
+  // 入力途中のフォームからログインへ誘導するとき用。直後の「ログイン」1回だけ再読込を見送り、
+  // 画面をそのまま残す。作成フォームは候補日リストやメンバー配列など input 以外の状態も持ち、
+  // 退避→復元にすると復元漏れが静かに起きるため、そもそも壊さない方を選んでいる。
+  let _skipAuthReloadOnce = false;
+  function keepInputThroughLogin() { _skipAuthReloadOnce = true; }
   onAuthStateChanged(auth, async user => {
     const uid = user ? user.uid : null;
     if (_lastAuthUid !== undefined && _lastAuthUid !== uid) {
-      location.reload();
-      return;
+      // 見送るのは「未ログイン→ログイン」だけ。ログアウトと、別ユーザーへの切替
+      // （_lastAuthUid が別のuid）は前のユーザーのUIが残るのが問題なので必ず再読込する。
+      if (uid && _lastAuthUid === null && _skipAuthReloadOnce) {
+        _skipAuthReloadOnce = false;
+      } else {
+        location.reload();
+        return;
+      }
     }
     _lastAuthUid = uid;
     currentUser = user;
@@ -2991,6 +3043,7 @@ body.gourmet-open #gFrame {
       pushAuthToTabel();
       // 未ログインで作成しようとして保留していた操作を、ログイン確定後に自動実行
       resumePendingCreate();
+      resumePendingOrder();
     } else if (user) {
       // 匿名ユーザー：ログインボタンは出したまま。ホストUI・マイイベントはそのまま動かす
       signInBtn.style.display = 'flex';
@@ -3330,8 +3383,9 @@ body.gourmet-open #gFrame {
   }
 
   // 作成画面の注記からもモーダルを開けるようにする（注記は静的なので初回に一括配線）
+  // 入力途中の作成フォームから押される導線なので、ログイン後の再読込を見送って入力を残す
   document.querySelectorAll('.login-note-btn').forEach(b =>
-    b.addEventListener('click', () => openAuthModal('login')));
+    b.addEventListener('click', () => { keepInputThroughLogin(); openAuthModal('login'); }));
 
   // ログイン確定時（onAuthStateChangedから呼ぶ）：保留中の作成があれば自動実行
   function resumePendingCreate() {
