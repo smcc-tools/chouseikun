@@ -1453,7 +1453,7 @@ body.gourmet-open #gFrame {
     </div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer;font-size:0.82rem;color:var(--text);">
       <input type="checkbox" id="saveBankToProfile" checked style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;">
-      <span>この口座をGoogleアカウントに保存し、次回から自動入力する</span>
+      <span>この口座をアカウントに保存し、次回から自動入力する</span>
     </label>
     <div id="bankSavedHint" style="display:none;font-size:0.74rem;color:var(--green);margin-top:6px;">
       保存済みの口座を自動入力しました　<button type="button" id="clearBankProfileBtn" style="background:none;border:1px solid var(--green-mid);border-radius:4px;padding:1px 7px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;margin-left:4px;">保存を削除</button>
@@ -6790,7 +6790,7 @@ body.gourmet-open #gFrame {
     renderBoxedMemberList(box, members, memberDiffHandlers('settle'));
   }
 
-  // ── 振込先口座をGoogleアカウント(uid)に紐づけ ──
+  // ── 振込先口座をログインアカウント(uid)に紐づけ。Google/メールなどログイン方法を問わない ──
   function readBankInputs() {
     return {
       name: document.getElementById('bankName')?.value.trim() || '',
