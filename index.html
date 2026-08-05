@@ -579,6 +579,19 @@ th.input-col input[type="text"] {
   color: var(--text); outline: none;
 }
 td.input-col { background: #F6F9F0; border-left: 1px solid var(--green-mid); text-align: center; white-space: nowrap; }
+/* 新規入力列：全候補日を一括選択するボタン（候補日が多いときの手間を減らす） */
+.bulk-vote-row { display: flex; gap: 4px; justify-content: center; margin-top: 5px; }
+.bulk-vote-btn {
+  flex: 1; background: #fff; border: 1.5px solid var(--border); border-radius: 7px;
+  font-size: 0.7rem; font-weight: 700; line-height: 1.2; padding: 4px 2px;
+  cursor: pointer; transition: all 0.13s; white-space: nowrap;
+}
+.bulk-vote-btn:hover { background: var(--green-light); }
+.bulk-vote-btn.circle { color: var(--green); }
+.bulk-vote-btn.cross  { color: var(--clay); }
+.bulk-vote-btn.active { color: #fff; }
+.bulk-vote-btn.circle.active { background: var(--green); border-color: var(--green); }
+.bulk-vote-btn.cross.active  { background: var(--clay);  border-color: var(--clay); }
 .register-btn {
   width: 100%; padding: 9px 4px; background: var(--green); color: white;
   border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
@@ -1440,7 +1453,7 @@ body.gourmet-open #gFrame {
     </div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer;font-size:0.82rem;color:var(--text);">
       <input type="checkbox" id="saveBankToProfile" checked style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;">
-      <span>この口座をGoogleアカウントに保存し、次回から自動入力する</span>
+      <span>この口座をアカウントに保存し、次回から自動入力する</span>
     </label>
     <div id="bankSavedHint" style="display:none;font-size:0.74rem;color:var(--green);margin-top:6px;">
       保存済みの口座を自動入力しました　<button type="button" id="clearBankProfileBtn" style="background:none;border:1px solid var(--green-mid);border-radius:4px;padding:1px 7px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;margin-left:4px;">保存を削除</button>
@@ -1865,6 +1878,16 @@ body.gourmet-open #gFrame {
     const dur = Math.min(8000, Math.max(2500, msg.length * 90));
     _toastTimer = setTimeout(() => t.classList.remove('show'), dur);
   }
+
+  // リロードを挟む操作（ログアウト等）のトーストを、再読込後に1回だけ表示する
+  (function showPendingToast() {
+    try {
+      const msg = sessionStorage.getItem('chouseikun_toast');
+      if (!msg) return;
+      sessionStorage.removeItem('chouseikun_toast');
+      setTimeout(() => showToast(msg), 300); // DOM描画が落ち着いてから出す
+    } catch (_) {}
+  })();
 
   // AI機能（venue-brief / 注文提案）のエラーコードをユーザー向けの日本語に変換
   function aiErrorToJa(raw) {
@@ -2940,7 +2963,17 @@ body.gourmet-open #gFrame {
     }
   }
 
+  // ログイン/ログアウトで uid が変わったらページを作り直す。
+  // 手動でのUIリセット（.host-only / #hostNav / iframe への伝播等）は漏れが起きやすく
+  // 「ログアウトしたのにホストUIが残る」類の不具合の温床だったため、リロードで確実に初期化する。
+  let _lastAuthUid = undefined; // undefined=初回判定前（初回は再読込しない）
   onAuthStateChanged(auth, async user => {
+    const uid = user ? user.uid : null;
+    if (_lastAuthUid !== undefined && _lastAuthUid !== uid) {
+      location.reload();
+      return;
+    }
+    _lastAuthUid = uid;
     currentUser = user;
     updateLoginNotes(); // 作成ボタン下のログイン必須注記を表示/非表示
     // ホスト専用URL（?hostcode=）の引き換え。認証状態が確定してから1回だけ実行
@@ -3189,8 +3222,9 @@ body.gourmet-open #gFrame {
   document.getElementById('signInBtn').addEventListener('click', () => openAuthModal('login'));
 
   document.getElementById('signOutBtn').addEventListener('click', async () => {
+    // 直後に onAuthStateChanged がリロードするため、トーストは再読込後に出す
+    try { sessionStorage.setItem('chouseikun_toast', 'ログアウトしました'); } catch (_) {}
     await signOut(auth);
-    showToast('ログアウトしました');
   });
 
   // ヘッダーの「マイイベント」ボタン：トップページ（クエリなし）へ遷移
@@ -4344,6 +4378,10 @@ body.gourmet-open #gFrame {
     }).join('');
     const inputCol = `<th class="input-col">
       <input type="text" id="newName" placeholder="名前を入力">
+      <div class="bulk-vote-row">
+        <button type="button" class="bulk-vote-btn circle" data-bulk="o" aria-label="全ての候補日を参加できるにする">全て◯</button>
+        <button type="button" class="bulk-vote-btn cross" data-bulk="x" aria-label="全ての候補日を参加できないにする">全て✕</button>
+      </div>
     </th>`;
     return existing + inputCol;
   }
@@ -4445,8 +4483,39 @@ body.gourmet-open #gFrame {
           btn.classList.add('selected');
           btn.setAttribute('aria-pressed', 'true');
         }
+        syncBulkVoteState(wrap);
       });
     });
+    // 入力列：全候補日を一括選択（候補日が多いときに1つずつ押す手間を省く）
+    wrap.querySelectorAll('.bulk-vote-btn[data-bulk]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.bulk;
+        // 既に全て同じ記号なら解除（既存の投票トグルと同じ操作感）
+        const clearAll = btn.classList.contains('active');
+        wrap.querySelectorAll('.vote-btn[data-new-idx]').forEach(b => {
+          const hit = !clearAll && b.dataset.key === key;
+          b.classList.toggle('selected', hit);
+          b.setAttribute('aria-pressed', hit ? 'true' : 'false');
+        });
+        syncBulkVoteState(wrap);
+      });
+    });
+    syncBulkVoteState(wrap);
+  }
+
+  // 一括ボタンの active 表示を、実際の新規入力列の選択状態から導出する。
+  // 個別に1日だけ変更した場合は active が外れ、「全て同じ記号」のときだけ点灯する。
+  function syncBulkVoteState(wrap) {
+    const bulkBtns = wrap.querySelectorAll('.bulk-vote-btn[data-bulk]');
+    if (!bulkBtns.length) return;
+    const cells = wrap.querySelectorAll('td.input-col .vote-btns');
+    const keys = [];
+    cells.forEach(cell => {
+      const sel = cell.querySelector('.vote-btn.selected');
+      keys.push(sel ? sel.dataset.key : '');
+    });
+    const allSame = keys.length > 0 && keys.every(k => k && k === keys[0]);
+    bulkBtns.forEach(b => b.classList.toggle('active', allSame && keys[0] === b.dataset.bulk));
   }
 
   function attachNoteHandlers(wrap) {
@@ -6742,7 +6811,7 @@ body.gourmet-open #gFrame {
     renderBoxedMemberList(box, members, memberDiffHandlers('settle'));
   }
 
-  // ── 振込先口座をGoogleアカウント(uid)に紐づけ ──
+  // ── 振込先口座をログインアカウント(uid)に紐づけ。Google/メールなどログイン方法を問わない ──
   function readBankInputs() {
     return {
       name: document.getElementById('bankName')?.value.trim() || '',
