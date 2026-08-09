@@ -700,7 +700,11 @@ td.locked .note-input { pointer-events: none; color: #aaa; border-color: transpa
   font-size: 0.8rem; color: #555; border: none;
   border-bottom: 1.5px dashed var(--green-mid); outline: none;
   background: transparent; width: 100%; padding: 2px 0; transition: border-color 0.2s;
+  /* textarea 化：内容に合わせて高さを伸ばし、長い備考も全文見えるようにする */
+  resize: none; overflow: hidden; font-family: inherit; line-height: 1.5;
+  display: block; white-space: pre-wrap; overflow-wrap: break-word;
 }
+.note-row td { vertical-align: top; }
 .note-input:focus { border-color: var(--green); }
 .legend {
   display: flex; gap: 16px; flex-wrap: wrap;
@@ -4504,15 +4508,34 @@ body.gourmet-open #gFrame {
     const cells = entries.map(([name, votes]) => {
       const en = escHtml(name);
       const noteVal = escHtml(votes._note || '');
-      return `<td class="locked" data-col="${en}"><input type="text" class="note-input" data-name="${en}" value="${noteVal}" placeholder="備考を追加..."></td>`;
+      // input(1行)だと列幅を超えた分が見えず、スクロールもできない。
+      // textarea にして折り返し、内容に合わせて高さを自動調整する（autoGrowNote）。
+      return `<td class="locked" data-col="${en}"><textarea class="note-input" rows="1" data-name="${en}" placeholder="備考を追加...">${noteVal}</textarea></td>`;
     }).join('');
     const inputCell = `<td class="input-col">
-      <input type="text" id="newNote" placeholder="備考（任意）" style="width:100%;padding:5px 8px;border:1.5px solid var(--green-mid);border-radius:6px;font-size:0.82rem;outline:none;">
+      <textarea id="newNote" rows="1" placeholder="備考（任意）" style="width:100%;padding:5px 8px;border:1.5px solid var(--green-mid);border-radius:6px;font-size:0.82rem;outline:none;resize:none;overflow:hidden;font-family:inherit;line-height:1.5;"></textarea>
     </td>`;
     return `<tr class="note-row"><td class="date-cell note-label">備考</td>${cells}${inputCell}<td></td></tr>`;
   }
 
+  // 備考の textarea を内容の高さに合わせる。行数が変わるたびに呼ぶ必要があるので、
+  // 描画直後と入力のたびに実行する（高さを一度 auto に戻さないと縮まない）。
+  function autoGrowNote(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+  function attachNoteAutoGrow(wrap) {
+    (wrap || document).querySelectorAll('.note-input, #newNote').forEach(el => {
+      autoGrowNote(el);
+      if (el.dataset.grow) return;   // 再描画で二重登録しない
+      el.dataset.grow = '1';
+      el.addEventListener('input', () => autoGrowNote(el));
+    });
+  }
+
   function attachVoteHandlers(wrap) {
+    attachNoteAutoGrow(wrap);
     // 既存参加者：編集モード中のみUI上の選択状態を変更（同じ記号を2回タップでクリア）
     wrap.querySelectorAll('.vote-btn[data-name]').forEach(btn => {
       btn.addEventListener('click', () => {
