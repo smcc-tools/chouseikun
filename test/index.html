@@ -5284,13 +5284,49 @@ body.gourmet-open #gFrame {
     const absent = new Set(party.absent || []);
     return viewMembers(data, 'seating').filter(n => !absent.has(n));
   }
+  // 楽観更新: 指定した次会に patch をマージした「新しい」イベントデータ全体を返す。
+  // mutateParties の apply と同じ規則（getParties で正規化 → id で引く）で組み立てるので、
+  // 実際にサーバへ書かれる内容と一致する。対象が見つからなければ null。
+  function applyPartyPatch(data, partyId, patch) {
+    if (!data) return null;
+    const parties = getParties(data).map(p => ({ ...p }));
+    const i = parties.findIndex(p => p.id && p.id === partyId);
+    if (i < 0) return null;
+    parties[i] = { ...parties[i], ...patch };
+    return { ...data, seatParties: parties };
+  }
   // 座席まわりの書き込みはすべてここを通る（欠席・卓・配置・ロック・席入れ替え・シャッフル結果）。
   // mutateParties 経由にすることで、書き込みの瞬間に確定を読み直して確認できる。
   // 自分の画面の写しを見て判断すると、共同ホストが直前に確定した場合に見落とす。
+  //
+  // runTransaction は updateDoc と違い、コミットが完了する（サーバ往復）までローカルの
+  // 表示に反映されない（updateDoc にあるローカルキャッシュへの先読み反映が効かない）。
+  // 席の入れ替え・🔒切替・卓の追加削除などが数百ms待ちにならないよう、書き込みを待つ前に
+  // 手元の表示を先に更新し（楽観更新）、拒否・失敗（戻り値が負）したら控えておいた元の
+  // データに戻して再描画する。
+  //
+  // 元に戻す条件は「latestEventData が自分が当てた楽観更新のオブジェクトのままか」だけを見る
+  // （=== の参照比較）。await 中に onSnapshot が発火すると、onSnapshot ハンドラは
+  // latestEventData を新しいオブジェクトに丸ごと差し替えるため、その場合は一致しなくなる。
+  // そのときは何もしない：onSnapshot が届けたデータは「この書き込みが失敗した後」の
+  // サーバの実際の状態（他ホストの変更を含む）そのものなので、それ以上直す必要はなく、
+  // ここで古い値に戻すと他ホストの変更まで巻き戻してしまう。
   async function updateActiveParty(patch, opts = {}) {
     const target = activeParty(latestEventData || {});
     if (!target || !target.id) { showToast('保存に失敗しました'); return -1; }
-    const r = await mutateParties(target.id, (ps, at) => { ps[at] = { ...ps[at], ...patch }; return ps; }, opts);
+    const partyId = target.id;
+    const before = latestEventData;
+    const optimistic = applyPartyPatch(before, partyId, patch);
+    if (optimistic) { latestEventData = optimistic; renderSeatingBoard(latestEventData); }
+    let r = -1;
+    try {
+      r = await mutateParties(partyId, (ps, at) => { ps[at] = { ...ps[at], ...patch }; return ps; }, opts);
+    } finally {
+      if (r < 0 && optimistic && latestEventData === optimistic) {
+        latestEventData = before;
+        renderSeatingBoard(latestEventData);
+      }
+    }
     if (r === -2) showToast('確定中のため変更できません。確定を解除してください');
     else if (r < 0) showToast('保存に失敗しました');
     return r;
@@ -5597,22 +5633,37 @@ body.gourmet-open #gFrame {
   // 古くなっていることがある（例：共同ホストAが直前に確定・席替えしたが、Bの画面は
   // まだ受け取っていない）。ローカルの配列を丸ごと書き戻すと、その巻き戻しが起きる。
   // 次会を「足す」だけの操作は既存の次会の座席を一切変えないため、確定中でも実行してよい
-  // （mutateParties の確定チェックは使わない）。ただし土台にする配列と連番の名前・
-  // seatingActiveParty の決定は、トランザクションの中で読み直した最新の配列から行う。
+  // （mutateParties の確定チェックは使わない）。ただし土台にする配列と連番の名前は、
+  // トランザクションの中で読み直した最新の配列から行う。
+  //
+  // コピー元は「押した時点」に表示していた次会の id を先に控え、コールバック内では
+  // その id で引く（見つからなければ clampActiveIdx にフォールバック）。
+  // Firestore は書き込み競合時にコールバックを再実行する。コールバックの中で
+  // seatingActiveParty を書き換えると、再実行時に clampActiveIdx がその「前回の
+  // 自分自身の書き込み」を読んでしまい、コピー元が意図せずずれる
+  // （1回目: 0番をコピー→ seatingActiveParty:=2 → リトライ: clampActiveIdx が 2 を読んで
+  // 2番をコピー、という自己汚染が起きる）。そのためコールバックには副作用を持たせず、
+  // seatingActiveParty の代入は runTransaction が解決したあとに1回だけ行う
+  // （トランザクションが最終的に失敗した場合は代入しない。失敗したのにタブだけ
+  // 移動してしまうのを防ぐ）。
   async function addSeatingParty() {
+    const startId = (activeParty(latestEventData || {}) || {}).id;
     try {
       let newLen = 0;
+      let resolvedActive = 0;
       await runTransaction(db, async (tx) => {
         const ref = doc(db, 'events', eventId);
         const d = (await tx.get(ref)).data() || {};
         const parties = getParties(d).map(p => ({ ...p }));
-        const src = parties[clampActiveIdx(parties)];
+        const srcIdx = startId ? parties.findIndex(p => p.id && p.id === startId) : -1;
+        const src = parties[srcIdx >= 0 ? srcIdx : clampActiveIdx(parties)];
         const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
         parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, tableRows: src.tableRows || null, freeLayout: !!src.freeLayout });
         newLen = parties.length;
-        seatingActiveParty = newLen - 1;
+        resolvedActive = newLen - 1;
         tx.update(ref, { seatParties: parties });
       });
+      seatingActiveParty = resolvedActive;
       showToast(`${newLen}次会を追加しました（卓は前回をコピー）`);
     } catch (e) { showToast('追加に失敗しました'); console.error(e); }
   }
@@ -5993,7 +6044,9 @@ body.gourmet-open #gFrame {
   // メンバーは全次会で共通のため、確定は表示中の次会だけでなく anyPartyConfirmed で
   // 「どれか1件でも確定しているか」を見る（activeParty だけを見ると、表示していない
   // 他の次会が確定中でも素通りしてしまう）。
-  const SEATING_MEMBER_LOCK_MSG = '確定中の次会があるため、メンバーの削除・改名はできません（メンバーは全次会で共通のため）。対象の次会の確定を解除してください';
+  // 追加・削除・改名の3操作すべてで同じ文言を使う（seatingAddMember でも出すため、
+  // 「削除・改名」だけの文言だと追加しようとした人には事実と違う表示になる）。
+  const SEATING_MEMBER_LOCK_MSG = '確定中の次会があるため、メンバーの追加・削除・改名はできません（メンバーは全次会で共通のため）。対象の次会の確定を解除してください';
   async function seatingDeleteMember(name) {
     const data = latestEventData;
     if (anyPartyConfirmed(data)) { showToast(SEATING_MEMBER_LOCK_MSG); return; }

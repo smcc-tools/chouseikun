@@ -175,8 +175,8 @@ test('確定は他の次会に及ばない', async () => {
 // 確定中でも実行できてよい（mutateParties の確定チェックは通さない）。
 function loadAddParty(env, extraGlobals = {}) {
   return loadFunctions(
-    ['addSeatingParty', 'getParties', 'clampActiveIdx', 'randomId'],
-    { ...env.globals, seatingActiveParty: 0, showToast: () => {}, ...extraGlobals },
+    ['addSeatingParty', 'getParties', 'clampActiveIdx', 'randomId', 'activeParty'],
+    { ...env.globals, seatingActiveParty: 0, showToast: () => {}, latestEventData: env.store.data, ...extraGlobals },
   );
 }
 
@@ -206,14 +206,67 @@ test('addSeatingParty: 確定中の次会があっても追加できる（既存
   assert.equal(env.store.data.seatParties[1].name, '2次会');
 });
 
-test('addSeatingParty: 連番の名前・追加先は、書き込み時に読み直した最新の件数から決める（他ホストが直前に追加していた場合）', async () => {
+test('addSeatingParty: 連番の名前は書き込み時に読み直した最新件数から決め、seatingActiveParty も追加先を指すよう更新される（他ホストが直前に追加していた場合）', async () => {
   // Firestore側は既に3件（他ホストが直前にもう1件追加済み）。
   const env = makeEnv({ seatParties: [P('a', '1次会'), P('b', '2次会'), P('c', '3次会')] });
-  const { addSeatingParty } = loadAddParty(env);
+  const { addSeatingParty, clampActiveIdx } = loadAddParty(env);
   await addSeatingParty();
   assert.equal(env.store.data.seatParties.length, 4);
   assert.equal(env.store.data.seatParties[3].name, '4次会',
     'ローカルの古い件数（例:2件のつもりで3次会と付ける）ではなく、読み直した3件から4次会にする');
+  // seatingActiveParty は runTransaction が解決したあと、実際に追加された添字（3）を指すべき。
+  // clampActiveIdx(現在の配列) 経由で読むことで、書き換わったグローバル変数の値を検証する。
+  assert.equal(clampActiveIdx(env.store.data.seatParties), 3,
+    'seatingActiveParty は新しく追加された次会（添字3）を指しているべき');
+});
+
+// ── addSeatingParty のリトライ耐性（Important指摘: リトライで別次会から卓をコピーする）──
+// Firestore は書き込み競合時にコールバックを再実行する。トランザクションのコールバックの
+// 中で seatingActiveParty を書き換える実装だと、再実行時の clampActiveIdx が
+// 「前回自分が書いた値」を読んでしまい、コピー元がずれる
+// （1回目: 0番(1次会)をコピー → seatingActiveParty:=2 → リトライ: clampActiveIdx が
+// 2を読んで2番(2次会)をコピーしてしまう）。既存のテスト用 runTransaction は
+// fn を1回しか呼ばないためこの不具合を検出できない。ここでは fn を2回呼ぶ
+// 偽 runTransaction で、押した時点の次会（1次会）の卓が最後までコピーされることを固定する。
+test('addSeatingParty: リトライが起きても、押した時点に表示していた次会からコピーする（自己汚染で別次会にすり替わらない）', async () => {
+  const env = makeEnv({
+    seatParties: [
+      P('a', '1次会', { tables: [{ id: 't1', name: 'A卓', capacity: 4 }] }),
+      P('b', '2次会', { tables: [{ id: 't2', name: 'B卓', capacity: 2 }] }),
+    ],
+  });
+  let calls = 0;
+  // Firestore の競合リトライを模す：同じ store.data に対して fn を2回呼ぶ。
+  // 1回目の書き込みは競合で捨てられた体にする（store.data を更新しない）。
+  // 1回目の実行中にコールバックがグローバル変数を書き換えていれば、その副作用が
+  // 2回目の実行に持ち越されてしまう、というのがこのテストで検出したい不具合。
+  const retryRunTransaction = async (_db, fn) => {
+    let result;
+    for (let i = 0; i < 2; i++) {
+      calls++;
+      const isLast = i === 1;
+      result = await fn({
+        get: async () => ({ data: () => env.store.data }),
+        update: (_ref, patch) => {
+          if (!isLast) return;
+          env.store.writes.push(patch);
+          env.store.data = { ...env.store.data, ...patch };
+        },
+      });
+    }
+    return result;
+  };
+  // 押した時点（1次会 = 添字0）を表示していたことにする。
+  const { addSeatingParty, clampActiveIdx } = loadAddParty(env, {
+    runTransaction: retryRunTransaction, seatingActiveParty: 0,
+  });
+  await addSeatingParty();
+  assert.equal(calls, 2, '前提確認：コールバックが2回呼ばれる（リトライを再現できている）');
+  const newTables = env.store.data.seatParties[2].tables;
+  assert.equal(newTables[0].name, 'A卓',
+    '押した時点に表示していた1次会からコピーするべき。リトライで2次会にすり替わってはいけない');
+  assert.equal(clampActiveIdx(env.store.data.seatParties), 2,
+    'seatingActiveParty も（自己汚染された中間値ではなく）解決後の正しい添字2を指す');
 });
 
 test('addSeatingParty: 卓は表示中の次会からコピーされ、新しい id が振られる', async () => {

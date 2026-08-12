@@ -14,6 +14,9 @@ const { isPartyConfirmed } = loadFunctions(['isPartyConfirmed']);
 function makeEnv(seatParties, activeIdx = 0, latestEventDataSnapshot = null) {
   const store = { data: { seatParties }, writes: [] };
   const toasts = [];
+  // updateActiveParty は楽観更新の描画に renderSeatingBoard を呼ぶ（DOM を持たないため
+  // ここではスタブで差し替え、呼ばれた引数＝「その時点で画面に表示しようとした内容」を控える）。
+  const renders = [];
   const runTransaction = async (_db, fn) => fn({
     get: async () => ({ data: () => store.data }),
     update: (_ref, patch) => { store.writes.push(patch); store.data = { ...store.data, ...patch }; },
@@ -22,11 +25,12 @@ function makeEnv(seatParties, activeIdx = 0, latestEventDataSnapshot = null) {
     db: {}, doc: () => ({}), eventId: 'ev1', runTransaction,
     latestEventData: latestEventDataSnapshot !== null ? latestEventDataSnapshot : store.data, seatingActiveParty: activeIdx,
     showToast: (m) => toasts.push(m),
+    renderSeatingBoard: (d) => renders.push(d),
   };
-  return { store, toasts, globals };
+  return { store, toasts, renders, globals };
 }
 
-const NAMES = ['updateActiveParty', 'mutateParties', 'isPartyConfirmed', 'getParties', 'activeParty', 'clampActiveIdx'];
+const NAMES = ['updateActiveParty', 'applyPartyPatch', 'mutateParties', 'isPartyConfirmed', 'getParties', 'activeParty', 'clampActiveIdx'];
 const P = (id, name, extra = {}) => ({ id, name, tables: [], assignment: null, locks: [], ...extra });
 
 test('confirmed 未設定の次会は未確定', () => {
@@ -93,6 +97,36 @@ test('1次会が確定していても2次会は書き換えられる', async () 
   const r = await updateActiveParty({ locks: ['t1:0'] });
   assert.equal(r, 1);
   assert.deepEqual(env.store.data.seatParties[1].locks, ['t1:0']);
+});
+
+// ── updateActiveParty の楽観更新（体感速度の改善）──
+// runTransaction は updateDoc と違いサーバ往復を待たないと画面に反映されない
+// （updateDoc にあるローカルキャッシュへの先読み反映が効かない）ため、書き込みを
+// 待つ前に手元の表示を先に更新し、拒否・失敗したら控えておいた元のデータへ戻す。
+// renderSeatingBoard に渡された引数を見れば「その時点で画面に表示しようとした内容」を
+// 検証できる。
+test('楽観更新: 拒否されたら（確定中 -2）、控えておいた元のデータへ戻して再描画する', async () => {
+  const env = makeEnv([P('a', '1次会', { confirmed: true })]);
+  const { updateActiveParty } = loadFunctions(NAMES, env.globals);
+  const r = await updateActiveParty({ locks: ['t1:0'] });
+  assert.equal(r, -2);
+  assert.equal(env.renders.length, 2, '楽観更新の描画1回＋拒否後に戻す描画1回の計2回のはず');
+  assert.deepEqual(env.renders[0].seatParties[0].locks, ['t1:0'],
+    'サーバ応答を待たず、まず楽観更新した内容を描画する（体感速度の改善）');
+  assert.deepEqual(env.renders[1].seatParties[0].locks, [],
+    '拒否されたら楽観更新を取り消し、元の状態に戻して再描画する（保存されていないのに画面だけ変わったままにしない）');
+  assert.equal(env.renders[1].seatParties[0].confirmed, true, '元のデータ（confirmed含む）に完全に戻っている');
+  assert.equal(env.store.writes.length, 0, 'サーバへは書き込まれていない');
+});
+
+test('楽観更新: 成功したら、手元のデータはパッチ適用後のまま（巻き戻し描画は起きない）', async () => {
+  const env = makeEnv([P('a', '1次会')]);
+  const { updateActiveParty } = loadFunctions(NAMES, env.globals);
+  const r = await updateActiveParty({ locks: ['t1:0'] });
+  assert.equal(r, 0);
+  assert.equal(env.renders.length, 1, '成功時は楽観更新の描画1回だけ（拒否時の巻き戻し描画は起きない）');
+  assert.deepEqual(env.renders[0].seatParties[0].locks, ['t1:0']);
+  assert.deepEqual(env.store.data.seatParties[0].locks, ['t1:0'], 'サーバ側にも同じ内容が書かれている');
 });
 
 test('ローカルが未確定でも、Firestore が確定中なら書き込まない（共同ホスト同時確定への防御）', async () => {
@@ -367,9 +401,12 @@ test('seatingAddMember: 確定中の次会があると拒否し、削除・改�
     ],
   });
   const env = makeWideEnv(data);
-  const { seatingAddMember } = loadFunctions(ADD_MEMBER_NAMES, env.globals);
+  const { seatingAddMember, SEATING_MEMBER_LOCK_MSG } = loadFunctions(ADD_MEMBER_NAMES, env.globals);
   await seatingAddMember('佐藤');
   assert.equal(env.store.writes.length, 0, '確定中の次会があるなら追加も書き込んではいけない');
   assert.equal(env.store.data.memberDiff.seating, undefined);
-  assert.match(env.toasts.join(''), /確定/, '削除・改名と同じ理由をトーストで知らせる');
+  // Minor指摘の再現: 削除・改名専用の文言（「削除・改名はできません」）のままだと、
+  // 追加しようとした人には事実と違う表示になる。文言そのものを固定して退行を検出する。
+  assert.equal(env.toasts.join(''), SEATING_MEMBER_LOCK_MSG, '削除・改名と同じ定数（追加・削除・改名を含む文言）を出す');
+  assert.match(SEATING_MEMBER_LOCK_MSG, /追加/, '追加しようとした人にも「追加」を含む正しい文言であること');
 });
