@@ -404,6 +404,11 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-chip .sc-name { overflow: hidden; text-overflow: ellipsis; }
 /* ロック=金色（固定・シャッフルでも動かない）。選択と混同しないよう選択は緑系にする */
 .seat-chip.locked { border-color: var(--gold); background: #FBF4E2; }
+/* 確定バナー。ホストツールを隠すため、解除ボタンはこのバナー（隠す領域の外）に置く */
+.seat-confirmed-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #FBF4E2; border: 1px solid var(--gold); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 20px; font-size: 0.85rem; color: var(--text); }
+.seat-confirmed-banner button { flex: 0 0 auto; }
 /* 選択中=緑（これから動かす席）。ロックの金色とは別系統の色で明確に区別する。
    locked より後に定義し、ロック席を選択した場合も「選択中」の見た目を優先 */
 .seat-chip.selected {
@@ -1567,11 +1572,18 @@ body.gourmet-open #gFrame {
     <div id="seatingResult"></div>
   </div>
 
+  <!-- 確定バナー：確定中は #seatingHostTools を丸ごと隠すので、解除ボタンはその外側に置く -->
+  <div id="seatingConfirmedBanner" class="seat-confirmed-banner" style="display:none;">
+    <span>🔒 この座席で確定しています</span>
+    <button type="button" class="btn btn-ghost" id="seatingUnconfirmBtn">確定を解除</button>
+  </div>
+
   <!-- ホスト専用：設定エリア -->
   <div id="seatingHostTools" class="seating-host" style="display:none;">
     <div class="seating-actions">
       <button class="btn btn-primary" id="seatingShuffleBtn" style="flex:1;">席を決める（シャッフル）</button>
       <button class="btn btn-secondary" id="seatingReshuffleBtn" style="display:none;">もう一度</button>
+      <button class="btn btn-secondary" id="seatingConfirmBtn" style="display:none;">この席で確定</button>
     </div>
     <!-- この次会の参加者 -->
     <div class="field" style="margin-top:20px;margin-bottom:18px;">
@@ -5474,14 +5486,23 @@ body.gourmet-open #gFrame {
     if (share) share.value = `${location.origin}${location.pathname}?event=${eventId}`;
     renderSeatingPartyTabs(data);
     renderSeatingResult(data);
-    if (isHost) {
+    // 確定中はホスト向けの編集UIを丸ごと隠す。共有URLとタイトル編集は
+    // 座席に影響しないので .seating-host のまま残す（確定した席を配りたい場面がある）。
+    const party = activeParty(data);
+    const confirmed = isHost && isPartyConfirmed(party);
+    const tools = document.getElementById('seatingHostTools');
+    if (tools) tools.style.display = (isHost && !confirmed) ? '' : 'none';
+    const banner = document.getElementById('seatingConfirmedBanner');
+    if (banner) banner.style.display = confirmed ? 'flex' : 'none';
+    if (isHost && !confirmed) {
       renderSeatingAttendance(data);
       renderSeatingMembers(data);
       renderSeatingTables(data);
       renderSeatingConstraints(data);
       const shBtn = document.getElementById('seatingShuffleBtn');
-      const party = activeParty(data);
       if (shBtn) shBtn.textContent = (party && party.assignment) ? 'もう一度シャッフル' : '席を決める（シャッフル）';
+      const cfBtn = document.getElementById('seatingConfirmBtn');
+      if (cfBtn) cfBtn.style.display = (party && party.assignment) ? '' : 'none';
     }
   }
 
@@ -5496,7 +5517,10 @@ body.gourmet-open #gFrame {
       // 名称の変更は表示中の次会に対して行う（タブごとにボタンを並べると横に伸びるため）
       html += `<button class="my-event-tab" id="seatingRenamePartyBtn" style="flex:0 0 auto;">名称を変更</button>`;
       html += `<button class="my-event-tab" id="seatingAddPartyBtn" style="flex:0 0 auto;">＋次会</button>`;
-      if (parties.length > 1) html += `<button class="my-event-tab" id="seatingDelPartyBtn" style="flex:0 0 auto;color:var(--clay);">この次会を削除</button>`;
+      // 次会を消せば確定した座席も消えるので、確定中は削除ボタンを出さない（解除してから消す）
+      if (parties.length > 1 && !isPartyConfirmed(parties[active])) {
+        html += `<button class="my-event-tab" id="seatingDelPartyBtn" style="flex:0 0 auto;color:var(--clay);">この次会を削除</button>`;
+      }
     }
     box.innerHTML = html;
     box.querySelectorAll('[data-party]').forEach(b => b.addEventListener('click', () => {
@@ -5613,6 +5637,8 @@ body.gourmet-open #gFrame {
     const assignment = isPreview
       ? Object.fromEntries(tables.map(t => [t.id, Array(parseInt(t.capacity) || 0).fill(null)]))
       : normalizeAssignment(tables, party.assignment, members);
+    // 確定中は操作の手がかりを出さない（タップしても動かないものを押させない）
+    const canEdit = isHost && !isPartyConfirmed(party);
     const lockSet = new Set(party.locks || []);
     const placed = new Set();
     Object.values(assignment).forEach(arr => arr.forEach(n => { if (n) placed.add(n); }));
@@ -5623,28 +5649,28 @@ body.gourmet-open #gFrame {
       const locked = !!name && lockSet.has(pos);
       const sel = seatSel && seatSel.t === tid && seatSel.i === idx;
       // 色タグはホストのグループ分け用の内部情報。参加者用画面にはドットも色名も出さない
-      const colKey = (isHost && name) ? seatColorOf(data, name) : null;
+      const colKey = (canEdit && name) ? seatColorOf(data, name) : null;
       const colHex = seatColorHex(colKey);
       const colName = colKey ? (SEAT_TAG_COLORS.find(c => c.key === colKey) || {}).name : '';
       // ロック（席の固定）はホストの内部設定。🔒ボタンを隠すだけでは、金色の枠と
       // title の「固定中」で参加者にも分かってしまうため、見た目と補助テキストも出さない。
-      const showLock = isHost && locked;
+      const showLock = canEdit && locked;
       const title = `席${idx + 1}${colName ? '｜' + colName : ''}${showLock ? '｜固定中' : ''}`;
-      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${showLock ? ' locked' : ''}${isHost ? ' clickable' : ''}`;
-      const dataAttr = isHost ? ` data-t="${escHtml(tid)}" data-i="${idx}"` : '';
-      const lockBtn = (isHost && name) ? `<button type="button" class="seat-lock-btn" data-lock="${escHtml(pos)}" title="${locked ? '固定を解除' : 'この席に固定'}">${locked ? '🔒' : '🔓'}</button>` : '';
+      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${showLock ? ' locked' : ''}${canEdit ? ' clickable' : ''}`;
+      const dataAttr = canEdit ? ` data-t="${escHtml(tid)}" data-i="${idx}"` : '';
+      const lockBtn = (canEdit && name) ? `<button type="button" class="seat-lock-btn" data-lock="${escHtml(pos)}" title="${locked ? '固定を解除' : 'この席に固定'}">${locked ? '🔒' : '🔓'}</button>` : '';
       const dot = (name && colHex) ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
       return `<div class="${cls}"${dataAttr} title="${escHtml(title)}"><span class="sc-name">${dot}${name ? escHtml(name) : '空'}</span>${lockBtn}</div>`;
     };
 
     let html = isPreview
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
-      : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
+      : (canEdit ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
     // 卓の並びは「縦○×横○」でホストが盤面の大きさを直接決める。参加者も同じ位置関係で見る。
     // tableRows 未設定の次会は、これまでどおり列数から行数を導いた見た目のまま（移行不要）。
     const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, SEAT_GRID_MAX));
     const rows = seatGridRows(party, tables.length, cols);
-    if (isHost && tables.length > 1) {
+    if (canEdit && tables.length > 1) {
       // 卓が入り切らない組み合わせは選ばせない（選べると卓が消えたように見えるため）
       const optFor = (val, other) => Array.from({ length: SEAT_GRID_MAX }, (_, i) => i + 1)
         .filter(n => n * other >= tables.length)
@@ -5665,7 +5691,7 @@ body.gourmet-open #gFrame {
     let tablesHtml = '';
     slotArr.forEach((t, si) => {
       if (!t) {
-        tablesHtml += isHost
+        tablesHtml += canEdit
           ? `<div class="seat-empty-slot${tableMoveSel ? ' active' : ''}" data-slot="${si}">${tableMoveSel ? 'ここへ移動' : '空きスペース'}</div>`
           : `<div class="seat-empty-slot ghost"></div>`;
         return;
@@ -5674,13 +5700,13 @@ body.gourmet-open #gFrame {
       const arr = assignment[t.id] || [];
 
       // 卓名はホスト・参加者の両方に出す。操作ボタン（向き・移動）はホストのみ。
-      const moveBtn = (isHost && tables.length > 1)
+      const moveBtn = (canEdit && tables.length > 1)
         ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
       // 向きの切り替えは卓の図の上で行えるようにする（長机のみ。円卓は回しても同じ）。
       // ラベルは「押すとどうなるか」を出す（今が横向きなら「縦にする」）。
       const isRectT = (t.shape || 'rect') === 'rect';
       const vertT = isRectT && t.orient === 'v';
-      const oriBtn = (isHost && isRectT)
+      const oriBtn = (canEdit && isRectT)
         ? `<button type="button" class="seat-ori-btn" data-orient="${escHtml(t.id)}" title="卓の向きを変える">⟳ ${vertT ? '横にする' : '縦にする'}</button>` : '';
       const tblName = `<span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span>`;
       const headBar = isHost
