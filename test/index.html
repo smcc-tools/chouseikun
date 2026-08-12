@@ -5258,6 +5258,9 @@ body.gourmet-open #gFrame {
     }];
   }
   function clampActiveIdx(parties) { return Math.max(0, Math.min(seatingActiveParty, parties.length - 1)); }
+  // 「この席で確定」した次会かどうか。未設定・false は未確定として扱うので移行処理は要らない。
+  // 真偽値の true だけを確定と見なす（保存データに文字列が紛れても誤って確定にしない）。
+  function isPartyConfirmed(party) { return !!party && party.confirmed === true; }
   function activeParty(data) { const ps = getParties(data); return ps[clampActiveIdx(ps)]; }
   function roundMembers(data, party) {
     const absent = new Set(party.absent || []);
