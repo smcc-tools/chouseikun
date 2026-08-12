@@ -5267,11 +5267,16 @@ body.gourmet-open #gFrame {
     return viewMembers(data, 'seating').filter(n => !absent.has(n));
   }
   function updateParties(parties) { updateSeating({ seatParties: parties }); }
-  function updateActiveParty(patch) {
-    const ps = getParties(latestEventData).map(p => ({ ...p }));
-    const i = clampActiveIdx(ps);
-    ps[i] = { ...ps[i], ...patch };
-    updateParties(ps);
+  // 座席まわりの書き込みはすべてここを通る（欠席・卓・配置・ロック・席入れ替え・シャッフル結果）。
+  // mutateParties 経由にすることで、書き込みの瞬間に確定を読み直して確認できる。
+  // 自分の画面の写しを見て判断すると、共同ホストが直前に確定した場合に見落とす。
+  async function updateActiveParty(patch, opts = {}) {
+    const target = activeParty(latestEventData || {});
+    if (!target || !target.id) { showToast('保存に失敗しました'); return -1; }
+    const r = await mutateParties(target.id, (ps, at) => { ps[at] = { ...ps[at], ...patch }; return ps; }, opts);
+    if (r === -2) showToast('確定中のため変更できません。確定を解除してください');
+    else if (r < 0) showToast('保存に失敗しました');
+    return r;
   }
 
   // 割当を「卓id → 定員長の配列（空席は null）」に正規化
