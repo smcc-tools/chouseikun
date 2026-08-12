@@ -5584,8 +5584,11 @@ body.gourmet-open #gFrame {
       const colKey = (isHost && name) ? seatColorOf(data, name) : null;
       const colHex = seatColorHex(colKey);
       const colName = colKey ? (SEAT_TAG_COLORS.find(c => c.key === colKey) || {}).name : '';
-      const title = `席${idx + 1}${colName ? '｜' + colName : ''}${locked ? '｜固定中' : ''}`;
-      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${locked ? ' locked' : ''}${isHost ? ' clickable' : ''}`;
+      // ロック（席の固定）はホストの内部設定。🔒ボタンを隠すだけでは、金色の枠と
+      // title の「固定中」で参加者にも分かってしまうため、見た目と補助テキストも出さない。
+      const showLock = isHost && locked;
+      const title = `席${idx + 1}${colName ? '｜' + colName : ''}${showLock ? '｜固定中' : ''}`;
+      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${showLock ? ' locked' : ''}${isHost ? ' clickable' : ''}`;
       const dataAttr = isHost ? ` data-t="${escHtml(tid)}" data-i="${idx}"` : '';
       const lockBtn = (isHost && name) ? `<button type="button" class="seat-lock-btn" data-lock="${escHtml(pos)}" title="${locked ? '固定を解除' : 'この席に固定'}">${locked ? '🔒' : '🔓'}</button>` : '';
       const dot = (name && colHex) ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
