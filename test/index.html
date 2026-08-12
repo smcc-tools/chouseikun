@@ -5499,16 +5499,37 @@ body.gourmet-open #gFrame {
     document.getElementById('seatingAddPartyBtn')?.addEventListener('click', addSeatingParty);
     document.getElementById('seatingDelPartyBtn')?.addEventListener('click', deleteSeatingParty);
   }
-  function renameSeatingParty() {
-    const parties = getParties(latestEventData).map(p => ({ ...p }));
+  // 次会の名称変更・削除はダイアログを挟むため、開く前に読んだ配列を丸ごと書き戻すと
+  // その間に他のホストが入れた変更（席替え・卓の追加など）を巻き戻してしまう。
+  // 立替削除・日程削除と同じく、トランザクションの中で読み直して書く。
+  // 対象は添字ではなく id で引く。ダイアログを開いている間に別の会が削除されると
+  // 添字が別の会を指してしまい、意図しない会を書き換えるため。
+  // 見つからないときは書かずに中断する（消えた会を復活させない）。
+  async function mutateParties(partyId, apply) {
+    return await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data() || {};
+      const parties = getParties(d).map(p => ({ ...p }));
+      const i = parties.findIndex(p => p.id && p.id === partyId);
+      if (i < 0) return -1;
+      const next = apply(parties, i);
+      if (!next) return -1;
+      tx.update(ref, { seatParties: next });
+      return i;
+    });
+  }
+  async function renameSeatingParty() {
+    const parties = getParties(latestEventData);
     const i = clampActiveIdx(parties);
-    const cur = parties[i].name || `${i + 1}次会`;
+    const target = parties[i];
+    const cur = target.name || `${i + 1}次会`;
     const nn = (prompt('この会の名称', cur) || '').trim();
     if (!nn || nn === cur) return;
     if (nn.length > 20) { showToast('名称は20文字以内で入力してください'); return; }
-    parties[i] = { ...parties[i], name: nn };
-    updateParties(parties);
-    showToast('名称を変更しました');
+    try {
+      const idx = await mutateParties(target.id, (ps, at) => { ps[at] = { ...ps[at], name: nn }; return ps; });
+      showToast(idx >= 0 ? '名称を変更しました' : 'この会は既に削除されています');
+    } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
   function addSeatingParty() {
     const parties = getParties(latestEventData).map(p => ({ ...p }));
@@ -5519,16 +5540,22 @@ body.gourmet-open #gFrame {
     updateParties(parties);
     showToast(`${parties.length}次会を追加しました（卓は前回をコピー）`);
   }
-  function deleteSeatingParty() {
-    const parties = getParties(latestEventData).map(p => ({ ...p }));
+  async function deleteSeatingParty() {
+    const parties = getParties(latestEventData);
     if (parties.length <= 1) return;
-    const i = clampActiveIdx(parties);
-    if (!confirm(`「${parties[i].name}」を削除しますか？`)) return;
-    parties.splice(i, 1);
-    parties.forEach((p, idx) => { if (/^\d+次会$/.test(p.name || '')) p.name = `${idx + 1}次会`; });
-    seatingActiveParty = Math.max(0, i - 1);
-    updateParties(parties);
-    showToast('削除しました');
+    const target = parties[clampActiveIdx(parties)];
+    if (!confirm(`「${target.name}」を削除しますか？`)) return;
+    try {
+      const idx = await mutateParties(target.id, (ps, at) => {
+        if (ps.length <= 1) return null;   // 開いている間に他が消され最後の1つになったら残す
+        ps.splice(at, 1);
+        ps.forEach((p, n) => { if (/^\d+次会$/.test(p.name || '')) p.name = `${n + 1}次会`; });
+        return ps;
+      });
+      if (idx < 0) { showToast('この会は既に削除されています'); return; }
+      seatingActiveParty = Math.max(0, idx - 1);
+      showToast('削除しました');
+    } catch (e) { showToast('削除に失敗しました'); console.error(e); }
   }
 
   function renderSeatingAttendance(data) {

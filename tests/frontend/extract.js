@@ -57,11 +57,13 @@ function scanBalanced(src, start, stop) {
   throw new Error('対応する閉じ括弧が見つかりません (position ' + start + ')');
 }
 
-// `function name(...) {...}` または `const name = ...;` の宣言全体を切り出す
+// `function name(...) {...}` / `async function name(...) {...}` / `const name = ...;`
+// の宣言全体を切り出す
 function extractSource(html, name) {
-  let m = html.match(new RegExp('(?:^|\\n)[ \\t]*function ' + name + '\\s*\\('));
+  let m = html.match(new RegExp('(?:^|\\n)[ \\t]*(async\\s+)?function ' + name + '\\s*\\('));
   if (m) {
-    const start = html.indexOf('function', m.index);
+    // async を落とすと呼び出し側が Promise を受け取れなくなるので、キーワードから切り出す
+    const start = html.indexOf(m[1] ? 'async' : 'function', m.index);
     const bodyOpen = html.indexOf('{', start);
     const end = scanBalanced(html, bodyOpen, (d, c) => d === 0 && c === '}');
     return html.slice(start, end + 1);
