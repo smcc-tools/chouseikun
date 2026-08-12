@@ -5851,7 +5851,9 @@ body.gourmet-open #gFrame {
   }
 
   function toggleSeatLock(pos) {
-    const locks = new Set(activeParty(latestEventData).locks || []);
+    const party = activeParty(latestEventData);
+    if (isPartyConfirmed(party)) { showToast('確定中のため変更できません。確定を解除してください'); return; }
+    const locks = new Set(party.locks || []);
     if (locks.has(pos)) locks.delete(pos); else locks.add(pos);
     updateActiveParty({ locks: [...locks] });
   }
@@ -5859,6 +5861,7 @@ body.gourmet-open #gFrame {
   function onSeatChipClick(c) {
     const data = latestEventData;
     const party = activeParty(data);
+    if (isPartyConfirmed(party)) { showToast('確定中のため変更できません。確定を解除してください'); return; }
     const members = roundMembers(data, party);
     const assignment = normalizeAssignment(party.tables || [], party.assignment || {}, members);
     const tid = c.dataset.t || null;
@@ -5942,6 +5945,7 @@ body.gourmet-open #gFrame {
   }
   async function seatingDeleteMember(name) {
     const data = latestEventData;
+    if (isPartyConfirmed(activeParty(data))) { showToast('確定中のため変更できません。確定を解除してください'); return; }
     // 色タグ・席の割り当て・欠席は座席画面固有のデータなので、ここで併せて掃除する
     const tags = { ...(data.seatTags || {}) }; delete tags[name];
     const parties = getParties(data).map(p => ({
@@ -5956,6 +5960,7 @@ body.gourmet-open #gFrame {
   }
   async function seatingRenameMember(old, nn) {
     const data = latestEventData;
+    if (isPartyConfirmed(activeParty(data))) { showToast('確定中のため変更できません。確定を解除してください'); return; }
     if (viewMembers(data, 'seating').some(n => n !== old && normalizeName(n) === normalizeName(nn))) {
       showToast('同じ名前が既に登録されています'); return;
     }
@@ -6186,12 +6191,26 @@ body.gourmet-open #gFrame {
 
   function doSeatingShuffle() {
     if (seatingAnimating) return;
+    // 表示層で隠しているが、共同ホストの古い画面から押される場合に備えて入口でも止める
+    if (isPartyConfirmed(activeParty(latestEventData))) {
+      showToast('確定中のため変更できません。確定を解除してください'); return;
+    }
     const res = computeSeating(latestEventData);
     if (res.error) { showToast(res.error); return; }
     animateSeatingShuffle(latestEventData, res.assignment);
   }
   document.getElementById('seatingShuffleBtn')?.addEventListener('click', doSeatingShuffle);
   document.getElementById('seatingReshuffleBtn')?.addEventListener('click', doSeatingShuffle);
+  document.getElementById('seatingConfirmBtn')?.addEventListener('click', async () => {
+    if (seatingAnimating) return;
+    const r = await updateActiveParty({ confirmed: true });
+    if (r >= 0) showToast('この座席で確定しました');
+  });
+  // 解除は確定中に押す操作なので、確定ガードを明示的に通す
+  document.getElementById('seatingUnconfirmBtn')?.addEventListener('click', async () => {
+    const r = await updateActiveParty({ confirmed: false }, { allowConfirmed: true });
+    if (r >= 0) showToast('確定を解除しました');
+  });
   document.getElementById('copySeatingUrlBtn')?.addEventListener('click', () => {
     copyText(document.getElementById('seatingShareUrl').value, document.getElementById('copySeatingUrlBtn'), '共有用URL');
   });
