@@ -166,3 +166,67 @@ test('確定は他の次会に及ばない', async () => {
   assert.equal(r, 1);
   assert.equal(env.store.data.seatParties[1].name, '二次会');
 });
+
+// ── addSeatingParty（Important指摘: 「＋次会」が確定を無言で消せる）──
+// 「＋次会」ボタンは確定中も出続ける。ローカルの写しから seatParties を丸ごと
+// 書き戻す実装だと、他ホストが直前に付けた confirmed:true や座席変更を巻き戻す。
+// mutateParties と同じく、トランザクションの中で読み直した配列を土台にする。
+// ただし「新しい次会を足す」だけの操作は既存の次会の座席を変えないため、
+// 確定中でも実行できてよい（mutateParties の確定チェックは通さない）。
+function loadAddParty(env, extraGlobals = {}) {
+  return loadFunctions(
+    ['addSeatingParty', 'getParties', 'clampActiveIdx', 'randomId'],
+    { ...env.globals, seatingActiveParty: 0, showToast: () => {}, ...extraGlobals },
+  );
+}
+
+test('addSeatingParty: 既存の次会の座席・確定状態を変えずに次会を追加する', async () => {
+  const seated = { t1: ['田中', '佐藤'] };
+  const env = makeEnv({
+    seatParties: [
+      P('a', '1次会', { tables: [{ id: 't1', name: 'A卓', capacity: 2 }] }),
+      P('b', '2次会', { assignment: seated, confirmed: true }),
+    ],
+  });
+  const { addSeatingParty } = loadAddParty(env);
+  await addSeatingParty();
+  assert.equal(env.store.data.seatParties.length, 3, '次会が1件増える');
+  assert.equal(env.store.data.seatParties[1].confirmed, true, '既存の確定状態を変えない');
+  assert.deepEqual(env.store.data.seatParties[1].assignment, seated, '既存の座席を変えない');
+  assert.equal(env.store.data.seatParties[2].name, '3次会', '連番の名前が付く');
+  assert.equal(env.store.data.seatParties[2].assignment, null, '新しい次会はまだ席が決まっていない');
+});
+
+test('addSeatingParty: 確定中の次会があっても追加できる（既存次会の座席を変えない操作のため拒否しない）', async () => {
+  const env = makeEnv({ seatParties: [P('a', '1次会', { confirmed: true })] });
+  const { addSeatingParty } = loadAddParty(env);
+  await addSeatingParty();
+  assert.equal(env.store.data.seatParties.length, 2);
+  assert.equal(env.store.data.seatParties[0].confirmed, true, '追加操作で確定が解除されてはいけない');
+  assert.equal(env.store.data.seatParties[1].name, '2次会');
+});
+
+test('addSeatingParty: 連番の名前・追加先は、書き込み時に読み直した最新の件数から決める（他ホストが直前に追加していた場合）', async () => {
+  // Firestore側は既に3件（他ホストが直前にもう1件追加済み）。
+  const env = makeEnv({ seatParties: [P('a', '1次会'), P('b', '2次会'), P('c', '3次会')] });
+  const { addSeatingParty } = loadAddParty(env);
+  await addSeatingParty();
+  assert.equal(env.store.data.seatParties.length, 4);
+  assert.equal(env.store.data.seatParties[3].name, '4次会',
+    'ローカルの古い件数（例:2件のつもりで3次会と付ける）ではなく、読み直した3件から4次会にする');
+});
+
+test('addSeatingParty: 卓は表示中の次会からコピーされ、新しい id が振られる', async () => {
+  const env = makeEnv({
+    seatParties: [
+      P('a', '1次会', { tables: [{ id: 't1', name: 'A卓', capacity: 4, shape: 'round' }] }),
+    ],
+  });
+  const { addSeatingParty } = loadAddParty(env);
+  await addSeatingParty();
+  const newTables = env.store.data.seatParties[1].tables;
+  assert.equal(newTables.length, 1);
+  assert.equal(newTables[0].name, 'A卓');
+  assert.equal(newTables[0].capacity, 4);
+  assert.notEqual(newTables[0].id, 't1', '卓の id は使い回さず新規発行する');
+});

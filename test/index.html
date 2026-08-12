@@ -5284,7 +5284,6 @@ body.gourmet-open #gFrame {
     const absent = new Set(party.absent || []);
     return viewMembers(data, 'seating').filter(n => !absent.has(n));
   }
-  function updateParties(parties) { updateSeating({ seatParties: parties }); }
   // 座席まわりの書き込みはすべてここを通る（欠席・卓・配置・ロック・席入れ替え・シャッフル結果）。
   // mutateParties 経由にすることで、書き込みの瞬間に確定を読み直して確認できる。
   // 自分の画面の写しを見て判断すると、共同ホストが直前に確定した場合に見落とす。
@@ -5594,14 +5593,28 @@ body.gourmet-open #gFrame {
       showToast(idx >= 0 ? '名称を変更しました' : 'この会は既に削除されています');
     } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
-  function addSeatingParty() {
-    const parties = getParties(latestEventData).map(p => ({ ...p }));
-    const src = parties[clampActiveIdx(parties)];
-    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
-    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, tableRows: src.tableRows || null, freeLayout: !!src.freeLayout });
-    seatingActiveParty = parties.length - 1;
-    updateParties(parties);
-    showToast(`${parties.length}次会を追加しました（卓は前回をコピー）`);
+  // 「＋次会」は確定中のタブにも出続けるボタンで、押される前にローカルの写しが
+  // 古くなっていることがある（例：共同ホストAが直前に確定・席替えしたが、Bの画面は
+  // まだ受け取っていない）。ローカルの配列を丸ごと書き戻すと、その巻き戻しが起きる。
+  // 次会を「足す」だけの操作は既存の次会の座席を一切変えないため、確定中でも実行してよい
+  // （mutateParties の確定チェックは使わない）。ただし土台にする配列と連番の名前・
+  // seatingActiveParty の決定は、トランザクションの中で読み直した最新の配列から行う。
+  async function addSeatingParty() {
+    try {
+      let newLen = 0;
+      await runTransaction(db, async (tx) => {
+        const ref = doc(db, 'events', eventId);
+        const d = (await tx.get(ref)).data() || {};
+        const parties = getParties(d).map(p => ({ ...p }));
+        const src = parties[clampActiveIdx(parties)];
+        const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
+        parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, tableRows: src.tableRows || null, freeLayout: !!src.freeLayout });
+        newLen = parties.length;
+        seatingActiveParty = newLen - 1;
+        tx.update(ref, { seatParties: parties });
+      });
+      showToast(`${newLen}次会を追加しました（卓は前回をコピー）`);
+    } catch (e) { showToast('追加に失敗しました'); console.error(e); }
   }
   async function deleteSeatingParty() {
     const parties = getParties(latestEventData);
@@ -5664,6 +5677,10 @@ body.gourmet-open #gFrame {
       : normalizeAssignment(tables, party.assignment, members);
     // 確定中は操作の手がかりを出さない（タップしても動かないものを押させない）
     const canEdit = isHost && !isPartyConfirmed(party);
+    // 選択中（席の入れ替え待ち／卓の移動待ち）に確定すると、読み取り専用になった盤面に
+    // 選択枠だけが残ってしまう（タブを切り替えるまで消えない見た目だけの不具合）。
+    // 編集できない間は選択状態を持たせない。
+    if (!canEdit) { seatSel = null; tableMoveSel = null; }
     const lockSet = new Set(party.locks || []);
     const placed = new Set();
     Object.values(assignment).forEach(arr => arr.forEach(n => { if (n) placed.add(n); }));
@@ -5962,7 +5979,12 @@ body.gourmet-open #gFrame {
   // 座席のメンバー編集は日程の参加者(土台)を書き換えず、座席画面の差分だけを更新する。
   // 座席で消した人は割り勘・精算にも反映されるが、日程の回答表からは消えない。
   async function seatingAddMember(name) {
-    if (viewMembers(latestEventData, 'seating').some(n => normalizeName(n) === normalizeName(name))) {
+    const data = latestEventData;
+    // 削除・改名と同じガード。追加も全次会で共通のメンバー一覧を増やす操作のため、
+    // 確定中の次会があると、その次会の盤面に「未割当」として現れてしまう
+    // （例：2次会を確定中に1次会タブでメンバーを追加すると、確定済み2次会にも現れる）。
+    if (anyPartyConfirmed(data)) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
+    if (viewMembers(data, 'seating').some(n => normalizeName(n) === normalizeName(name))) {
       showToast('同じ名前が既に登録されています'); return;
     }
     try { await mutateMemberDiff('seating', 'add', name); showToast(`${name} を追加しました`); }

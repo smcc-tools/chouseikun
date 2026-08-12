@@ -262,6 +262,28 @@ test('seatingRenameMember: 表示していない次会が確定中なら拒否�
   assert.match(env.toasts.join(''), /確定/);
 });
 
+test('seatingRenameMember: ローカルは未確定に見えても、書き込み時に Firestore を読み直して拒否する（共同ホスト同時確定）', async () => {
+  // ローカルの写し（entrance guard が見る latestEventData）：どちらも未確定（古い情報）。
+  const localSnapshot = wideData();
+  // Firestore 側（書き込み層 mutateSeatingWide が読み直す先）：2次会が確定済み。
+  const firestoreData = wideData({
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'], confirmed: true }),
+    ],
+  });
+  const env = makeWideEnv(firestoreData, localSnapshot);
+  const { seatingRenameMember } = loadFunctions(WIDE_NAMES, env.globals);
+  // ローカルの入口ガード（anyPartyConfirmed(latestEventData)）は未確定に見えて通過するが、
+  // mutateSeatingWide 内のトランザクションで Firestore を読み直し、確定中であることを
+  // 発見して拒否する必要がある。誤った実装（書き込み層に anyPartyConfirmed(d) チェックが
+  // 無い）なら、この書き込みは通ってしまう。
+  await seatingRenameMember('田中', '田中太郎');
+  assert.equal(env.store.writes.length, 0, '共同ホストが直前に確定していたら、書き込みは止まるべき');
+  assert.equal(env.store.data.seatParties[1].assignment.t1[1], '田中', '確定済み2次会の名前は書き換わっていない');
+  assert.match(env.toasts.join(''), /確定/, '確定中であることをユーザーに知らせる');
+});
+
 // ── 入口ガード単体の退行検出 ──
 // 現状は書き込み層（mutateSeatingWide 内の anyPartyConfirmed(d) チェック）が常に効くため、
 // 入口ガード（seatingDeleteMember/seatingRenameMember 冒頭の anyPartyConfirmed(data)）だけを
@@ -317,4 +339,37 @@ test('ローカルが確定中でも、Firestore が未確定なら書き込め�
   const r = await updateActiveParty({ locks: ['t1:0'] });
   assert.equal(r, 0, 'Firestore が未確定なら書き込めるべき');
   assert.deepEqual(env.store.data.seatParties[0].locks, ['t1:0']);
+});
+
+// ── seatingAddMember（Minor指摘: 削除・改名にはあるガードが追加に無かった）──
+// メンバーの削除・改名は anyPartyConfirmed(data) で全次会を見てから拒否するのに、
+// 追加だけ無防備だった。2次会を確定中に1次会タブで追加すると、確定済み2次会の盤面に
+// 「未割当」として現れてしまう。削除・改名と同じ入口ガードを検証する。
+const ADD_MEMBER_NAMES = [
+  'seatingAddMember', 'mutateMemberDiff', 'updateMemberDiffEntry', 'anyPartyConfirmed', 'isPartyConfirmed', 'getParties',
+  'viewMembers', 'membersForView', 'getSortedNames', 'normalizeName', 'MEMBER_VIEW_CHAIN',
+  'SEATING_MEMBER_LOCK_MSG',
+];
+
+test('seatingAddMember: 未確定なら従来どおり追加できる', async () => {
+  const env = makeWideEnv(wideData());
+  const { seatingAddMember } = loadFunctions(ADD_MEMBER_NAMES, env.globals);
+  await seatingAddMember('佐藤');
+  assert.ok((env.store.data.memberDiff.seating.add || []).includes('佐藤'));
+  assert.match(env.toasts.join(''), /追加しました/);
+});
+
+test('seatingAddMember: 確定中の次会があると拒否し、削除・改名と同じ文言を出す（Minor指摘の再現）', async () => {
+  const data = wideData({
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'], confirmed: true }),
+    ],
+  });
+  const env = makeWideEnv(data);
+  const { seatingAddMember } = loadFunctions(ADD_MEMBER_NAMES, env.globals);
+  await seatingAddMember('佐藤');
+  assert.equal(env.store.writes.length, 0, '確定中の次会があるなら追加も書き込んではいけない');
+  assert.equal(env.store.data.memberDiff.seating, undefined);
+  assert.match(env.toasts.join(''), /確定/, '削除・改名と同じ理由をトーストで知らせる');
 });
