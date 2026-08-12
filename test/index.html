@@ -5273,6 +5273,12 @@ body.gourmet-open #gFrame {
   // 「この席で確定」した次会かどうか。未設定・false は未確定として扱うので移行処理は要らない。
   // 真偽値の true だけを確定と見なす（保存データに文字列が紛れても誤って確定にしない）。
   function isPartyConfirmed(party) { return !!party && party.confirmed === true; }
+  // メンバーは全次会で共通のため、改名・削除は getParties(data) の「全件」の
+  // assignment/absent を書き換える。表示中の次会（activeParty）だけを見て確定を
+  // 判定すると、表示していない他の次会が確定中でも素通りしてしまう
+  // （例: 2次会を確定 → 1次会タブに切替 → メンバー削除 → 確定済み2次会の座席が壊れる）。
+  // そのため「いずれか1件でも確定しているか」をここで判定する。
+  function anyPartyConfirmed(data) { return getParties(data).some(isPartyConfirmed); }
   function activeParty(data) { const ps = getParties(data); return ps[clampActiveIdx(ps)]; }
   function roundMembers(data, party) {
     const absent = new Set(party.absent || []);
@@ -5553,6 +5559,23 @@ body.gourmet-open #gFrame {
       if (!next) return -1;
       tx.update(ref, { seatParties: next });
       return i;
+    });
+  }
+  // メンバーの改名・削除（seatingDeleteMember/seatingRenameMember）は seatTags と
+  // 「全次会」の seatParties を同時に書き換える。1件の次会だけを id で差し替える
+  // mutateParties はそのまま使えないため、同じ考え方（トランザクションで読み直し、
+  // 確定中なら書かずに中断）で seatTags と seatParties をまとめて書く経路を用意する。
+  // buildPatch(d) は最新の d から { seatTags, seatParties } を組み立てて返す。
+  // 戻り値: 0 書き込んだ / -2 確定中の次会があり拒否
+  async function mutateSeatingWide(buildPatch) {
+    return await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data() || {};
+      // ここで最新の d を読み直して確認するので、共同ホストが直前に確定していて
+      // 自分の画面(latestEventData)がまだ知らない場合でも止まる。
+      if (anyPartyConfirmed(d)) return -2;
+      tx.update(ref, buildPatch(d));
+      return 0;
     });
   }
   async function renameSeatingParty() {
@@ -5943,37 +5966,49 @@ body.gourmet-open #gFrame {
     try { await mutateMemberDiff('seating', 'add', name); showToast(`${name} を追加しました`); }
     catch (e) { showToast('追加に失敗しました'); console.error(e); }
   }
+  // メンバーは全次会で共通のため、確定は表示中の次会だけでなく anyPartyConfirmed で
+  // 「どれか1件でも確定しているか」を見る（activeParty だけを見ると、表示していない
+  // 他の次会が確定中でも素通りしてしまう）。
+  const SEATING_MEMBER_LOCK_MSG = '確定中の次会があるため、メンバーの削除・改名はできません（メンバーは全次会で共通のため）。対象の次会の確定を解除してください';
   async function seatingDeleteMember(name) {
     const data = latestEventData;
-    if (isPartyConfirmed(activeParty(data))) { showToast('確定中のため変更できません。確定を解除してください'); return; }
-    // 色タグ・席の割り当て・欠席は座席画面固有のデータなので、ここで併せて掃除する
-    const tags = { ...(data.seatTags || {}) }; delete tags[name];
-    const parties = getParties(data).map(p => ({
-      ...p,
-      assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)])) : p.assignment,
-      absent: (p.absent || []).filter(n => n !== name),
-    }));
+    if (anyPartyConfirmed(data)) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
     try {
+      // 色タグ・席の割り当て・欠席は座席画面固有のデータなので、ここで併せて掃除する。
+      // buildPatch は書き込みの瞬間にトランザクションで読み直した最新データから組み立てる
+      // （共同ホストが直前に確定した場合でも、そこで発見して拒否するため）。
+      const r = await mutateSeatingWide(d => {
+        const tags = { ...(d.seatTags || {}) }; delete tags[name];
+        const parties = getParties(d).map(p => ({
+          ...p,
+          assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)])) : p.assignment,
+          absent: (p.absent || []).filter(n => n !== name),
+        }));
+        return { seatTags: tags, seatParties: parties };
+      });
+      if (r === -2) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
       await mutateMemberDiff('seating', 'remove', name);
-      await updateSeating({ seatTags: tags, seatParties: parties });
     } catch (e) { showToast('削除に失敗しました'); console.error(e); }
   }
   async function seatingRenameMember(old, nn) {
     const data = latestEventData;
-    if (isPartyConfirmed(activeParty(data))) { showToast('確定中のため変更できません。確定を解除してください'); return; }
+    if (anyPartyConfirmed(data)) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
     if (viewMembers(data, 'seating').some(n => n !== old && normalizeName(n) === normalizeName(nn))) {
       showToast('同じ名前が既に登録されています'); return;
     }
-    const tags = { ...(data.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
-    const parties = getParties(data).map(p => ({
-      ...p,
-      assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)])) : p.assignment,
-      absent: (p.absent || []).map(n => n === old ? nn : n),
-    }));
     try {
+      const r = await mutateSeatingWide(d => {
+        const tags = { ...(d.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
+        const parties = getParties(d).map(p => ({
+          ...p,
+          assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)])) : p.assignment,
+          absent: (p.absent || []).map(n => n === old ? nn : n),
+        }));
+        return { seatTags: tags, seatParties: parties };
+      });
+      if (r === -2) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
       await mutateMemberDiff('seating', 'remove', old);
       await mutateMemberDiff('seating', 'add', nn);
-      await updateSeating({ seatTags: tags, seatParties: parties });
     } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
   async function seatingSetColor(name, key) {

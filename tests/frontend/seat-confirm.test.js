@@ -111,6 +111,148 @@ test('ローカルが未確定でも、Firestore が確定中なら書き込ま�
   assert.match(env.toasts.join(''), /確定/, '確定中であることをユーザーに知らせる');
 });
 
+// ── anyPartyConfirmed（メンバー改名・削除は全次会共通のため、表示中の次会だけでは足りない）──
+const AC_NAMES = ['anyPartyConfirmed', 'isPartyConfirmed', 'getParties'];
+
+test('anyPartyConfirmed: 全次会が未確定なら false', () => {
+  const { anyPartyConfirmed } = loadFunctions(AC_NAMES);
+  const data = { seatParties: [P('a', '1次会'), P('b', '2次会')] };
+  assert.equal(anyPartyConfirmed(data), false);
+});
+
+test('anyPartyConfirmed: 表示中でない次会だけが確定していても true（Critical本体）', () => {
+  const { anyPartyConfirmed } = loadFunctions(AC_NAMES);
+  // 1次会（表示中を想定）は未確定、2次会（表示していない）だけが確定している。
+  // activeParty() だけを見る古い実装ではこのケースを見落とす。
+  const data = { seatParties: [P('a', '1次会'), P('b', '2次会', { confirmed: true })] };
+  assert.equal(anyPartyConfirmed(data), true);
+});
+
+test('anyPartyConfirmed: 次会が1件のみで確定している場合も true', () => {
+  const { anyPartyConfirmed } = loadFunctions(AC_NAMES);
+  const data = { seatParties: [P('a', '1次会', { confirmed: true })] };
+  assert.equal(anyPartyConfirmed(data), true);
+});
+
+test('anyPartyConfirmed: seatParties が無い旧データは false', () => {
+  const { anyPartyConfirmed } = loadFunctions(AC_NAMES);
+  assert.equal(anyPartyConfirmed({}), false);
+  assert.equal(anyPartyConfirmed({ seatTables: [], seatAssignment: null, seatLocks: [] }), false);
+});
+
+// ── seatingDeleteMember / seatingRenameMember の書き込み層（3層目）──
+// メンバーは全次会で共通のため seatTags と全 seatParties を同時に書き換える。
+// mutateParties を使えないため updateSeating（素の updateDoc）を直接呼んでいたが、
+// それでは書き込み層の確定チェックが効かない。mutateSeatingWide 経由に直したことを検証する。
+const WIDE_NAMES = [
+  'seatingDeleteMember', 'seatingRenameMember', 'mutateSeatingWide',
+  'mutateMemberDiff', 'anyPartyConfirmed', 'isPartyConfirmed', 'getParties',
+  'viewMembers', 'membersForView', 'getSortedNames', 'normalizeName',
+  'MEMBER_VIEW_CHAIN', 'updateMemberDiffEntry', 'SEATING_MEMBER_LOCK_MSG',
+];
+
+function makeWideEnv(dataOverrides, latestEventDataOverride = null) {
+  const store = {
+    data: { participants: {}, participantOrder: [], memberDiff: {}, seatTags: {}, seatParties: [], ...dataOverrides },
+    writes: [],
+  };
+  const toasts = [];
+  const runTransaction = async (_db, fn) => fn({
+    get: async () => ({ data: () => store.data }),
+    update: (_ref, patch) => { store.writes.push(patch); store.data = { ...store.data, ...patch }; },
+  });
+  const globals = {
+    db: {}, doc: () => ({}), eventId: 'ev1', runTransaction,
+    latestEventData: latestEventDataOverride !== null ? latestEventDataOverride : store.data,
+    showToast: (m) => toasts.push(m),
+  };
+  return { store, toasts, globals };
+}
+
+function wideData(overrides = {}) {
+  return {
+    participants: { '田中': {}, '鈴木': {} },
+    participantOrder: ['田中', '鈴木'],
+    memberDiff: {},
+    seatTags: { '田中': 'red' },
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'] }),
+    ],
+    ...overrides,
+  };
+}
+
+test('seatingDeleteMember: 未確定なら従来どおり全次会・タグ・メンバー一覧から削除される', async () => {
+  const env = makeWideEnv(wideData());
+  const { seatingDeleteMember } = loadFunctions(WIDE_NAMES, env.globals);
+  await seatingDeleteMember('田中');
+  assert.equal(env.store.data.seatTags['田中'], undefined);
+  assert.equal(env.store.data.seatParties[0].assignment.t1[0], null);
+  assert.equal(env.store.data.seatParties[1].assignment.t1[1], null);
+  assert.deepEqual(env.store.data.seatParties[1].absent, []);
+  assert.ok((env.store.data.memberDiff.seating.remove || []).includes('田中'));
+});
+
+test('seatingDeleteMember: 表示していない次会が確定中なら拒否し、確定済みの席を壊さない（Critical再現）', async () => {
+  // 2次会（表示中ではない想定）を確定、1次会は未確定のまま。
+  const data = wideData({
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'], confirmed: true }),
+    ],
+  });
+  const env = makeWideEnv(data);
+  const { seatingDeleteMember } = loadFunctions(WIDE_NAMES, env.globals);
+  await seatingDeleteMember('田中');
+  assert.equal(env.store.writes.length, 0, '確定中の次会があるなら一切書き込んではいけない');
+  assert.equal(env.store.data.seatParties[1].assignment.t1[1], '田中', '確定済み2次会の座席は壊れていない');
+  assert.match(env.toasts.join(''), /確定/, '拒否理由をトーストで知らせる');
+});
+
+test('seatingDeleteMember: ローカルは未確定に見えても、書き込み時に Firestore を読み直して拒否する（共同ホスト同時確定）', async () => {
+  const localSnapshot = wideData(); // ローカルの写し：どちらも未確定（古い情報）
+  const firestoreData = wideData({
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'], confirmed: true }),
+    ],
+  });
+  const env = makeWideEnv(firestoreData, localSnapshot);
+  const { seatingDeleteMember } = loadFunctions(WIDE_NAMES, env.globals);
+  await seatingDeleteMember('田中');
+  assert.equal(env.store.writes.length, 0, 'ローカルの入口ガードを通過しても、書き込み層で読み直して止めるべき');
+  assert.match(env.toasts.join(''), /確定/);
+});
+
+test('seatingRenameMember: 未確定なら従来どおり全次会・タグ・メンバー一覧で改名される', async () => {
+  const env = makeWideEnv(wideData());
+  const { seatingRenameMember } = loadFunctions(WIDE_NAMES, env.globals);
+  await seatingRenameMember('田中', '田中太郎');
+  assert.equal(env.store.data.seatTags['田中太郎'], 'red');
+  assert.equal(env.store.data.seatTags['田中'], undefined);
+  assert.equal(env.store.data.seatParties[0].assignment.t1[0], '田中太郎');
+  assert.equal(env.store.data.seatParties[1].assignment.t1[1], '田中太郎');
+  assert.deepEqual(env.store.data.seatParties[1].absent, ['田中太郎']);
+  assert.ok((env.store.data.memberDiff.seating.remove || []).includes('田中'));
+  assert.ok((env.store.data.memberDiff.seating.add || []).includes('田中太郎'));
+});
+
+test('seatingRenameMember: 表示していない次会が確定中なら拒否し、確定済みの座席の名前を書き換えない（Critical再現）', async () => {
+  const data = wideData({
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'], confirmed: true }),
+    ],
+  });
+  const env = makeWideEnv(data);
+  const { seatingRenameMember } = loadFunctions(WIDE_NAMES, env.globals);
+  await seatingRenameMember('田中', '田中太郎');
+  assert.equal(env.store.writes.length, 0);
+  assert.equal(env.store.data.seatParties[1].assignment.t1[1], '田中', '確定済み2次会の名前は書き換わっていない');
+  assert.match(env.toasts.join(''), /確定/);
+});
+
 test('ローカルが確定中でも、Firestore が未確定なら書き込める（最新値で判定）', async () => {
   // latestEventData（ローカルの写し）: 確定済み（古い情報）
   const localParty = P('a', '1次会', { confirmed: true });
