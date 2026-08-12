@@ -64,7 +64,10 @@ function extractSource(html, name) {
   if (m) {
     // async を落とすと呼び出し側が Promise を受け取れなくなるので、キーワードから切り出す
     const start = html.indexOf(m[1] ? 'async' : 'function', m.index);
-    const bodyOpen = html.indexOf('{', start);
+    // デフォルト引数の {...} をスキップしてから関数本体の { を探す
+    const paramOpen = html.indexOf('(', start);
+    const paramClose = scanBalanced(html, paramOpen, (d, c) => d === 0 && c === ')');
+    const bodyOpen = html.indexOf('{', paramClose);
     const end = scanBalanced(html, bodyOpen, (d, c) => d === 0 && c === '}');
     return html.slice(start, end + 1);
   }

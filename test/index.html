@@ -5508,13 +5508,18 @@ body.gourmet-open #gFrame {
   // 対象は添字ではなく id で引く。ダイアログを開いている間に別の会が削除されると
   // 添字が別の会を指してしまい、意図しない会を書き換えるため。
   // 見つからないときは書かずに中断する（消えた会を復活させない）。
-  async function mutateParties(partyId, apply) {
+  async function mutateParties(partyId, apply, opts = {}) {
     return await runTransaction(db, async (tx) => {
       const ref = doc(db, 'events', eventId);
       const d = (await tx.get(ref)).data() || {};
       const parties = getParties(d).map(p => ({ ...p }));
       const i = parties.findIndex(p => p.id && p.id === partyId);
       if (i < 0) return -1;
+      // 確定中の次会は変更しない。ここで最新の値を読み直すので、共同ホストが
+      // 直前に確定していて自分の画面がまだ知らない場合でも止まる。
+      // 「確定中でも通す操作」(解除・次会の名称変更)は呼び出し側が明示する。
+      // パッチの中身から推測すると、将来フィールドが増えたときに誤って通るため。
+      if (isPartyConfirmed(parties[i]) && !opts.allowConfirmed) return -2;
       const next = apply(parties, i);
       if (!next) return -1;
       tx.update(ref, { seatParties: next });
@@ -5530,7 +5535,8 @@ body.gourmet-open #gFrame {
     if (!nn || nn === cur) return;
     if (nn.length > 20) { showToast('名称は20文字以内で入力してください'); return; }
     try {
-      const idx = await mutateParties(target.id, (ps, at) => { ps[at] = { ...ps[at], name: nn }; return ps; });
+      const idx = await mutateParties(target.id, (ps, at) => { ps[at] = { ...ps[at], name: nn }; return ps; },
+        { allowConfirmed: true });
       showToast(idx >= 0 ? '名称を変更しました' : 'この会は既に削除されています');
     } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
@@ -5555,6 +5561,7 @@ body.gourmet-open #gFrame {
         ps.forEach((p, n) => { if (/^\d+次会$/.test(p.name || '')) p.name = `${n + 1}次会`; });
         return ps;
       });
+      if (idx === -2) { showToast('確定中の次会は削除できません。確定を解除してください'); return; }
       if (idx < 0) { showToast('この会は既に削除されています'); return; }
       seatingActiveParty = Math.max(0, idx - 1);
       showToast('削除しました');

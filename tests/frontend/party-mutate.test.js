@@ -26,7 +26,7 @@ function makeEnv(initialData) {
 const P = (id, name, extra = {}) => ({ id, name, tables: [], assignment: null, locks: [], ...extra });
 
 function load(env) {
-  return loadFunctions(['mutateParties', 'getParties'], env.globals);
+  return loadFunctions(['mutateParties', 'getParties', 'isPartyConfirmed'], env.globals);
 }
 
 test('id で対象を引き当てて書き換える', async () => {
@@ -125,4 +125,44 @@ test('削除：ダイアログ中に他が消されて最後の1つになった�
   });
   assert.equal(idx, -1);
   assert.equal(env.store.writes.length, 0, '会が0個になってはいけない');
+});
+
+test('確定中の次会は書き込まずに -2 を返す', async () => {
+  const env = makeEnv({ seatParties: [P('a', '1次会', { confirmed: true })] });
+  const { mutateParties } = load(env);
+  const r = await mutateParties('a', (ps, at) => { ps[at] = { ...ps[at], name: 'X' }; return ps; });
+  assert.equal(r, -2);
+  assert.equal(env.store.writes.length, 0, '確定中に書き込んではいけない');
+});
+
+test('allowConfirmed を渡したときだけ確定中でも通る（解除に使う）', async () => {
+  const env = makeEnv({ seatParties: [P('a', '1次会', { confirmed: true })] });
+  const { mutateParties } = load(env);
+  const r = await mutateParties('a', (ps, at) => { ps[at] = { ...ps[at], confirmed: false }; return ps; },
+    { allowConfirmed: true });
+  assert.equal(r, 0);
+  assert.equal(env.store.data.seatParties[0].confirmed, false);
+});
+
+test('未確定の次会は allowConfirmed 無しでも通る（従来どおり）', async () => {
+  const env = makeEnv({ seatParties: [P('a', '1次会')] });
+  const { mutateParties } = load(env);
+  const r = await mutateParties('a', (ps, at) => { ps[at] = { ...ps[at], name: '懇親会' }; return ps; });
+  assert.equal(r, 0);
+  assert.equal(env.store.data.seatParties[0].name, '懇親会');
+});
+
+test('確定中でも「対象が見つからない」は -1（-2 と取り違えない）', async () => {
+  const env = makeEnv({ seatParties: [P('a', '1次会', { confirmed: true })] });
+  const { mutateParties } = load(env);
+  const r = await mutateParties('zzz', (ps, at) => ps);
+  assert.equal(r, -1);
+});
+
+test('確定は他の次会に及ばない', async () => {
+  const env = makeEnv({ seatParties: [P('a', '1次会', { confirmed: true }), P('b', '2次会')] });
+  const { mutateParties } = load(env);
+  const r = await mutateParties('b', (ps, at) => { ps[at] = { ...ps[at], name: '二次会' }; return ps; });
+  assert.equal(r, 1);
+  assert.equal(env.store.data.seatParties[1].name, '二次会');
 });
