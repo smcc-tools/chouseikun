@@ -144,11 +144,15 @@ test('anyPartyConfirmed: seatParties が無い旧データは false', () => {
 // メンバーは全次会で共通のため seatTags と全 seatParties を同時に書き換える。
 // mutateParties を使えないため updateSeating（素の updateDoc）を直接呼んでいたが、
 // それでは書き込み層の確定チェックが効かない。mutateSeatingWide 経由に直したことを検証する。
+// 'activeParty' / 'clampActiveIdx' は現在の入口ガード（anyPartyConfirmed）からは
+// 呼ばれないが、入口ガードが isPartyConfirmed(activeParty(data)) に後退した場合に
+// 抽出対象の関数が呼ぶことになるため、退行検出テストのためにあらかじめ含めておく。
 const WIDE_NAMES = [
   'seatingDeleteMember', 'seatingRenameMember', 'mutateSeatingWide',
   'mutateMemberDiff', 'anyPartyConfirmed', 'isPartyConfirmed', 'getParties',
   'viewMembers', 'membersForView', 'getSortedNames', 'normalizeName',
   'MEMBER_VIEW_CHAIN', 'updateMemberDiffEntry', 'SEATING_MEMBER_LOCK_MSG',
+  'activeParty', 'clampActiveIdx',
 ];
 
 function makeWideEnv(dataOverrides, latestEventDataOverride = null) {
@@ -164,6 +168,7 @@ function makeWideEnv(dataOverrides, latestEventDataOverride = null) {
   const globals = {
     db: {}, doc: () => ({}), eventId: 'ev1', runTransaction,
     latestEventData: latestEventDataOverride !== null ? latestEventDataOverride : store.data,
+    seatingActiveParty: 0, // 表示中は1次会（index 0）を想定
     showToast: (m) => toasts.push(m),
   };
   return { store, toasts, globals };
@@ -192,6 +197,9 @@ test('seatingDeleteMember: 未確定なら従来どおり全次会・タグ・�
   assert.equal(env.store.data.seatParties[1].assignment.t1[1], null);
   assert.deepEqual(env.store.data.seatParties[1].absent, []);
   assert.ok((env.store.data.memberDiff.seating.remove || []).includes('田中'));
+  // 座席側と名簿側を同じトランザクション・同じ書き込みにまとめたことの確認
+  // （別トランザクションに分けると部分失敗の窓ができ、read/write 回数も増えるため）。
+  assert.equal(env.store.writes.length, 1, '座席と名簿を1回の書き込みにまとめる（1 read/1 write）');
 });
 
 test('seatingDeleteMember: 表示していない次会が確定中なら拒否し、確定済みの席を壊さない（Critical再現）', async () => {
@@ -236,6 +244,7 @@ test('seatingRenameMember: 未確定なら従来どおり全次会・タグ・�
   assert.deepEqual(env.store.data.seatParties[1].absent, ['田中太郎']);
   assert.ok((env.store.data.memberDiff.seating.remove || []).includes('田中'));
   assert.ok((env.store.data.memberDiff.seating.add || []).includes('田中太郎'));
+  assert.equal(env.store.writes.length, 1, '座席と名簿を1回の書き込みにまとめる（1 read/1 write）');
 });
 
 test('seatingRenameMember: 表示していない次会が確定中なら拒否し、確定済みの座席の名前を書き換えない（Critical再現）', async () => {
@@ -250,6 +259,48 @@ test('seatingRenameMember: 表示していない次会が確定中なら拒否�
   await seatingRenameMember('田中', '田中太郎');
   assert.equal(env.store.writes.length, 0);
   assert.equal(env.store.data.seatParties[1].assignment.t1[1], '田中', '確定済み2次会の名前は書き換わっていない');
+  assert.match(env.toasts.join(''), /確定/);
+});
+
+// ── 入口ガード単体の退行検出 ──
+// 現状は書き込み層（mutateSeatingWide 内の anyPartyConfirmed(d) チェック）が常に効くため、
+// 入口ガード（seatingDeleteMember/seatingRenameMember 冒頭の anyPartyConfirmed(data)）だけを
+// isPartyConfirmed(activeParty(data)) に戻す退行が入っても、書き込み層が代わりに拒否して
+// writes.length===0・トースト文言も同じになり、上の Critical再現テストでは検出できない。
+// そこで書き込み層が拒否しない状況（Firestore 側は全次会未確定）を作ったうえで、
+// ローカルの写し（entrance guard が見る latestEventData）だけ「表示していない次会が確定」
+// にする。anyPartyConfirmed を見ていれば拒否・activeParty だけを見ていれば通過する、
+// という食い違いが起きるので、入口ガード単体の退行をこのテストだけで検出できる。
+test('seatingDeleteMember: 入口ガードは activeParty だけでなく anyPartyConfirmed を見る（入口ガード単体の退行検出）', async () => {
+  // ローカルの写し：表示中の1次会(index 0)は未確定、表示していない2次会だけが確定。
+  const localSnapshot = wideData({
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'], confirmed: true }),
+    ],
+  });
+  // Firestore 側は本当に全次会未確定 → 書き込み層(mutateSeatingWide)は拒否しない。
+  const env = makeWideEnv(wideData(), localSnapshot);
+  const { seatingDeleteMember } = loadFunctions(WIDE_NAMES, env.globals);
+  await seatingDeleteMember('田中');
+  assert.equal(env.store.writes.length, 0,
+    '表示していない次会がローカルで確定中なら、書き込み層が拒否しなくても入口で止めるべき' +
+    '（isPartyConfirmed(activeParty(data)) だけを見る退行が入ると、ここが通ってしまう）');
+  assert.match(env.toasts.join(''), /確定/);
+});
+
+test('seatingRenameMember: 入口ガードは activeParty だけでなく anyPartyConfirmed を見る（入口ガード単体の退行検出）', async () => {
+  const localSnapshot = wideData({
+    seatParties: [
+      P('a', '1次会', { assignment: { t1: ['田中', null] }, absent: [] }),
+      P('b', '2次会', { assignment: { t1: [null, '田中'] }, absent: ['田中'], confirmed: true }),
+    ],
+  });
+  const env = makeWideEnv(wideData(), localSnapshot);
+  const { seatingRenameMember } = loadFunctions(WIDE_NAMES, env.globals);
+  await seatingRenameMember('田中', '田中太郎');
+  assert.equal(env.store.writes.length, 0,
+    '表示していない次会がローカルで確定中なら、書き込み層が拒否しなくても入口で止めるべき');
   assert.match(env.toasts.join(''), /確定/);
 });
 

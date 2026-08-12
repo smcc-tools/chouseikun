@@ -5562,10 +5562,12 @@ body.gourmet-open #gFrame {
     });
   }
   // メンバーの改名・削除（seatingDeleteMember/seatingRenameMember）は seatTags と
-  // 「全次会」の seatParties を同時に書き換える。1件の次会だけを id で差し替える
-  // mutateParties はそのまま使えないため、同じ考え方（トランザクションで読み直し、
-  // 確定中なら書かずに中断）で seatTags と seatParties をまとめて書く経路を用意する。
-  // buildPatch(d) は最新の d から { seatTags, seatParties } を組み立てて返す。
+  // 「全次会」の seatParties、名簿側の memberDiff を同時に書き換える。1件の次会だけを
+  // id で差し替える mutateParties はそのまま使えないため、同じ考え方（トランザクションで
+  // 読み直し、確定中なら書かずに中断）でこれらをまとめて1回の書き込みにする経路を用意する。
+  // 名簿更新を別トランザクションに分けると、座席側は書けたが名簿側が失敗する部分失敗の窓が
+  // でき、Firestore の read/write 回数も増えるため、同じドキュメントへの更新は1回にまとめる。
+  // buildPatch(d) は最新の d から { seatTags, seatParties, memberDiff } を組み立てて返す。
   // 戻り値: 0 書き込んだ / -2 確定中の次会があり拒否
   async function mutateSeatingWide(buildPatch) {
     return await runTransaction(db, async (tx) => {
@@ -5984,10 +5986,13 @@ body.gourmet-open #gFrame {
           assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)])) : p.assignment,
           absent: (p.absent || []).filter(n => n !== name),
         }));
-        return { seatTags: tags, seatParties: parties };
+        // 名簿側の差分も同じトランザクション・同じ書き込みに含める（別トランザクションに
+        // 分けると、座席側は書けたが名簿側が通信断で失敗する部分失敗の窓ができるため）。
+        const diff = { ...(d.memberDiff || {}) };
+        diff.seating = updateMemberDiffEntry(diff.seating, 'remove', name);
+        return { seatTags: tags, seatParties: parties, memberDiff: diff };
       });
       if (r === -2) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
-      await mutateMemberDiff('seating', 'remove', name);
     } catch (e) { showToast('削除に失敗しました'); console.error(e); }
   }
   async function seatingRenameMember(old, nn) {
@@ -6004,11 +6009,15 @@ body.gourmet-open #gFrame {
           assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)])) : p.assignment,
           absent: (p.absent || []).map(n => n === old ? nn : n),
         }));
-        return { seatTags: tags, seatParties: parties };
+        // 名簿側の差分も同じトランザクション・同じ書き込みに含める（remove→add の順で
+        // 同じ diff オブジェクトに適用。別トランザクションに分けると、座席側が nn に
+        // 置き換わったのに名簿に old も nn も無い状態が残る部分失敗の窓ができるため）。
+        const diff = { ...(d.memberDiff || {}) };
+        diff.seating = updateMemberDiffEntry(diff.seating, 'remove', old);
+        diff.seating = updateMemberDiffEntry(diff.seating, 'add', nn);
+        return { seatTags: tags, seatParties: parties, memberDiff: diff };
       });
       if (r === -2) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
-      await mutateMemberDiff('seating', 'remove', old);
-      await mutateMemberDiff('seating', 'add', nn);
     } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
   async function seatingSetColor(name, key) {
