@@ -21,9 +21,13 @@ function makeEnv(seatParties, activeIdx = 0, latestEventDataSnapshot = null) {
     get: async () => ({ data: () => store.data }),
     update: (_ref, patch) => { store.writes.push(patch); store.data = { ...store.data, ...patch }; },
   });
+  const initialLocal = latestEventDataSnapshot !== null ? latestEventDataSnapshot : store.data;
   const globals = {
     db: {}, doc: () => ({}), eventId: 'ev1', runTransaction,
-    latestEventData: latestEventDataSnapshot !== null ? latestEventDataSnapshot : store.data, seatingActiveParty: activeIdx,
+    // lastServerEventData は「直近に onSnapshot が届けた値」を模す。特に断りのないテストでは
+    // ローカルの写し（latestEventData）と同じ値（＝ページを開いた直後で楽観更新もまだ無い
+    // 状態）から始める。
+    latestEventData: initialLocal, lastServerEventData: initialLocal, seatingActiveParty: activeIdx,
     showToast: (m) => toasts.push(m),
     renderSeatingBoard: (d) => renders.push(d),
   };
@@ -127,6 +131,60 @@ test('楽観更新: 成功したら、手元のデータはパッチ適用後の
   assert.equal(env.renders.length, 1, '成功時は楽観更新の描画1回だけ（拒否時の巻き戻し描画は起きない）');
   assert.deepEqual(env.renders[0].seatParties[0].locks, ['t1:0']);
   assert.deepEqual(env.store.data.seatParties[0].locks, ['t1:0'], 'サーバ側にも同じ内容が書かれている');
+});
+
+test('楽観更新: -1（対象の次会が見つからない）でも、直近のサーバ状態へ戻して再描画する', async () => {
+  // ローカルの写し（latestEventData）には次会 'a' があるが、書き込み時に Firestore を
+  // 読み直すと既に無い（他ホストが次会を削除した等）。mutateParties は i<0 で -1 を返す。
+  const env = makeEnv([], 0, { seatParties: [P('a', '1次会', { locks: [] })] });
+  const { updateActiveParty } = loadFunctions(NAMES, env.globals);
+  const r = await updateActiveParty({ locks: ['t1:0'] });
+  assert.equal(r, -1);
+  assert.equal(env.renders.length, 2, '楽観更新の描画1回＋失敗後に戻す描画1回の計2回のはず');
+  assert.deepEqual(env.renders[1].seatParties[0].locks, [], '直近のサーバ状態（ロック無し）へ戻る');
+  assert.equal(env.store.writes.length, 0);
+  assert.equal(env.toasts.join(''), '座席の保存に失敗しました');
+});
+
+test('楽観更新: 例外が飛んでも直近のサーバ状態へ戻し、座席の保存失敗と分かるトーストを出す（Minor指摘の再現）', async () => {
+  const env = makeEnv([P('a', '1次会', { locks: [] })]);
+  // 通信断などで runTransaction 自体が例外を投げるケースを模す。
+  env.globals.runTransaction = async () => { throw new Error('offline'); };
+  const { updateActiveParty } = loadFunctions(NAMES, env.globals);
+  const r = await updateActiveParty({ locks: ['t1:0'] });
+  assert.equal(r, -1, '例外を捕まえて -1 を返す（呼び出し元へ伝播させず、末尾のトーストを必ず出す）');
+  assert.equal(env.renders.length, 2, '楽観更新の描画1回＋例外後に戻す描画1回の計2回のはず');
+  assert.deepEqual(env.renders[1].seatParties[0].locks, [], '直近のサーバ状態へ戻る');
+  assert.equal(env.toasts.join(''), '座席の保存に失敗しました',
+    'グローバルの unhandledrejection 網の汎用文言（通信に失敗しました）ではなく、座席の保存に失敗したと分かる文言にする');
+});
+
+// ── 修正1（Important）: 書き込みが重なって両方失敗すると未保存の変更が画面に残る ──
+// 復元の条件が「latestEventData が自分の楽観更新のままか」の参照一致だけだと、別の楽観更新に
+// 上書きされていた場合は復元がスキップされる。A→Bの順で重なって両方失敗すると：
+//   A の finally: latestEventData は既に B の楽観更新 → 不一致 → 復元しない
+//   B の finally: 一致するので「控えておいた before」(=Aの楽観更新後のデータ) に戻す
+//     → A の未保存の変更（ロック）が画面に残ったままになる
+// 修正後は「控えておいた before」ではなく「直近に onSnapshot が届けたサーバの実際の状態」
+// (lastServerEventData) に戻すため、どちらの finally が最後に実行されても正しく server 状態へ
+// 収束する。次会を確定中にしておくと、2件とも書き込みが必ず失敗する（-2）ため、
+// タイミングに依存せず決定的に「両方失敗」を再現できる。
+test('楽観更新: 2件の書き込みが重なって両方失敗しても、未保存の変更を画面に残さない（Important再現）', async () => {
+  const env = makeEnv([P('a', '1次会', { confirmed: true, locks: [] })]);
+  const { updateActiveParty } = loadFunctions(NAMES, env.globals);
+  const [rA, rB] = await Promise.all([
+    updateActiveParty({ locks: ['t1:0'] }),               // A: t1:0 をロック
+    updateActiveParty({ locks: ['t1:0', 't2:0'] }),       // B: Aの楽観更新の上にさらに重ねて適用される
+  ]);
+  assert.equal(rA, -2);
+  assert.equal(rB, -2);
+  assert.equal(env.store.writes.length, 0, '確定中のため両方とも書き込まれない');
+  // 修正前（「控えておいた before」に戻す実装）だと、B の finally は before(=A の楽観更新後の
+  // データ) に戻ってしまい、A の未保存の変更（t1:0 のロック）が画面に残ったままになる。
+  const finalRender = env.renders[env.renders.length - 1];
+  assert.deepEqual(finalRender.seatParties[0].locks, [],
+    '両方失敗したら、直近にサーバから届いた実際の状態（ロック無し）まで戻る必要がある');
+  assert.equal(finalRender.seatParties[0].confirmed, true, 'サーバ側のconfirmedも含めて実際の状態と一致している');
 });
 
 test('ローカルが未確定でも、Firestore が確定中なら書き込まない（共同ホスト同時確定への防御）', async () => {

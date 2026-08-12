@@ -3526,6 +3526,10 @@ body.gourmet-open #gFrame {
   let currentParticipantOrder = [];
   let hostSettleAutoOpened = false; // ホストの初回精算自動表示済みフラグ
   let latestEventData = null;      // 認証状態変化時の再評価用
+  // 直近に onSnapshot が届けた「サーバの実際の状態」。updateActiveParty の楽観更新が
+  // 失敗したときの復元先はこちら（控えておいた before ではない）。理由は
+  // updateActiveParty のコメント参照。
+  let lastServerEventData = null;
   let rerenderCurrentEvent = null; // 現在のイベント表示を再描画する関数（ログイン後の再評価用）
   let myEventSavedSig = null;      // マイイベント索引に書いた内容の署名（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
@@ -3708,6 +3712,7 @@ body.gourmet-open #gFrame {
       }
       const data = snap.data();
       latestEventData = data;
+      lastServerEventData = data;
       currentDates = data.dates;
       currentParticipantOrder = data.participantOrder || [];
 
@@ -5305,15 +5310,29 @@ body.gourmet-open #gFrame {
   // 手元の表示を先に更新し（楽観更新）、拒否・失敗（戻り値が負）したら控えておいた元の
   // データに戻して再描画する。
   //
-  // 元に戻す条件は「latestEventData が自分が当てた楽観更新のオブジェクトのままか」だけを見る
-  // （=== の参照比較）。await 中に onSnapshot が発火すると、onSnapshot ハンドラは
+  // 直すかどうかの条件は「latestEventData が自分が当てた楽観更新のオブジェクトのままか」
+  // だけを見る（=== の参照比較）。await 中に onSnapshot が発火すると、onSnapshot ハンドラは
   // latestEventData を新しいオブジェクトに丸ごと差し替えるため、その場合は一致しなくなる。
-  // そのときは何もしない：onSnapshot が届けたデータは「この書き込みが失敗した後」の
-  // サーバの実際の状態（他ホストの変更を含む）そのものなので、それ以上直す必要はなく、
+  //
+  // 直す先は「控えておいた before」ではなく lastServerEventData（直近に onSnapshot が
+  // 届けた実際のサーバの状態）にする。before に戻すと、2件の書き込みが重なって両方
+  // 失敗したときに片方の未保存の変更が画面に残ってしまう:
+  //   A開始(before=S0)→optimisticA→B開始(before=optimisticA)→optimisticB
+  //   →A失敗: latestEventData(=optimisticB) !== optimisticA なので何もしない
+  //   →B失敗: 一致するので before(=optimisticA) に戻す ← Aの未保存の変更が残る
+  // lastServerEventData は書き込みの成否に関わらず「本当にサーバへ保存されている値」を
+  // 指し続けるので、どの順で重なっても最終的にそこへ戻せば取りこぼしがない。
+  // オフラインでは onSnapshot が来ないため、一致しなければ「何もしない」だけでは
+  // 自然回復せず、保存されていない変更が画面に残ったままになる（このバグ自体は起きない
+  // が、before で戻すと重なった場合にのみ再発するので、常に lastServerEventData で戻す）。
+  //
+  // 一致しない場合（lastServerEventData で戻さない）は従来どおり何もしない：
+  // onSnapshot が届けたデータは「この書き込みが失敗した後」のサーバの実際の状態
+  // （他ホストの変更を含む）そのものなので、それ以上直す必要はなく、
   // ここで古い値に戻すと他ホストの変更まで巻き戻してしまう。
   async function updateActiveParty(patch, opts = {}) {
     const target = activeParty(latestEventData || {});
-    if (!target || !target.id) { showToast('保存に失敗しました'); return -1; }
+    if (!target || !target.id) { showToast('座席の保存に失敗しました'); return -1; }
     const partyId = target.id;
     const before = latestEventData;
     const optimistic = applyPartyPatch(before, partyId, patch);
@@ -5321,14 +5340,20 @@ body.gourmet-open #gFrame {
     let r = -1;
     try {
       r = await mutateParties(partyId, (ps, at) => { ps[at] = { ...ps[at], ...patch }; return ps; }, opts);
+    } catch (e) {
+      // ここで捕まえないと finally を素通りして例外が伝播し、この関数末尾の
+      // showToast まで届かないまま「復元は行われるが文言はグローバルの
+      // unhandledrejection 網（通信に失敗しました）」という汎用文言になってしまう。
+      console.error('座席の保存に失敗しました:', e);
+      r = -1;
     } finally {
-      if (r < 0 && optimistic && latestEventData === optimistic) {
-        latestEventData = before;
+      if (r < 0 && optimistic && latestEventData === optimistic && lastServerEventData) {
+        latestEventData = lastServerEventData;
         renderSeatingBoard(latestEventData);
       }
     }
     if (r === -2) showToast('確定中のため変更できません。確定を解除してください');
-    else if (r < 0) showToast('保存に失敗しました');
+    else if (r < 0) showToast('座席の保存に失敗しました');
     return r;
   }
 
@@ -6142,6 +6167,12 @@ body.gourmet-open #gFrame {
     }
     box.querySelectorAll('.seat-table-row').forEach(row => {
       const id = row.dataset.id;
+      // blur のたびに（値が変わっていなくても）書き込むと、楽観更新が同期的に
+      // #seatingTableBox を作り直すため、フィールドAからフィールドBへクリックで
+      // 移る操作が mousedown→blur→再描画→Bのノードが消える、の順になり click を
+      // 取りこぼすことがある。実際に値が変わったときだけ書けば、このタイミング問題も
+      // 無駄な書き込みも両方減らせる。フォームの入力値は文字列・保存値は数値のことが
+      // あるため（capacity）、比較する前に保存側と同じ型へそろえておく。
       const save = () => {
         const name = row.querySelector('.stn').value.trim() || '卓';
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
@@ -6149,19 +6180,24 @@ body.gourmet-open #gFrame {
         const splitEl = row.querySelector('.stsplit');
         const party = activeParty(latestEventData);
         const prevT = (party.tables || []).find(t => t.id === id);
+        if (!prevT) return; // 他ホストの操作等で既に削除済み：書くものがない
+        const prevName = prevT.name || '';
+        const prevCapacity = parseInt(prevT.capacity) || 0;
+        const prevShape = (prevT.shape || 'rect') === 'round' ? 'round' : 'rect';
+        const prevSplit = prevT.split === 'bottom' ? 'bottom' : 'top';
+        const newSplit = splitEl ? (splitEl.value === 'bottom' ? 'bottom' : 'top') : prevSplit;
+        const changed = name !== prevName || capacity !== prevCapacity || shape !== prevShape
+          || (!!splitEl && newSplit !== prevSplit);
+        if (!changed) return;
         const next = (party.tables || []).map(t => t.id === id
           // orient は含めない：卓の図で切り替えた向きを、ここでの編集で上書きしないため
-          ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
+          ? { ...t, name, capacity, shape, ...(splitEl ? { split: newSplit } : {}) }
           : t);
         const patch = { tables: next };
         // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
-        if (splitEl && prevT && (prevT.shape || 'rect') === 'rect') {
-          const oldSplit = prevT.split === 'bottom' ? 'bottom' : 'top';
-          const newSplit = splitEl.value === 'bottom' ? 'bottom' : 'top';
-          if (oldSplit !== newSplit) {
-            const flip = flipTableRowsPatch(party, id, tableTopCount(prevT));
-            if (flip) Object.assign(patch, flip);
-          }
+        if (splitEl && (prevT.shape || 'rect') === 'rect' && prevSplit !== newSplit) {
+          const flip = flipTableRowsPatch(party, id, tableTopCount(prevT));
+          if (flip) Object.assign(patch, flip);
         }
         updateActiveParty(patch);
       };
