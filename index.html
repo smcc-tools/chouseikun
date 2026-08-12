@@ -404,6 +404,11 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-chip .sc-name { overflow: hidden; text-overflow: ellipsis; }
 /* ロック=金色（固定・シャッフルでも動かない）。選択と混同しないよう選択は緑系にする */
 .seat-chip.locked { border-color: var(--gold); background: #FBF4E2; }
+/* 確定バナー。ホストツールを隠すため、解除ボタンはこのバナー（隠す領域の外）に置く */
+.seat-confirmed-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #FBF4E2; border: 1px solid var(--gold); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 20px; font-size: 0.85rem; color: var(--text); }
+.seat-confirmed-banner button { flex: 0 0 auto; }
 /* 選択中=緑（これから動かす席）。ロックの金色とは別系統の色で明確に区別する。
    locked より後に定義し、ロック席を選択した場合も「選択中」の見た目を優先 */
 .seat-chip.selected {
@@ -1567,11 +1572,18 @@ body.gourmet-open #gFrame {
     <div id="seatingResult"></div>
   </div>
 
+  <!-- 確定バナー：確定中は #seatingHostTools を丸ごと隠すので、解除ボタンはその外側に置く -->
+  <div id="seatingConfirmedBanner" class="seat-confirmed-banner" style="display:none;">
+    <span>🔒 この座席で確定しています</span>
+    <button type="button" class="btn btn-ghost" id="seatingUnconfirmBtn">確定を解除</button>
+  </div>
+
   <!-- ホスト専用：設定エリア -->
   <div id="seatingHostTools" class="seating-host" style="display:none;">
     <div class="seating-actions">
       <button class="btn btn-primary" id="seatingShuffleBtn" style="flex:1;">席を決める（シャッフル）</button>
       <button class="btn btn-secondary" id="seatingReshuffleBtn" style="display:none;">もう一度</button>
+      <button class="btn btn-secondary" id="seatingConfirmBtn" style="display:none;">この席で確定</button>
     </div>
     <!-- この次会の参加者 -->
     <div class="field" style="margin-top:20px;margin-bottom:18px;">
@@ -3514,6 +3526,10 @@ body.gourmet-open #gFrame {
   let currentParticipantOrder = [];
   let hostSettleAutoOpened = false; // ホストの初回精算自動表示済みフラグ
   let latestEventData = null;      // 認証状態変化時の再評価用
+  // 直近に onSnapshot が届けた「サーバの実際の状態」。updateActiveParty の楽観更新が
+  // 失敗したときの復元先はこちら（控えておいた before ではない）。理由は
+  // updateActiveParty のコメント参照。
+  let lastServerEventData = null;
   let rerenderCurrentEvent = null; // 現在のイベント表示を再描画する関数（ログイン後の再評価用）
   let myEventSavedSig = null;      // マイイベント索引に書いた内容の署名（null=未保存）
   let resetNewEntry = false;       // 登録直後に新規入力列の復元をスキップするフラグ
@@ -3696,6 +3712,7 @@ body.gourmet-open #gFrame {
       }
       const data = snap.data();
       latestEventData = data;
+      lastServerEventData = data;
       currentDates = data.dates;
       currentParticipantOrder = data.participantOrder || [];
 
@@ -5258,17 +5275,86 @@ body.gourmet-open #gFrame {
     }];
   }
   function clampActiveIdx(parties) { return Math.max(0, Math.min(seatingActiveParty, parties.length - 1)); }
+  // 「この席で確定」した次会かどうか。未設定・false は未確定として扱うので移行処理は要らない。
+  // 真偽値の true だけを確定と見なす（保存データに文字列が紛れても誤って確定にしない）。
+  function isPartyConfirmed(party) { return !!party && party.confirmed === true; }
+  // メンバーは全次会で共通のため、改名・削除は getParties(data) の「全件」の
+  // assignment/absent を書き換える。表示中の次会（activeParty）だけを見て確定を
+  // 判定すると、表示していない他の次会が確定中でも素通りしてしまう
+  // （例: 2次会を確定 → 1次会タブに切替 → メンバー削除 → 確定済み2次会の座席が壊れる）。
+  // そのため「いずれか1件でも確定しているか」をここで判定する。
+  function anyPartyConfirmed(data) { return getParties(data).some(isPartyConfirmed); }
   function activeParty(data) { const ps = getParties(data); return ps[clampActiveIdx(ps)]; }
   function roundMembers(data, party) {
     const absent = new Set(party.absent || []);
     return viewMembers(data, 'seating').filter(n => !absent.has(n));
   }
-  function updateParties(parties) { updateSeating({ seatParties: parties }); }
-  function updateActiveParty(patch) {
-    const ps = getParties(latestEventData).map(p => ({ ...p }));
-    const i = clampActiveIdx(ps);
-    ps[i] = { ...ps[i], ...patch };
-    updateParties(ps);
+  // 楽観更新: 指定した次会に patch をマージした「新しい」イベントデータ全体を返す。
+  // mutateParties の apply と同じ規則（getParties で正規化 → id で引く）で組み立てるので、
+  // 実際にサーバへ書かれる内容と一致する。対象が見つからなければ null。
+  function applyPartyPatch(data, partyId, patch) {
+    if (!data) return null;
+    const parties = getParties(data).map(p => ({ ...p }));
+    const i = parties.findIndex(p => p.id && p.id === partyId);
+    if (i < 0) return null;
+    parties[i] = { ...parties[i], ...patch };
+    return { ...data, seatParties: parties };
+  }
+  // 座席まわりの書き込みはすべてここを通る（欠席・卓・配置・ロック・席入れ替え・シャッフル結果）。
+  // mutateParties 経由にすることで、書き込みの瞬間に確定を読み直して確認できる。
+  // 自分の画面の写しを見て判断すると、共同ホストが直前に確定した場合に見落とす。
+  //
+  // runTransaction は updateDoc と違い、コミットが完了する（サーバ往復）までローカルの
+  // 表示に反映されない（updateDoc にあるローカルキャッシュへの先読み反映が効かない）。
+  // 席の入れ替え・🔒切替・卓の追加削除などが数百ms待ちにならないよう、書き込みを待つ前に
+  // 手元の表示を先に更新し（楽観更新）、拒否・失敗（戻り値が負）したら控えておいた元の
+  // データに戻して再描画する。
+  //
+  // 直すかどうかの条件は「latestEventData が自分が当てた楽観更新のオブジェクトのままか」
+  // だけを見る（=== の参照比較）。await 中に onSnapshot が発火すると、onSnapshot ハンドラは
+  // latestEventData を新しいオブジェクトに丸ごと差し替えるため、その場合は一致しなくなる。
+  //
+  // 直す先は「控えておいた before」ではなく lastServerEventData（直近に onSnapshot が
+  // 届けた実際のサーバの状態）にする。before に戻すと、2件の書き込みが重なって両方
+  // 失敗したときに片方の未保存の変更が画面に残ってしまう:
+  //   A開始(before=S0)→optimisticA→B開始(before=optimisticA)→optimisticB
+  //   →A失敗: latestEventData(=optimisticB) !== optimisticA なので何もしない
+  //   →B失敗: 一致するので before(=optimisticA) に戻す ← Aの未保存の変更が残る
+  // lastServerEventData は書き込みの成否に関わらず「本当にサーバへ保存されている値」を
+  // 指し続けるので、どの順で重なっても最終的にそこへ戻せば取りこぼしがない。
+  // オフラインでは onSnapshot が来ないため、一致しなければ「何もしない」だけでは
+  // 自然回復せず、保存されていない変更が画面に残ったままになる（このバグ自体は起きない
+  // が、before で戻すと重なった場合にのみ再発するので、常に lastServerEventData で戻す）。
+  //
+  // 一致しない場合（lastServerEventData で戻さない）は従来どおり何もしない：
+  // onSnapshot が届けたデータは「この書き込みが失敗した後」のサーバの実際の状態
+  // （他ホストの変更を含む）そのものなので、それ以上直す必要はなく、
+  // ここで古い値に戻すと他ホストの変更まで巻き戻してしまう。
+  async function updateActiveParty(patch, opts = {}) {
+    const target = activeParty(latestEventData || {});
+    if (!target || !target.id) { showToast('座席の保存に失敗しました'); return -1; }
+    const partyId = target.id;
+    const before = latestEventData;
+    const optimistic = applyPartyPatch(before, partyId, patch);
+    if (optimistic) { latestEventData = optimistic; renderSeatingBoard(latestEventData); }
+    let r = -1;
+    try {
+      r = await mutateParties(partyId, (ps, at) => { ps[at] = { ...ps[at], ...patch }; return ps; }, opts);
+    } catch (e) {
+      // ここで捕まえないと finally を素通りして例外が伝播し、この関数末尾の
+      // showToast まで届かないまま「復元は行われるが文言はグローバルの
+      // unhandledrejection 網（通信に失敗しました）」という汎用文言になってしまう。
+      console.error('座席の保存に失敗しました:', e);
+      r = -1;
+    } finally {
+      if (r < 0 && optimistic && latestEventData === optimistic && lastServerEventData) {
+        latestEventData = lastServerEventData;
+        renderSeatingBoard(latestEventData);
+      }
+    }
+    if (r === -2) showToast('確定中のため変更できません。確定を解除してください');
+    else if (r < 0) showToast('座席の保存に失敗しました');
+    return r;
   }
 
   // 割当を「卓id → 定員長の配列（空席は null）」に正規化
@@ -5466,14 +5552,23 @@ body.gourmet-open #gFrame {
     if (share) share.value = `${location.origin}${location.pathname}?event=${eventId}`;
     renderSeatingPartyTabs(data);
     renderSeatingResult(data);
-    if (isHost) {
+    // 確定中はホスト向けの編集UIを丸ごと隠す。共有URLとタイトル編集は
+    // 座席に影響しないので .seating-host のまま残す（確定した席を配りたい場面がある）。
+    const party = activeParty(data);
+    const confirmed = isHost && isPartyConfirmed(party);
+    const tools = document.getElementById('seatingHostTools');
+    if (tools) tools.style.display = (isHost && !confirmed) ? '' : 'none';
+    const banner = document.getElementById('seatingConfirmedBanner');
+    if (banner) banner.style.display = confirmed ? 'flex' : 'none';
+    if (isHost && !confirmed) {
       renderSeatingAttendance(data);
       renderSeatingMembers(data);
       renderSeatingTables(data);
       renderSeatingConstraints(data);
       const shBtn = document.getElementById('seatingShuffleBtn');
-      const party = activeParty(data);
       if (shBtn) shBtn.textContent = (party && party.assignment) ? 'もう一度シャッフル' : '席を決める（シャッフル）';
+      const cfBtn = document.getElementById('seatingConfirmBtn');
+      if (cfBtn) cfBtn.style.display = (party && party.assignment) ? '' : 'none';
     }
   }
 
@@ -5488,7 +5583,10 @@ body.gourmet-open #gFrame {
       // 名称の変更は表示中の次会に対して行う（タブごとにボタンを並べると横に伸びるため）
       html += `<button class="my-event-tab" id="seatingRenamePartyBtn" style="flex:0 0 auto;">名称を変更</button>`;
       html += `<button class="my-event-tab" id="seatingAddPartyBtn" style="flex:0 0 auto;">＋次会</button>`;
-      if (parties.length > 1) html += `<button class="my-event-tab" id="seatingDelPartyBtn" style="flex:0 0 auto;color:var(--clay);">この次会を削除</button>`;
+      // 次会を消せば確定した座席も消えるので、確定中は削除ボタンを出さない（解除してから消す）
+      if (parties.length > 1 && !isPartyConfirmed(parties[active])) {
+        html += `<button class="my-event-tab" id="seatingDelPartyBtn" style="flex:0 0 auto;color:var(--clay);">この次会を削除</button>`;
+      }
     }
     box.innerHTML = html;
     box.querySelectorAll('[data-party]').forEach(b => b.addEventListener('click', () => {
@@ -5499,36 +5597,118 @@ body.gourmet-open #gFrame {
     document.getElementById('seatingAddPartyBtn')?.addEventListener('click', addSeatingParty);
     document.getElementById('seatingDelPartyBtn')?.addEventListener('click', deleteSeatingParty);
   }
-  function renameSeatingParty() {
-    const parties = getParties(latestEventData).map(p => ({ ...p }));
+  // 次会の名称変更・削除はダイアログを挟むため、開く前に読んだ配列を丸ごと書き戻すと
+  // その間に他のホストが入れた変更（席替え・卓の追加など）を巻き戻してしまう。
+  // 立替削除・日程削除と同じく、トランザクションの中で読み直して書く。
+  // 対象は添字ではなく id で引く。ダイアログを開いている間に別の会が削除されると
+  // 添字が別の会を指してしまい、意図しない会を書き換えるため。
+  // 見つからないときは書かずに中断する（消えた会を復活させない）。
+  async function mutateParties(partyId, apply, opts = {}) {
+    return await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data() || {};
+      const parties = getParties(d).map(p => ({ ...p }));
+      const i = parties.findIndex(p => p.id && p.id === partyId);
+      if (i < 0) return -1;
+      // 確定中の次会は変更しない。ここで最新の値を読み直すので、共同ホストが
+      // 直前に確定していて自分の画面がまだ知らない場合でも止まる。
+      // 「確定中でも通す操作」(解除・次会の名称変更)は呼び出し側が明示する。
+      // パッチの中身から推測すると、将来フィールドが増えたときに誤って通るため。
+      if (isPartyConfirmed(parties[i]) && !opts.allowConfirmed) return -2;
+      const next = apply(parties, i);
+      if (!next) return -1;
+      tx.update(ref, { seatParties: next });
+      return i;
+    });
+  }
+  // メンバーの改名・削除（seatingDeleteMember/seatingRenameMember）は seatTags と
+  // 「全次会」の seatParties、名簿側の memberDiff を同時に書き換える。1件の次会だけを
+  // id で差し替える mutateParties はそのまま使えないため、同じ考え方（トランザクションで
+  // 読み直し、確定中なら書かずに中断）でこれらをまとめて1回の書き込みにする経路を用意する。
+  // 名簿更新を別トランザクションに分けると、座席側は書けたが名簿側が失敗する部分失敗の窓が
+  // でき、Firestore の read/write 回数も増えるため、同じドキュメントへの更新は1回にまとめる。
+  // buildPatch(d) は最新の d から { seatTags, seatParties, memberDiff } を組み立てて返す。
+  // 戻り値: 0 書き込んだ / -2 確定中の次会があり拒否
+  async function mutateSeatingWide(buildPatch) {
+    return await runTransaction(db, async (tx) => {
+      const ref = doc(db, 'events', eventId);
+      const d = (await tx.get(ref)).data() || {};
+      // ここで最新の d を読み直して確認するので、共同ホストが直前に確定していて
+      // 自分の画面(latestEventData)がまだ知らない場合でも止まる。
+      if (anyPartyConfirmed(d)) return -2;
+      tx.update(ref, buildPatch(d));
+      return 0;
+    });
+  }
+  async function renameSeatingParty() {
+    const parties = getParties(latestEventData);
     const i = clampActiveIdx(parties);
-    const cur = parties[i].name || `${i + 1}次会`;
+    const target = parties[i];
+    const cur = target.name || `${i + 1}次会`;
     const nn = (prompt('この会の名称', cur) || '').trim();
     if (!nn || nn === cur) return;
     if (nn.length > 20) { showToast('名称は20文字以内で入力してください'); return; }
-    parties[i] = { ...parties[i], name: nn };
-    updateParties(parties);
-    showToast('名称を変更しました');
+    try {
+      const idx = await mutateParties(target.id, (ps, at) => { ps[at] = { ...ps[at], name: nn }; return ps; },
+        { allowConfirmed: true });
+      showToast(idx >= 0 ? '名称を変更しました' : 'この会は既に削除されています');
+    } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
-  function addSeatingParty() {
-    const parties = getParties(latestEventData).map(p => ({ ...p }));
-    const src = parties[clampActiveIdx(parties)];
-    const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
-    parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, tableRows: src.tableRows || null, freeLayout: !!src.freeLayout });
-    seatingActiveParty = parties.length - 1;
-    updateParties(parties);
-    showToast(`${parties.length}次会を追加しました（卓は前回をコピー）`);
+  // 「＋次会」は確定中のタブにも出続けるボタンで、押される前にローカルの写しが
+  // 古くなっていることがある（例：共同ホストAが直前に確定・席替えしたが、Bの画面は
+  // まだ受け取っていない）。ローカルの配列を丸ごと書き戻すと、その巻き戻しが起きる。
+  // 次会を「足す」だけの操作は既存の次会の座席を一切変えないため、確定中でも実行してよい
+  // （mutateParties の確定チェックは使わない）。ただし土台にする配列と連番の名前は、
+  // トランザクションの中で読み直した最新の配列から行う。
+  //
+  // コピー元は「押した時点」に表示していた次会の id を先に控え、コールバック内では
+  // その id で引く（見つからなければ clampActiveIdx にフォールバック）。
+  // Firestore は書き込み競合時にコールバックを再実行する。コールバックの中で
+  // seatingActiveParty を書き換えると、再実行時に clampActiveIdx がその「前回の
+  // 自分自身の書き込み」を読んでしまい、コピー元が意図せずずれる
+  // （1回目: 0番をコピー→ seatingActiveParty:=2 → リトライ: clampActiveIdx が 2 を読んで
+  // 2番をコピー、という自己汚染が起きる）。そのためコールバックには副作用を持たせず、
+  // seatingActiveParty の代入は runTransaction が解決したあとに1回だけ行う
+  // （トランザクションが最終的に失敗した場合は代入しない。失敗したのにタブだけ
+  // 移動してしまうのを防ぐ）。
+  async function addSeatingParty() {
+    const startId = (activeParty(latestEventData || {}) || {}).id;
+    try {
+      let newLen = 0;
+      let resolvedActive = 0;
+      await runTransaction(db, async (tx) => {
+        const ref = doc(db, 'events', eventId);
+        const d = (await tx.get(ref)).data() || {};
+        const parties = getParties(d).map(p => ({ ...p }));
+        const srcIdx = startId ? parties.findIndex(p => p.id && p.id === startId) : -1;
+        const src = parties[srcIdx >= 0 ? srcIdx : clampActiveIdx(parties)];
+        const tables = (src.tables || []).map(t => ({ id: randomId(6), name: t.name, capacity: t.capacity, shape: t.shape || 'rect', orient: t.orient === 'v' ? 'v' : 'h', ...(Number.isInteger(parseInt(t.slot)) ? { slot: parseInt(t.slot) } : {}) }));
+        parties.push({ id: randomId(6), name: `${parties.length + 1}次会`, tables, assignment: null, locks: [], absent: (src.absent || []).slice(), tableCols: src.tableCols || 1, tableRows: src.tableRows || null, freeLayout: !!src.freeLayout });
+        newLen = parties.length;
+        resolvedActive = newLen - 1;
+        tx.update(ref, { seatParties: parties });
+      });
+      seatingActiveParty = resolvedActive;
+      showToast(`${newLen}次会を追加しました（卓は前回をコピー）`);
+    } catch (e) { showToast('追加に失敗しました'); console.error(e); }
   }
-  function deleteSeatingParty() {
-    const parties = getParties(latestEventData).map(p => ({ ...p }));
+  async function deleteSeatingParty() {
+    const parties = getParties(latestEventData);
     if (parties.length <= 1) return;
-    const i = clampActiveIdx(parties);
-    if (!confirm(`「${parties[i].name}」を削除しますか？`)) return;
-    parties.splice(i, 1);
-    parties.forEach((p, idx) => { if (/^\d+次会$/.test(p.name || '')) p.name = `${idx + 1}次会`; });
-    seatingActiveParty = Math.max(0, i - 1);
-    updateParties(parties);
-    showToast('削除しました');
+    const target = parties[clampActiveIdx(parties)];
+    if (!confirm(`「${target.name}」を削除しますか？`)) return;
+    try {
+      const idx = await mutateParties(target.id, (ps, at) => {
+        if (ps.length <= 1) return null;   // 開いている間に他が消され最後の1つになったら残す
+        ps.splice(at, 1);
+        ps.forEach((p, n) => { if (/^\d+次会$/.test(p.name || '')) p.name = `${n + 1}次会`; });
+        return ps;
+      });
+      if (idx === -2) { showToast('確定中の次会は削除できません。確定を解除してください'); return; }
+      if (idx < 0) { showToast('この会は既に削除されています'); return; }
+      seatingActiveParty = Math.max(0, idx - 1);
+      showToast('削除しました');
+    } catch (e) { showToast('削除に失敗しました'); console.error(e); }
   }
 
   function renderSeatingAttendance(data) {
@@ -5571,6 +5751,12 @@ body.gourmet-open #gFrame {
     const assignment = isPreview
       ? Object.fromEntries(tables.map(t => [t.id, Array(parseInt(t.capacity) || 0).fill(null)]))
       : normalizeAssignment(tables, party.assignment, members);
+    // 確定中は操作の手がかりを出さない（タップしても動かないものを押させない）
+    const canEdit = isHost && !isPartyConfirmed(party);
+    // 選択中（席の入れ替え待ち／卓の移動待ち）に確定すると、読み取り専用になった盤面に
+    // 選択枠だけが残ってしまう（タブを切り替えるまで消えない見た目だけの不具合）。
+    // 編集できない間は選択状態を持たせない。
+    if (!canEdit) { seatSel = null; tableMoveSel = null; }
     const lockSet = new Set(party.locks || []);
     const placed = new Set();
     Object.values(assignment).forEach(arr => arr.forEach(n => { if (n) placed.add(n); }));
@@ -5581,28 +5767,28 @@ body.gourmet-open #gFrame {
       const locked = !!name && lockSet.has(pos);
       const sel = seatSel && seatSel.t === tid && seatSel.i === idx;
       // 色タグはホストのグループ分け用の内部情報。参加者用画面にはドットも色名も出さない
-      const colKey = (isHost && name) ? seatColorOf(data, name) : null;
+      const colKey = (canEdit && name) ? seatColorOf(data, name) : null;
       const colHex = seatColorHex(colKey);
       const colName = colKey ? (SEAT_TAG_COLORS.find(c => c.key === colKey) || {}).name : '';
       // ロック（席の固定）はホストの内部設定。🔒ボタンを隠すだけでは、金色の枠と
       // title の「固定中」で参加者にも分かってしまうため、見た目と補助テキストも出さない。
-      const showLock = isHost && locked;
+      const showLock = canEdit && locked;
       const title = `席${idx + 1}${colName ? '｜' + colName : ''}${showLock ? '｜固定中' : ''}`;
-      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${showLock ? ' locked' : ''}${isHost ? ' clickable' : ''}`;
-      const dataAttr = isHost ? ` data-t="${escHtml(tid)}" data-i="${idx}"` : '';
-      const lockBtn = (isHost && name) ? `<button type="button" class="seat-lock-btn" data-lock="${escHtml(pos)}" title="${locked ? '固定を解除' : 'この席に固定'}">${locked ? '🔒' : '🔓'}</button>` : '';
+      const cls = `seat-chip${name ? '' : ' empty'}${sel ? ' selected' : ''}${showLock ? ' locked' : ''}${canEdit ? ' clickable' : ''}`;
+      const dataAttr = canEdit ? ` data-t="${escHtml(tid)}" data-i="${idx}"` : '';
+      const lockBtn = (canEdit && name) ? `<button type="button" class="seat-lock-btn" data-lock="${escHtml(pos)}" title="${locked ? '固定を解除' : 'この席に固定'}">${locked ? '🔒' : '🔓'}</button>` : '';
       const dot = (name && colHex) ? `<span class="seat-color-dot" style="background:${colHex};"></span>` : '';
       return `<div class="${cls}"${dataAttr} title="${escHtml(title)}"><span class="sc-name">${dot}${name ? escHtml(name) : '空'}</span>${lockBtn}</div>`;
     };
 
     let html = isPreview
       ? '<div class="seat-swap-hint"><b>プレビュー</b>：卓の配置が確認できます。参加者を配置するには「席を決める」を押してください。</div>'
-      : (isHost ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
+      : (canEdit ? '<div class="seat-swap-hint">💡 <b>名前</b>をタップ→移動先をタップで入れ替え。右の<b>🔓ボタン</b>でその席を固定/解除（固定席はシャッフル対象外）。</div>' : '');
     // 卓の並びは「縦○×横○」でホストが盤面の大きさを直接決める。参加者も同じ位置関係で見る。
     // tableRows 未設定の次会は、これまでどおり列数から行数を導いた見た目のまま（移行不要）。
     const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, SEAT_GRID_MAX));
     const rows = seatGridRows(party, tables.length, cols);
-    if (isHost && tables.length > 1) {
+    if (canEdit && tables.length > 1) {
       // 卓が入り切らない組み合わせは選ばせない（選べると卓が消えたように見えるため）
       const optFor = (val, other) => Array.from({ length: SEAT_GRID_MAX }, (_, i) => i + 1)
         .filter(n => n * other >= tables.length)
@@ -5623,7 +5809,7 @@ body.gourmet-open #gFrame {
     let tablesHtml = '';
     slotArr.forEach((t, si) => {
       if (!t) {
-        tablesHtml += isHost
+        tablesHtml += canEdit
           ? `<div class="seat-empty-slot${tableMoveSel ? ' active' : ''}" data-slot="${si}">${tableMoveSel ? 'ここへ移動' : '空きスペース'}</div>`
           : `<div class="seat-empty-slot ghost"></div>`;
         return;
@@ -5632,16 +5818,16 @@ body.gourmet-open #gFrame {
       const arr = assignment[t.id] || [];
 
       // 卓名はホスト・参加者の両方に出す。操作ボタン（向き・移動）はホストのみ。
-      const moveBtn = (isHost && tables.length > 1)
+      const moveBtn = (canEdit && tables.length > 1)
         ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
       // 向きの切り替えは卓の図の上で行えるようにする（長机のみ。円卓は回しても同じ）。
       // ラベルは「押すとどうなるか」を出す（今が横向きなら「縦にする」）。
       const isRectT = (t.shape || 'rect') === 'rect';
       const vertT = isRectT && t.orient === 'v';
-      const oriBtn = (isHost && isRectT)
+      const oriBtn = (canEdit && isRectT)
         ? `<button type="button" class="seat-ori-btn" data-orient="${escHtml(t.id)}" title="卓の向きを変える">⟳ ${vertT ? '横にする' : '縦にする'}</button>` : '';
       const tblName = `<span style="font-size:0.78rem;">${escHtml(t.name || '卓')}</span>`;
-      const headBar = isHost
+      const headBar = canEdit
         ? `<div class="stb-name">${tblName}<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">${oriBtn}${moveBtn}</span></div>`
         : `<div class="stb-name">${tblName}</div>`;
       tablesHtml += `<div class="seat-table-block${tableMoveSel === t.id ? ' move-sel' : ''}" data-tblwrap="${escHtml(t.id)}">${headBar}`;
@@ -5679,10 +5865,10 @@ body.gourmet-open #gFrame {
     tablesHtml = `<div class="seat-tables-grid${(party.freeLayout || explicitRows) ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
     // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
     const entrance = party.entrance || null;
-    if (isHost || entrance) {
+    if (canEdit || entrance) {
       const entCell = (side, vert) => {
         const sel = entrance === side;
-        if (isHost) return `<button type="button" class="seat-entrance-btn${vert ? ' vert' : ''}${sel ? ' selected' : ''}" data-ent="${side}" title="${sel ? '入り口の選択を解除' : 'この側を店の入り口にする'}">${sel ? '🚪 店の入り口' : '入り口'}</button>`;
+        if (canEdit) return `<button type="button" class="seat-entrance-btn${vert ? ' vert' : ''}${sel ? ' selected' : ''}" data-ent="${side}" title="${sel ? '入り口の選択を解除' : 'この側を店の入り口にする'}">${sel ? '🚪 店の入り口' : '入り口'}</button>`;
         return sel ? `<div class="seat-entrance-label${vert ? ' vert' : ''}">🚪 店の入り口</div>` : '';
       };
       html += `<div class="seat-entrance-grid">
@@ -5696,13 +5882,13 @@ body.gourmet-open #gFrame {
       html += tablesHtml;
     }
     // プレビュー時は未割当ゾーン・クリックハンドラ不要（配置ロジック未確定のため）
-    if (!isPreview && (unassigned.length || (isHost && seatSel && seatSel.t))) {
+    if (!isPreview && (unassigned.length || (canEdit && seatSel && seatSel.t))) {
       html += `<div class="seat-unassigned seat-unassigned-zone"><b>未割当：</b><div class="seat-row" style="justify-content:flex-start;">${
         unassigned.map(n => {
           const sel = seatSel && seatSel.u === n;
-          return `<div class="seat-chip${sel ? ' selected' : ''}${isHost ? ' clickable' : ''}"${isHost ? ` data-u="${escHtml(n)}"` : ''}>${escHtml(n)}</div>`;
+          return `<div class="seat-chip${sel ? ' selected' : ''}${canEdit ? ' clickable' : ''}"${canEdit ? ` data-u="${escHtml(n)}"` : ''}>${escHtml(n)}</div>`;
         }).join('')
-      }${isHost && seatSel && seatSel.t ? `<div class="seat-chip empty clickable" data-uzone="1">ここへ外す</div>` : ''}</div></div>`;
+      }${canEdit && seatSel && seatSel.t ? `<div class="seat-chip empty clickable" data-uzone="1">ここへ外す</div>` : ''}</div></div>`;
     }
     el.innerHTML = html;
 
@@ -5737,7 +5923,7 @@ body.gourmet-open #gFrame {
       tableMoveSel = (tableMoveSel === btn.dataset.move) ? null : btn.dataset.move;
       renderSeatingResult(latestEventData);
     }));
-    if (isHost && tableMoveSel) {
+    if (canEdit && tableMoveSel) {
       // 移動モード中の保存：現在の正規化済みslotを全卓に確定させたうえで変更を適用する
       const applySlots = (mutate) => {
         const ts = (activeParty(latestEventData).tables || []).map(x => ({ ...x, slot: slotOf[x.id] }));
@@ -5771,7 +5957,7 @@ body.gourmet-open #gFrame {
       }));
     }
 
-    if (!isHost || isPreview) return;
+    if (!canEdit || isPreview) return;
     el.querySelectorAll('.seat-chip[data-t], .seat-chip[data-u], .seat-chip[data-uzone]').forEach(c => c.addEventListener('click', () => onSeatChipClick(c)));
     el.querySelectorAll('.seat-lock-btn').forEach(b => b.addEventListener('click', e => {
       e.stopPropagation();
@@ -5783,7 +5969,9 @@ body.gourmet-open #gFrame {
   }
 
   function toggleSeatLock(pos) {
-    const locks = new Set(activeParty(latestEventData).locks || []);
+    const party = activeParty(latestEventData);
+    if (isPartyConfirmed(party)) { showToast('確定中のため変更できません。確定を解除してください'); return; }
+    const locks = new Set(party.locks || []);
     if (locks.has(pos)) locks.delete(pos); else locks.add(pos);
     updateActiveParty({ locks: [...locks] });
   }
@@ -5791,6 +5979,7 @@ body.gourmet-open #gFrame {
   function onSeatChipClick(c) {
     const data = latestEventData;
     const party = activeParty(data);
+    if (isPartyConfirmed(party)) { showToast('確定中のため変更できません。確定を解除してください'); return; }
     const members = roundMembers(data, party);
     const assignment = normalizeAssignment(party.tables || [], party.assignment || {}, members);
     const tid = c.dataset.t || null;
@@ -5866,41 +6055,69 @@ body.gourmet-open #gFrame {
   // 座席のメンバー編集は日程の参加者(土台)を書き換えず、座席画面の差分だけを更新する。
   // 座席で消した人は割り勘・精算にも反映されるが、日程の回答表からは消えない。
   async function seatingAddMember(name) {
-    if (viewMembers(latestEventData, 'seating').some(n => normalizeName(n) === normalizeName(name))) {
+    const data = latestEventData;
+    // 削除・改名と同じガード。追加も全次会で共通のメンバー一覧を増やす操作のため、
+    // 確定中の次会があると、その次会の盤面に「未割当」として現れてしまう
+    // （例：2次会を確定中に1次会タブでメンバーを追加すると、確定済み2次会にも現れる）。
+    if (anyPartyConfirmed(data)) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
+    if (viewMembers(data, 'seating').some(n => normalizeName(n) === normalizeName(name))) {
       showToast('同じ名前が既に登録されています'); return;
     }
     try { await mutateMemberDiff('seating', 'add', name); showToast(`${name} を追加しました`); }
     catch (e) { showToast('追加に失敗しました'); console.error(e); }
   }
+  // メンバーは全次会で共通のため、確定は表示中の次会だけでなく anyPartyConfirmed で
+  // 「どれか1件でも確定しているか」を見る（activeParty だけを見ると、表示していない
+  // 他の次会が確定中でも素通りしてしまう）。
+  // 追加・削除・改名の3操作すべてで同じ文言を使う（seatingAddMember でも出すため、
+  // 「削除・改名」だけの文言だと追加しようとした人には事実と違う表示になる）。
+  const SEATING_MEMBER_LOCK_MSG = '確定中の次会があるため、メンバーの追加・削除・改名はできません（メンバーは全次会で共通のため）。対象の次会の確定を解除してください';
   async function seatingDeleteMember(name) {
     const data = latestEventData;
-    // 色タグ・席の割り当て・欠席は座席画面固有のデータなので、ここで併せて掃除する
-    const tags = { ...(data.seatTags || {}) }; delete tags[name];
-    const parties = getParties(data).map(p => ({
-      ...p,
-      assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)])) : p.assignment,
-      absent: (p.absent || []).filter(n => n !== name),
-    }));
+    if (anyPartyConfirmed(data)) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
     try {
-      await mutateMemberDiff('seating', 'remove', name);
-      await updateSeating({ seatTags: tags, seatParties: parties });
+      // 色タグ・席の割り当て・欠席は座席画面固有のデータなので、ここで併せて掃除する。
+      // buildPatch は書き込みの瞬間にトランザクションで読み直した最新データから組み立てる
+      // （共同ホストが直前に確定した場合でも、そこで発見して拒否するため）。
+      const r = await mutateSeatingWide(d => {
+        const tags = { ...(d.seatTags || {}) }; delete tags[name];
+        const parties = getParties(d).map(p => ({
+          ...p,
+          assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === name ? null : n)])) : p.assignment,
+          absent: (p.absent || []).filter(n => n !== name),
+        }));
+        // 名簿側の差分も同じトランザクション・同じ書き込みに含める（別トランザクションに
+        // 分けると、座席側は書けたが名簿側が通信断で失敗する部分失敗の窓ができるため）。
+        const diff = { ...(d.memberDiff || {}) };
+        diff.seating = updateMemberDiffEntry(diff.seating, 'remove', name);
+        return { seatTags: tags, seatParties: parties, memberDiff: diff };
+      });
+      if (r === -2) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
     } catch (e) { showToast('削除に失敗しました'); console.error(e); }
   }
   async function seatingRenameMember(old, nn) {
     const data = latestEventData;
+    if (anyPartyConfirmed(data)) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
     if (viewMembers(data, 'seating').some(n => n !== old && normalizeName(n) === normalizeName(nn))) {
       showToast('同じ名前が既に登録されています'); return;
     }
-    const tags = { ...(data.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
-    const parties = getParties(data).map(p => ({
-      ...p,
-      assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)])) : p.assignment,
-      absent: (p.absent || []).map(n => n === old ? nn : n),
-    }));
     try {
-      await mutateMemberDiff('seating', 'remove', old);
-      await mutateMemberDiff('seating', 'add', nn);
-      await updateSeating({ seatTags: tags, seatParties: parties });
+      const r = await mutateSeatingWide(d => {
+        const tags = { ...(d.seatTags || {}) }; if (old in tags) { tags[nn] = tags[old]; delete tags[old]; }
+        const parties = getParties(d).map(p => ({
+          ...p,
+          assignment: p.assignment ? Object.fromEntries(Object.entries(p.assignment).map(([tid, arr]) => [tid, arr.map(n => n === old ? nn : n)])) : p.assignment,
+          absent: (p.absent || []).map(n => n === old ? nn : n),
+        }));
+        // 名簿側の差分も同じトランザクション・同じ書き込みに含める（remove→add の順で
+        // 同じ diff オブジェクトに適用。別トランザクションに分けると、座席側が nn に
+        // 置き換わったのに名簿に old も nn も無い状態が残る部分失敗の窓ができるため）。
+        const diff = { ...(d.memberDiff || {}) };
+        diff.seating = updateMemberDiffEntry(diff.seating, 'remove', old);
+        diff.seating = updateMemberDiffEntry(diff.seating, 'add', nn);
+        return { seatTags: tags, seatParties: parties, memberDiff: diff };
+      });
+      if (r === -2) { showToast(SEATING_MEMBER_LOCK_MSG); return; }
     } catch (e) { showToast('変更に失敗しました'); console.error(e); }
   }
   async function seatingSetColor(name, key) {
@@ -5950,6 +6167,12 @@ body.gourmet-open #gFrame {
     }
     box.querySelectorAll('.seat-table-row').forEach(row => {
       const id = row.dataset.id;
+      // blur のたびに（値が変わっていなくても）書き込むと、楽観更新が同期的に
+      // #seatingTableBox を作り直すため、フィールドAからフィールドBへクリックで
+      // 移る操作が mousedown→blur→再描画→Bのノードが消える、の順になり click を
+      // 取りこぼすことがある。実際に値が変わったときだけ書けば、このタイミング問題も
+      // 無駄な書き込みも両方減らせる。フォームの入力値は文字列・保存値は数値のことが
+      // あるため（capacity）、比較する前に保存側と同じ型へそろえておく。
       const save = () => {
         const name = row.querySelector('.stn').value.trim() || '卓';
         const capacity = Math.max(0, parseInt(row.querySelector('.stcap').value) || 0);
@@ -5957,19 +6180,24 @@ body.gourmet-open #gFrame {
         const splitEl = row.querySelector('.stsplit');
         const party = activeParty(latestEventData);
         const prevT = (party.tables || []).find(t => t.id === id);
+        if (!prevT) return; // 他ホストの操作等で既に削除済み：書くものがない
+        const prevName = prevT.name || '';
+        const prevCapacity = parseInt(prevT.capacity) || 0;
+        const prevShape = (prevT.shape || 'rect') === 'round' ? 'round' : 'rect';
+        const prevSplit = prevT.split === 'bottom' ? 'bottom' : 'top';
+        const newSplit = splitEl ? (splitEl.value === 'bottom' ? 'bottom' : 'top') : prevSplit;
+        const changed = name !== prevName || capacity !== prevCapacity || shape !== prevShape
+          || (!!splitEl && newSplit !== prevSplit);
+        if (!changed) return;
         const next = (party.tables || []).map(t => t.id === id
           // orient は含めない：卓の図で切り替えた向きを、ここでの編集で上書きしないため
-          ? { ...t, name, capacity, shape, ...(splitEl ? { split: splitEl.value === 'bottom' ? 'bottom' : 'top' } : {}) }
+          ? { ...t, name, capacity, shape, ...(splitEl ? { split: newSplit } : {}) }
           : t);
         const patch = { tables: next };
         // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
-        if (splitEl && prevT && (prevT.shape || 'rect') === 'rect') {
-          const oldSplit = prevT.split === 'bottom' ? 'bottom' : 'top';
-          const newSplit = splitEl.value === 'bottom' ? 'bottom' : 'top';
-          if (oldSplit !== newSplit) {
-            const flip = flipTableRowsPatch(party, id, tableTopCount(prevT));
-            if (flip) Object.assign(patch, flip);
-          }
+        if (splitEl && (prevT.shape || 'rect') === 'rect' && prevSplit !== newSplit) {
+          const flip = flipTableRowsPatch(party, id, tableTopCount(prevT));
+          if (flip) Object.assign(patch, flip);
         }
         updateActiveParty(patch);
       };
@@ -6118,12 +6346,26 @@ body.gourmet-open #gFrame {
 
   function doSeatingShuffle() {
     if (seatingAnimating) return;
+    // 表示層で隠しているが、共同ホストの古い画面から押される場合に備えて入口でも止める
+    if (isPartyConfirmed(activeParty(latestEventData))) {
+      showToast('確定中のため変更できません。確定を解除してください'); return;
+    }
     const res = computeSeating(latestEventData);
     if (res.error) { showToast(res.error); return; }
     animateSeatingShuffle(latestEventData, res.assignment);
   }
   document.getElementById('seatingShuffleBtn')?.addEventListener('click', doSeatingShuffle);
   document.getElementById('seatingReshuffleBtn')?.addEventListener('click', doSeatingShuffle);
+  document.getElementById('seatingConfirmBtn')?.addEventListener('click', async () => {
+    if (seatingAnimating) return;
+    const r = await updateActiveParty({ confirmed: true });
+    if (r >= 0) showToast('この座席で確定しました');
+  });
+  // 解除は確定中に押す操作なので、確定ガードを明示的に通す
+  document.getElementById('seatingUnconfirmBtn')?.addEventListener('click', async () => {
+    const r = await updateActiveParty({ confirmed: false }, { allowConfirmed: true });
+    if (r >= 0) showToast('確定を解除しました');
+  });
   document.getElementById('copySeatingUrlBtn')?.addEventListener('click', () => {
     copyText(document.getElementById('seatingShareUrl').value, document.getElementById('copySeatingUrlBtn'), '共有用URL');
   });
