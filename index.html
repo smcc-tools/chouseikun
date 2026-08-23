@@ -5526,14 +5526,20 @@ body.gourmet-open #gFrame {
   // 卓を減らしたときに盤面だけ大きいまま残らないよう、行数を必要な数まで詰める。
   // seatGridRows は Math.max(need, r) なので、保存された行数は盤面を広げる方向にしか
   // 効かない。減らす側はここで書き戻す。
-  // 配置を調整した次会(freeLayout)はホストが意図して空けた配置なので触らない。
+  //
+  // freeLayout（卓を1回でも動かすと立ち、二度と下りない）を除外すると、実際には
+  // ほとんどの次会が対象外になり、卓を減らしても空きマスが残り続けた。
+  // かわりに「卓が実際に要るマス数」から行数を出す。卓と卓の間に空けた隙間は
+  // normalizeTableSlots が保つので配置は崩れず、後ろに余った空の行だけが落ちる。
   // 変更が要らない場合は null を返す（無駄な書き込みをしない）。
-  function shrinkGridPatch(party, tableCount) {
-    if (!party || party.freeLayout) return null;
+  function shrinkGridPatch(party, tables) {
+    if (!party) return null;
     const r = parseInt(party.tableRows);
     if (!Number.isInteger(r) || r < 1) return null;
     const c = Math.max(1, Math.min(parseInt(party.tableCols) || 1, SEAT_GRID_MAX));
-    const need = Math.max(1, Math.ceil(Math.max(0, parseInt(tableCount) || 0) / c));
+    // 第4引数を渡さない＝盤面を固定せず「卓が要るぶんだけ」のマス数を得る
+    const natural = normalizeTableSlots(tables || [], c, party.freeLayout);
+    const need = Math.max(1, Math.ceil(natural.length / c));
     return r > need ? { tableRows: need } : null;
   }
 
@@ -5820,7 +5826,9 @@ body.gourmet-open #gFrame {
     // tableRows 未設定の次会は、これまでどおり列数から行数を導いた見た目のまま（移行不要）。
     const cols = Math.max(1, Math.min(parseInt(party.tableCols) || 1, SEAT_GRID_MAX));
     const rows = seatGridRows(party, tables.length, cols);
-    if (canEdit && tables.length > 1) {
+    // 卓が1つでも出す。卓を減らして1つになったときにここが消えると、
+    // 大きいまま残った盤面を直す手段が無くなってしまうため。
+    if (canEdit) {
       // 卓が入り切らない組み合わせは選ばせない（選べると卓が消えたように見えるため）
       const optFor = (val, other) => Array.from({ length: SEAT_GRID_MAX }, (_, i) => i + 1)
         .filter(n => n * other >= tables.length)
@@ -5850,7 +5858,9 @@ body.gourmet-open #gFrame {
       const arr = assignment[t.id] || [];
 
       // 卓名はホスト・参加者の両方に出す。操作ボタン（向き・移動）はホストのみ。
-      const moveBtn = (canEdit && tables.length > 1)
+      // 卓数ではなく盤面のマス数で判定する。卓が1つでも空きマスがあれば動かせるべきで、
+      // 卓数で切ると「卓1つ＋空きマス」の盤面から抜け出せなくなる。
+      const moveBtn = (canEdit && slotArr.length > 1)
         ? `<button type="button" class="seat-move-btn${tableMoveSel === t.id ? ' selected' : ''}" data-move="${escHtml(t.id)}">⇄ 移動</button>` : '';
       // 向きの切り替えは卓の図の上で行えるようにする（長机のみ。円卓は回しても同じ）。
       // ラベルは「押すとどうなるか」を出す（今が横向きなら「縦にする」）。
@@ -6247,7 +6257,7 @@ body.gourmet-open #gFrame {
       const assignment = p.assignment ? { ...p.assignment } : null;
       if (assignment) delete assignment[id];
       // 卓が減った分だけ盤面も詰める。詰めないと空きマスだけが残る
-      updateActiveParty({ tables: next, assignment, ...(shrinkGridPatch(p, next.length) || {}) });
+      updateActiveParty({ tables: next, assignment, ...(shrinkGridPatch(p, next) || {}) });
     }));
   }
   document.getElementById('seatingAddTableBtn')?.addEventListener('click', () => {
