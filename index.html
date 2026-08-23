@@ -5505,6 +5505,38 @@ body.gourmet-open #gFrame {
     return Math.max(need, Math.min(r, SEAT_GRID_MAX));
   }
 
+  // 「卓の並び」の選択を保存用のパッチにする。
+  // 触っていない側のセレクタには、その時点の卓数から自動で導いた値が表示されている。
+  // それをホストの指定として書き込むと、列を変えただけで盤面が縦にも広がってしまう
+  // （4卓・1列＝行は自動で4。列を2にすると 4行×2列＝8マスになり空きが4つ出る）。
+  // 触った側は選択どおりに採用し、もう片方は「まだ一度も選んでいない」ときだけ
+  // 新しい値に合わせて導き直す。一度自分で選んだ行数はホストの意図なので保つ。
+  function gridSelectionPatch(party, tableCount, changed, rows, cols) {
+    const lim = v => Math.max(1, Math.min(parseInt(v) || 1, SEAT_GRID_MAX));
+    const c = lim(cols), r = lim(rows);
+    const n = Math.max(0, parseInt(tableCount) || 0);
+    const pr = parseInt(party && party.tableRows);
+    const rowsChosen = Number.isInteger(pr) && pr >= 1;
+    if (changed === 'cols' && !rowsChosen) {
+      return { tableRows: Math.min(Math.max(1, Math.ceil(n / c)), SEAT_GRID_MAX), tableCols: c };
+    }
+    return { tableRows: r, tableCols: c };
+  }
+
+  // 卓を減らしたときに盤面だけ大きいまま残らないよう、行数を必要な数まで詰める。
+  // seatGridRows は Math.max(need, r) なので、保存された行数は盤面を広げる方向にしか
+  // 効かない。減らす側はここで書き戻す。
+  // 配置を調整した次会(freeLayout)はホストが意図して空けた配置なので触らない。
+  // 変更が要らない場合は null を返す（無駄な書き込みをしない）。
+  function shrinkGridPatch(party, tableCount) {
+    if (!party || party.freeLayout) return null;
+    const r = parseInt(party.tableRows);
+    if (!Number.isInteger(r) || r < 1) return null;
+    const c = Math.max(1, Math.min(parseInt(party.tableCols) || 1, SEAT_GRID_MAX));
+    const need = Math.max(1, Math.ceil(Math.max(0, parseInt(tableCount) || 0) / c));
+    return r > need ? { tableRows: need } : null;
+  }
+
   // rows を渡すと盤面を rows×cols のマス目に固定する（ホストが縦×横で指定した場合）。
   // その際、盤面からはみ出す slot の卓は空いているマスへ移す。卓が消えるのを防ぐため。
   function normalizeTableSlots(tables, cols, freeLayout, rows) {
@@ -5900,13 +5932,15 @@ body.gourmet-open #gFrame {
     }));
     // 卓の並び（縦×横）。プレビュー中でも設定可能。
     // 縦横のどちらを変えても、盤面のマス数が確定するよう両方まとめて保存する。
-    const applyGrid = () => {
+    // どちらのセレクタを操作したかを渡す。触っていない側の表示値は自動計算で、
+    // ホストの選択ではないため、そのまま書き込むと盤面が意図せず広がる。
+    const applyGrid = (changed) => {
       const r = parseInt(el.querySelector('#seatRowsSel')?.value) || 1;
       const c = parseInt(el.querySelector('#seatColsSel')?.value) || 1;
-      updateActiveParty({ tableRows: r, tableCols: c });
+      updateActiveParty(gridSelectionPatch(activeParty(latestEventData), tables.length, changed, r, c));
     };
-    el.querySelector('#seatRowsSel')?.addEventListener('change', applyGrid);
-    el.querySelector('#seatColsSel')?.addEventListener('change', applyGrid);
+    el.querySelector('#seatRowsSel')?.addEventListener('change', () => applyGrid('rows'));
+    el.querySelector('#seatColsSel')?.addEventListener('change', () => applyGrid('cols'));
     // 卓の図の上で向きを切り替える。席の並び順は変えず見た目だけ90度回る。
     // capture で席チップのハンドラより先に受け取る（卓ブロック全体が移動用のタップ対象のため）
     el.querySelectorAll('.seat-ori-btn').forEach(btn => btn.addEventListener('click', e => {
@@ -6212,7 +6246,8 @@ body.gourmet-open #gFrame {
       const next = (p.tables || []).filter(t => t.id !== id);
       const assignment = p.assignment ? { ...p.assignment } : null;
       if (assignment) delete assignment[id];
-      updateActiveParty({ tables: next, assignment });
+      // 卓が減った分だけ盤面も詰める。詰めないと空きマスだけが残る
+      updateActiveParty({ tables: next, assignment, ...(shrinkGridPatch(p, next.length) || {}) });
     }));
   }
   document.getElementById('seatingAddTableBtn')?.addEventListener('click', () => {
