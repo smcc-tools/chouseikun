@@ -267,9 +267,25 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   border-radius: 10px; margin-bottom: 8px; animation: fadeUp 0.2s ease;
 }
 .wl-expense .wl-main { flex: 1; min-width: 0; }
-.wl-expense .wl-title { font-weight: 600; word-break: break-word; }
+/* タイトルと金額を同じ行に置く。金額を右端の独立列にすると、狭い画面で説明文が
+   金額の左に押し込められて2行に割れ、視線が上下に往復してしまうため */
+.wl-expense .wl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.wl-expense .wl-title { font-weight: 600; word-break: break-word; min-width: 0; }
 .wl-expense .wl-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
-.wl-expense .wl-amount { font-weight: 700; white-space: nowrap; font-family: var(--font-display); }
+.wl-expense .wl-amount { font-weight: 700; white-space: nowrap; font-family: var(--font-display); flex-shrink: 0; }
+/* 参加者はまず「誰にいくら払うか」を見る。DOM は変えず order だけで並べ替えるので
+   既存の描画・イベント配線には影響しない */
+#walicaCard.wl-part-order { display: flex; flex-direction: column; }
+#walicaCard.wl-part-order > .card-title { order: 0; }
+#walicaCard.wl-part-order > #walicaSettleField { order: 1; }
+#walicaCard.wl-part-order > #walicaExpenseField { order: 2; }
+#walicaCard.wl-part-order > #walicaMemberField { order: 3; }
+.wl-member-summary {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: #fff; border: 1px solid var(--border); border-radius: 10px;
+}
+.wl-member-summary > span { flex: 1; min-width: 0; font-size: 0.85rem; color: var(--text); word-break: break-word; }
+.wl-member-summary > button { flex-shrink: 0; }
 .wl-expense .wl-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .wl-expense .wl-actions button {
   background: none; border: none; cursor: pointer; padding: 4px 6px;
@@ -1517,14 +1533,19 @@ body.gourmet-open #gFrame {
     </div>
   </div>
 
-  <!-- メンバー -->
-  <div class="field" style="margin-bottom:20px;">
+  <!-- メンバー。参加者にはまず1行のまとめを出し、「編集」で従来の一覧を開く。
+       増減できること自体は参加者も同じ（畳むのは表示だけ） -->
+  <div class="field" id="walicaMemberField" style="margin-bottom:20px;">
     <label>メンバー</label>
+    <div id="walicaMemberSummary" class="wl-member-summary" style="display:none;">
+      <span id="walicaMemberSummaryText"></span>
+      <button type="button" class="btn btn-ghost" id="walicaMemberToggle">編集</button>
+    </div>
     <div id="walicaMemberBox"></div>
   </div>
 
   <!-- 立替の記録 -->
-  <div class="field" style="margin-bottom:20px;">
+  <div class="field" id="walicaExpenseField" style="margin-bottom:20px;">
     <label>立替の記録</label>
     <div id="walicaExpenseList"></div>
     <div id="walicaExpenseForm" style="display:none;"></div>
@@ -1532,13 +1553,13 @@ body.gourmet-open #gFrame {
   </div>
 
   <!-- 精算結果 -->
-  <div class="field" style="margin-bottom:20px;">
-    <label>精算結果（最小回数）</label>
+  <div class="field" id="walicaSettleField" style="margin-bottom:20px;">
+    <label id="walicaSettleLabel">精算結果（最小回数）</label>
     <div id="walicaSettleResult"></div>
   </div>
 
-  <!-- 共有URL -->
-  <div style="background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
+  <!-- 共有URL（ホストのみ。参加者は配る側ではないので出さない） -->
+  <div id="walicaShareWrap" style="display:none;background:#f5f5f5;border:1px solid var(--border);border-radius:6px;padding:12px 16px;">
     <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">共有用URL（開いた人全員が立替を入力できます）</div>
     <div style="display:flex;gap:8px;">
       <input type="text" id="walicaShareUrl" readonly style="flex:1;font-size:0.82rem;background:white;color:#333;margin-bottom:0;">
@@ -4969,14 +4990,46 @@ body.gourmet-open #gFrame {
     return txns;
   }
 
+  // 参加者がメンバー欄を開いたかどうか。onSnapshot のたびに描き直されるので、
+  // 画面の一時状態としてモジュール変数で保つ（保存はしない）
+  let walicaMembersOpen = false;
+
+  // 参加者向けのメンバーまとめ行。全員分を並べると狭い画面で何行にもなるため、
+  // 先頭だけ出して残りは「ほか○人」にまとめる。
+  function memberSummaryText(members, max = 6) {
+    const list = (members || []).filter(Boolean);
+    if (!list.length) return 'メンバーがいません';
+    const rest = list.length - max;
+    return `${list.length}人：${list.slice(0, max).join('・')}` + (rest > 0 ? ` ほか${rest}人` : '');
+  }
+
   function renderWalicaBoard(data) {
     const members = viewMembers(data, 'walica');
     document.getElementById('walicaTitle').textContent = data.name || '立替・割り勘';
     const editBtn = document.getElementById('walicaEditTitleBtn');
     if (editBtn) editBtn.style.display = isHost ? 'inline-block' : 'none';
+    // 共有URLはホストが配るもの。参加者は既にURLを持っているので出さない。
+    // 表示を隠すだけで、URL自体のアクセス制御は変えない（既に持っている人はそのまま使える）
+    const shareWrap = document.getElementById('walicaShareWrap');
+    if (shareWrap) shareWrap.style.display = isHost ? '' : 'none';
 
-    // メンバー（誰でも編集可・即保存）
+    // 並び順：参加者はまず精算結果を見る（CSS の order で入れ替え。DOM は動かさない）
+    const card = document.getElementById('walicaCard');
+    if (card) card.classList.toggle('wl-part-order', !isHost);
+    // 見出しの「（最小回数）」は送金回数を最小化した実装の都合。参加者には出さない
+    const settleLabel = document.getElementById('walicaSettleLabel');
+    if (settleLabel) settleLabel.textContent = isHost ? '精算結果（最小回数）' : '精算結果';
+
+    // メンバー（誰でも編集可・即保存）。参加者には既定で1行のまとめを出し、
+    // 「編集」を押したときだけ従来の一覧を開く（畳むのは表示だけで権限は同じ）
     renderBoxedMemberList(document.getElementById('walicaMemberBox'), members, memberDiffHandlers('walica'));
+    const mSum = document.getElementById('walicaMemberSummary');
+    const mBox = document.getElementById('walicaMemberBox');
+    const collapsed = !isHost && !walicaMembersOpen;
+    if (mSum) mSum.style.display = collapsed ? 'flex' : 'none';
+    if (mBox) mBox.style.display = collapsed ? 'none' : '';
+    const mTxt = document.getElementById('walicaMemberSummaryText');
+    if (mTxt && collapsed) mTxt.textContent = memberSummaryText(members);
 
     renderWalicaExpenses(data);
     renderWalicaSettlement(data);
@@ -4997,10 +5050,12 @@ body.gourmet-open #gFrame {
       const per = shares.length ? Math.floor((Math.round(e.amount) || 0) / shares.length) : 0;
       return `<div class="wl-expense">
         <div class="wl-main">
-          <div class="wl-title">${escHtml(e.title || '(無題)')}</div>
+          <div class="wl-head">
+            <div class="wl-title">${escHtml(e.title || '(無題)')}</div>
+            <div class="wl-amount">¥${(Math.round(e.amount) || 0).toLocaleString()}</div>
+          </div>
           <div class="wl-sub">${escHtml(e.payer || '?')} が立替 ・ ${shares.length}人で割り勘（1人 約¥${per.toLocaleString()}）</div>
         </div>
-        <div class="wl-amount">¥${(Math.round(e.amount) || 0).toLocaleString()}</div>
         <div class="wl-actions">
           <button class="wl-edit" data-id="${escHtml(e.id)}" aria-label="編集">✎</button>
           <button class="wl-del" data-id="${escHtml(e.id)}" aria-label="削除">✕</button>
@@ -5125,6 +5180,10 @@ body.gourmet-open #gFrame {
 
   document.getElementById('walicaAddExpenseBtn')?.addEventListener('click', () => {
     if (latestEventData) openWalicaExpenseForm(latestEventData, null);
+  });
+  document.getElementById('walicaMemberToggle')?.addEventListener('click', () => {
+    walicaMembersOpen = true;
+    if (latestEventData) renderWalicaBoard(latestEventData);
   });
   document.getElementById('copyWalicaUrlBtn')?.addEventListener('click', () => {
     copyText(document.getElementById('walicaShareUrl').value, document.getElementById('copyWalicaUrlBtn'), '共有用URL');
