@@ -72,11 +72,17 @@ service cloud.firestore {
     // 立替・割り勘：リンクを開いた誰でも メンバー / 立替 を編集可。
     // 旧イベント(walica:true)と統合イベント(activeView='walica')の両方を許可。
     // ホスト専用項目（name, ownerUids 等）は変更不可。
+    //
+    // memberDiff は後から入った項目で、メンバーの追加・改名・削除はここに書く。
+    // 許可キーに含めていなかったため、参加者の増減操作だけが 403 で弾かれていた
+    // （ホストは isOwner() で通るため気づきにくかった）。
+    // 参加者は既に participants と expenses を書き換えられるので、
+    // この追加で公開範囲が実質的に広がることはない。
     function isWalicaWrite() {
       return (resource.data.walica == true
               || (('activeView' in resource.data) && resource.data.activeView == 'walica'))
         && request.resource.data.diff(resource.data)
-             .affectedKeys().hasOnly(['participants', 'participantOrder', 'expenses']);
+             .affectedKeys().hasOnly(['participants', 'participantOrder', 'expenses', 'memberDiff']);
     }
 
     // 保存期限(ttl_at)の延長のみ。イベントを開いた人なら誰でも可（閲覧は元々全員に開いている）。
