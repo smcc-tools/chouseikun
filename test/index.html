@@ -5056,7 +5056,7 @@ body.gourmet-open #gFrame {
             <div class="wl-title">${escHtml(e.title || '(無題)')}</div>
             <div class="wl-amount">¥${(Math.round(e.amount) || 0).toLocaleString()}</div>
           </div>
-          <div class="wl-sub">${escHtml(e.payer || '?')} が立替 ・ ${shares.length}人で割り勘（1人 約¥${per.toLocaleString()}）</div>
+          <div class="wl-sub">${escHtml(e.payer || '?')}が立替・${shares.length}人で割り勘（1人 約¥${per.toLocaleString()}）</div>
         </div>
         <div class="wl-actions">
           <button class="wl-edit" data-id="${escHtml(e.id)}" aria-label="編集">✎</button>
