@@ -3713,7 +3713,9 @@ body.gourmet-open #gFrame {
       const keep = PAGE_OF[view] || 'viewCard';
       EVENT_PAGE_IDS.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = (id === keep) ? 'block' : 'none';
+        // 表示する側は display を空にして CSS に委ねる。'block' をインラインで当てると
+        // スタイルシート側の display（割り勘の参加者向け並べ替えで使う flex）が負ける
+        if (el) el.style.display = (id === keep) ? '' : 'none';
       });
       // お店検索：iframe を初回ロード
       if (keep === 'gourmetCard') {
