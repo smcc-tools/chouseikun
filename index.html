@@ -274,8 +274,10 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .wl-expense .wl-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
 .wl-expense .wl-amount { font-weight: 700; white-space: nowrap; font-family: var(--font-display); flex-shrink: 0; }
 /* 参加者はまず「誰にいくら払うか」を見る。DOM は変えず order だけで並べ替えるので
-   既存の描画・イベント配線には影響しない */
-#walicaCard.wl-part-order { display: flex; flex-direction: column; }
+   既存の描画・イベント配線には影響しない。
+   showEventPage は表示中のカードにインラインで display:block を当てるため、
+   ここは !important でないと flex にならず order が効かない。 */
+#walicaCard.wl-part-order { display: flex !important; flex-direction: column; }
 #walicaCard.wl-part-order > .card-title { order: 0; }
 #walicaCard.wl-part-order > #walicaSettleField { order: 1; }
 #walicaCard.wl-part-order > #walicaExpenseField { order: 2; }
@@ -3713,9 +3715,10 @@ body.gourmet-open #gFrame {
       const keep = PAGE_OF[view] || 'viewCard';
       EVENT_PAGE_IDS.forEach(id => {
         const el = document.getElementById(id);
-        // 表示する側は display を空にして CSS に委ねる。'block' をインラインで当てると
-        // スタイルシート側の display（割り勘の参加者向け並べ替えで使う flex）が負ける
-        if (el) el.style.display = (id === keep) ? '' : 'none';
+        // 表示する側はインラインの 'block' で見せる。日程カードだけは他と違い
+        // インライン style ではなくスタイルシートの #viewCard{display:none} で
+        // 隠されているため、ここを '' にするとその none が復活して丸ごと消える。
+        if (el) el.style.display = (id === keep) ? 'block' : 'none';
       });
       // お店検索：iframe を初回ロード
       if (keep === 'gourmetCard') {
