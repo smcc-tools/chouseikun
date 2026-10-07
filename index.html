@@ -4465,7 +4465,28 @@ body.gourmet-open #gFrame {
     );
   }
 
-  function buildNameHeaders(entries) {
+  // 事前登録の列＝全ての候補日が未回答。ホストが名前だけ先に登録した参加者がこれにあたる。
+  // この列は「初回入力」なので編集モードなしで ◯△✕ を押せる（buildVoteCell の isPreset）。
+  // 一括ボタンを出すかの判定も同じ条件なので、2箇所に書いて食い違わないようここに集約する。
+  // 候補日より後ろに残った回答（日程を削除した後の残骸）は見ない。
+  function isPresetEntry(votes, dateCount) {
+    const n = Math.max(0, parseInt(dateCount) || 0);
+    const v = votes || {};
+    for (let i = 0; i < n; i++) if (v[i]) return false;
+    return true;
+  }
+
+  // 一括ボタンの中身。新規入力列と事前登録の列で同じものを使う。
+  // name を渡すとその参加者の列用（data-bulk-name 付き）になる。
+  function bulkVoteRowHtml(name) {
+    const attr = name === undefined ? '' : ` data-bulk-name="${escHtml(name)}"`;
+    return `<div class="bulk-vote-row">
+        <button type="button" class="bulk-vote-btn circle" data-bulk="o"${attr} aria-label="全ての候補日を参加できるにする">全て◯</button>
+        <button type="button" class="bulk-vote-btn cross" data-bulk="x"${attr} aria-label="全ての候補日を参加できないにする">全て✕</button>
+      </div>`;
+  }
+
+  function buildNameHeaders(entries, dateCount) {
     const existing = entries.map(([name], idx) => {
       const en = escHtml(name);
       const reorderBtns = isHost ? `
@@ -4473,20 +4494,20 @@ body.gourmet-open #gFrame {
           ${idx > 0 ? `<button class="reorder-btn" data-name="${en}" data-dir="left" aria-label="左へ移動">◀</button>` : ''}
           ${idx < entries.length - 1 ? `<button class="reorder-btn" data-name="${en}" data-dir="right" aria-label="右へ移動">▶</button>` : ''}
         </div>` : '';
+      // 事前登録の列は新規入力列と同じ初回入力なので、同じ一括ボタンを出す
+      const bulkRow = isPresetEntry(entries[idx][1], dateCount) ? bulkVoteRowHtml(name) : '';
       return `<th class="participant-th" data-col="${en}">
         <span class="pname-display">${en}</span>
         <input class="pname-input" type="text" data-name="${en}" value="${en}" aria-label="名前を編集" style="display:none;width:72px;padding:2px 5px;border:1px solid var(--green-mid);border-radius:5px;font-size:0.8rem;text-align:center;color:var(--text);"><br>
         <button class="edit-btn" data-name="${en}">変更・削除</button><br>
         <button class="del-btn" data-name="${en}">削除する</button>
         ${reorderBtns}
+        ${bulkRow}
        </th>`;
     }).join('');
     const inputCol = `<th class="input-col">
       <input type="text" id="newName" placeholder="名前を入力">
-      <div class="bulk-vote-row">
-        <button type="button" class="bulk-vote-btn circle" data-bulk="o" aria-label="全ての候補日を参加できるにする">全て◯</button>
-        <button type="button" class="bulk-vote-btn cross" data-bulk="x" aria-label="全ての候補日を参加できないにする">全て✕</button>
-      </div>
+      ${bulkVoteRowHtml()}
     </th>`;
     return existing + inputCol;
   }
@@ -4501,7 +4522,7 @@ body.gourmet-open #gFrame {
       const isBest = counts[i] === maxCount && maxCount > 0;
       const isConfirmed = confirmedDate === i;
       const cells = entries.map(([name, votes]) => {
-        const isPreset = dates.every((_, di) => !votes[di]);
+        const isPreset = isPresetEntry(votes, dates.length);
         return buildVoteCell(name, i, votes[i] || '', isPreset);
       }).join('');
       const countStr = Number.isInteger(counts[i]) ? counts[i] : counts[i].toFixed(1);
@@ -4610,13 +4631,14 @@ body.gourmet-open #gFrame {
         syncBulkVoteState(wrap);
       });
     });
-    // 入力列：全候補日を一括選択（候補日が多いときに1つずつ押す手間を省く）
+    // 全候補日を一括選択（候補日が多いときに1つずつ押す手間を省く）。
+    // 新規入力列と、事前登録された参加者の列（data-bulk-name 付き）の両方で使う。
     wrap.querySelectorAll('.bulk-vote-btn[data-bulk]').forEach(btn => {
       btn.addEventListener('click', () => {
         const key = btn.dataset.bulk;
         // 既に全て同じ記号なら解除（既存の投票トグルと同じ操作感）
         const clearAll = btn.classList.contains('active');
-        wrap.querySelectorAll('.vote-btn[data-new-idx]').forEach(b => {
+        bulkTargetButtons(wrap, btn.dataset.bulkName).forEach(b => {
           const hit = !clearAll && b.dataset.key === key;
           b.classList.toggle('selected', hit);
           b.setAttribute('aria-pressed', hit ? 'true' : 'false');
@@ -4627,19 +4649,33 @@ body.gourmet-open #gFrame {
     syncBulkVoteState(wrap);
   }
 
-  // 一括ボタンの active 表示を、実際の新規入力列の選択状態から導出する。
+  // その一括ボタンが面倒を見る ◯△✕ ボタンを返す。
+  // name 無し＝新規入力列、name 有り＝その参加者の列（事前登録＝ロックされていないセル）。
+  function bulkTargetButtons(wrap, name) {
+    if (name === undefined) return Array.from(wrap.querySelectorAll('.vote-btn[data-new-idx]'));
+    return Array.from(wrap.querySelectorAll(`.vote-btn[data-name="${CSS.escape(name)}"]`))
+      .filter(b => !b.closest('td')?.classList.contains('locked'));
+  }
+
+  // 一括ボタンの active 表示を、実際の選択状態から導出する。
   // 個別に1日だけ変更した場合は active が外れ、「全て同じ記号」のときだけ点灯する。
   function syncBulkVoteState(wrap) {
-    const bulkBtns = wrap.querySelectorAll('.bulk-vote-btn[data-bulk]');
-    if (!bulkBtns.length) return;
-    const cells = wrap.querySelectorAll('td.input-col .vote-btns');
-    const keys = [];
-    cells.forEach(cell => {
-      const sel = cell.querySelector('.vote-btn.selected');
-      keys.push(sel ? sel.dataset.key : '');
+    wrap.querySelectorAll('.bulk-vote-row').forEach(row => {
+      const bulkBtns = row.querySelectorAll('.bulk-vote-btn[data-bulk]');
+      if (!bulkBtns.length) return;
+      const name = bulkBtns[0].dataset.bulkName;
+      // 日付ごとに1つの記号が選ばれているかを見る。ボタンは1日あたり3つあるので
+      // 「選択済みの数」ではなく「日付の数」で判定する必要がある。
+      const byIdx = new Map();
+      bulkTargetButtons(wrap, name).forEach(b => {
+        const idx = name === undefined ? b.dataset.newIdx : b.dataset.idx;
+        if (!byIdx.has(idx)) byIdx.set(idx, '');
+        if (b.classList.contains('selected')) byIdx.set(idx, b.dataset.key);
+      });
+      const keys = [...byIdx.values()];
+      const allSame = keys.length > 0 && keys.every(k => k && k === keys[0]);
+      bulkBtns.forEach(b => b.classList.toggle('active', allSame && keys[0] === b.dataset.bulk));
     });
-    const allSame = keys.length > 0 && keys.every(k => k && k === keys[0]);
-    bulkBtns.forEach(b => b.classList.toggle('active', allSame && keys[0] === b.dataset.bulk));
   }
 
   function attachNoteHandlers(wrap) {
@@ -6640,7 +6676,7 @@ body.gourmet-open #gFrame {
         <table>
           <thead><tr>
             <th class="date-col">日付</th>
-            ${buildNameHeaders(allEntries)}
+            ${buildNameHeaders(allEntries, dates.length)}
             <th style="min-width:52px">Pt</th>
           </tr></thead>
           <tbody>
