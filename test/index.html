@@ -673,6 +673,18 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 .bulk-vote-btn.active { color: #fff; }
 .bulk-vote-btn.circle.active { background: var(--green); border-color: var(--green); }
 .bulk-vote-btn.cross.active  { background: var(--clay);  border-color: var(--clay); }
+/* 作成画面のテーマ選択。見本の丸はテーマに関係なく、各テーマ自身の色を見せる */
+.theme-pick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.theme-pick-opt {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 8px 14px;
+  border: 1.5px solid var(--border); border-radius: 999px; background: var(--surface);
+  color: var(--text); font-size: 0.85rem; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer;
+}
+.theme-pick-opt input { width: auto; margin: 0; }
+.theme-pick-opt:has(input:checked) { border-color: var(--green); background: var(--green-light); }
+.tp-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.tp-olive { background: #3D5A3A; } /* theme-literal-ok */
+.tp-chiikawa { background: linear-gradient(135deg, #46749F 50%, #F2A7B8 50%); } /* theme-literal-ok */
 .register-btn {
   width: 100%; padding: 9px 4px; background: var(--green); color: white;
   border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
@@ -945,7 +957,12 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 /* OliveLounge 風：浮遊するフロスト調ナビ。絵文字なしのテキストタブ、アクティブはオリーブのピル
    SPは下部浮遊ピル、PC(≥768px)はヘッダー直下の上部横タブバーに切替（下のmedia queryで上書き） */
 #hostNav { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; top:auto; width:min(680px, calc(100% - 20px)); z-index:50; background:rgba(var(--bg-rgb,251,247,236),0.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--green-mid); border-radius:18px; box-shadow:0 10px 30px rgba(var(--press-rgb,45,66,40),0.16); }
-#hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:5px; }
+#hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr) auto; gap:2px; padding:5px; }
+.hostnav-theme-btn { border:none; background:none; cursor:pointer; font-size:1.05rem; padding:6px 10px; border-radius:var(--nav-radius, 13px); }
+.hostnav-theme-btn:hover { background: var(--green-light); }
+.theme-menu { position:fixed; z-index:9999; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow); padding:6px; display:flex; flex-direction:column; gap:4px; min-width:150px; }
+.theme-menu button { display:flex; align-items:center; gap:8px; border:none; background:none; padding:9px 12px; border-radius:10px; cursor:pointer; font-size:0.88rem; font-weight:600; color:var(--text); text-align:left; }
+.theme-menu button:hover, .theme-menu button.on { background: var(--green-light); }
 .hostnav-btn { position:relative; display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:var(--nav-text, #6E7460); cursor:pointer; border-radius:var(--nav-radius, 13px); font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
 .hostnav-btn .hn-lbl { white-space:nowrap; }
 /* 参加者に公開中のビューを示すドット（作業画面のハイライトとは別軸。ゴールド＋背景色リングで緑・無地どちらでも視認可） */
@@ -1223,6 +1240,13 @@ body.gourmet-open #gFrame {
     <button class="btn btn-ghost" id="addPresetParticipantBtn" style="margin-top:6px;">＋ 参加者を追加</button>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-schedule" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-schedule" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createBtn" style="padding:14px;">
     イベントを作成してリンクを発行
   </button>
@@ -1247,6 +1271,13 @@ body.gourmet-open #gFrame {
     <div id="settleDraftBox"></div>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-settle" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-settle" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
@@ -1259,6 +1290,13 @@ body.gourmet-open #gFrame {
   <div class="field">
     <label>タイトル</label>
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
+  </div>
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-announce" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-announce" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
   </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
@@ -1313,6 +1351,13 @@ body.gourmet-open #gFrame {
     <div id="walicaDraftBox"></div>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-walica" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-walica" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createWalicaBtn" style="padding:14px;">割り勘を作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
@@ -1335,6 +1380,13 @@ body.gourmet-open #gFrame {
     <div id="seatingDraftBox"></div>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-seating" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-seating" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createSeatingBtn" style="padding:14px;">座席決めを作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
@@ -1862,6 +1914,7 @@ body.gourmet-open #gFrame {
     <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-lbl">座席</span></button>
     <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-lbl">割り勘</span></button>
     <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-lbl">精算</span></button>
+    <button type="button" class="hostnav-theme-btn" id="themeNavBtn" aria-label="テーマを変える" title="テーマを変える">🎨</button>
   </div>
 </nav>
 
@@ -3456,6 +3509,8 @@ body.gourmet-open #gFrame {
       return participants;
     };
     const base = { name: p.name || '', dates: [], memo: '', participants: {}, ownerUids: [uid], confirmedDate: null, participantOrder: [] };
+    // テーマはちいかわのときだけ持たせる（オリーブは未設定のまま＝既存イベントと同じ形）
+    if (normalizeTheme(p.theme) === 'chiikawa') base.theme = 'chiikawa';
     switch (actionId) {
       case 'schedule': {
         const dates = p.dates || [];
@@ -3519,6 +3574,48 @@ body.gourmet-open #gFrame {
   }
 
   // ログイン必須の作成を実行。未ログインなら入力内容を保留してログイン→復帰後に自動継続する
+  // ナビの🎨：ホストだけがイベントのテーマを変える（ナビ自体がホストにしか出ない）。
+  // 書き込みはホストのみ通る（Firestore ルールの isOwner）。参加者の画面には出ない。
+  function openThemeMenu(anchor) {
+    document.querySelector('.theme-menu')?.remove();
+    const menu = document.createElement('div');
+    menu.className = 'theme-menu';
+    menu.innerHTML = Object.entries(THEMES).map(([key, t]) =>
+      `<button type="button" data-theme-choice="${key}" class="${key === currentTheme ? 'on' : ''}">` +
+      `<span class="tp-swatch tp-${key}"></span>${escHtml(t.label)}</button>`).join('');
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    const top = r.top - menu.offsetHeight - 8;
+    menu.style.top = `${top > 8 ? top : r.bottom + 8}px`;
+    menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
+    const close = (e) => {
+      if (menu.contains(e.target) || e.target === anchor) return;
+      menu.remove(); document.removeEventListener('click', close, true);
+    };
+    setTimeout(() => document.addEventListener('click', close, true), 0);
+    menu.querySelectorAll('[data-theme-choice]').forEach(b => b.addEventListener('click', async () => {
+      const next = normalizeTheme(b.dataset.themeChoice);
+      menu.remove(); document.removeEventListener('click', close, true);
+      if (next === currentTheme || !isHost || !eventId) return;
+      const prev = currentTheme;
+      applyTheme(next); // 先に見た目を変え、失敗したら戻す
+      try {
+        await updateDoc(doc(db, 'events', eventId), { theme: next });
+        showToast(`テーマを「${THEMES[next].label}」にしました`);
+      } catch (e) {
+        applyTheme(prev);
+        showToast('テーマを変えられませんでした'); console.error(e);
+      }
+    }));
+  }
+  document.getElementById('themeNavBtn')?.addEventListener('click', e => openThemeMenu(e.currentTarget));
+
+  // 作成画面のテーマ選択。カードごとに独立したラジオなので、作成ボタンのあるカードから読む。
+  function pickedTheme(cardId) {
+    const el = document.querySelector(`#${cardId} [data-theme-pick] input[type="radio"]:checked`);
+    return normalizeTheme(el ? el.value : 'olive');
+  }
+
   function submitCreate(actionId, payload) {
     if (currentUser && !currentUser.isAnonymous) { writeCreatedEvent(actionId, payload); return; }
     try { sessionStorage.setItem(PENDING_CREATE_KEY, JSON.stringify({ actionId, payload, path: location.pathname, ts: Date.now() })); } catch (_) {}
@@ -3566,7 +3663,7 @@ body.gourmet-open #gFrame {
       if (err) { showToast(`事前参加者「${pName}」：${err}`); return; }
     }
     const memo = document.getElementById('eventMemo').value.trim();
-    submitCreate('schedule', { name, memo, dates, presetNames });
+    submitCreate('schedule', { name, memo, dates, presetNames, theme: pickedTheme('setupCard') });
   });
 
   // ── 精算のみ：作成 ──
@@ -3586,14 +3683,14 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    submitCreate('settle', { name, members });
+    submitCreate('settle', { name, members, theme: pickedTheme('settleSetupCard') });
   });
 
   // お知らせを作成（日程調整なし・集合/お店のみ）
   document.getElementById('createAnnounceBtn')?.addEventListener('click', () => {
     const name = (document.getElementById('announceName')?.value || '').trim();
     if (!name) { showToast('タイトルを入力してください'); return; }
-    submitCreate('announce', { name });
+    submitCreate('announce', { name, theme: pickedTheme('announceSetupCard') });
   });
 
   // 立替・割り勘を作成
@@ -3612,7 +3709,7 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    submitCreate('walica', { name, members });
+    submitCreate('walica', { name, members, theme: pickedTheme('walicaSetupCard') });
   });
 
   // 座席決めを作成
@@ -3631,7 +3728,7 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    submitCreate('seating', { name, members });
+    submitCreate('seating', { name, members, theme: pickedTheme('seatingSetupCard') });
   });
 
   function copyText(text, btnEl, label) {
@@ -3901,7 +3998,7 @@ body.gourmet-open #gFrame {
         const showCreate = participantView === 'scheduleCreate';
         createNavBtn.style.display = showCreate ? '' : 'none';
         const navInner = document.querySelector('#hostNav .hostnav-inner');
-        if (navInner) navInner.style.gridTemplateColumns = `repeat(${showCreate ? 7 : 6}, 1fr)`;
+        if (navInner) navInner.style.gridTemplateColumns = `repeat(${showCreate ? 7 : 6}, 1fr) auto`;
       }
       syncHostNav(view);
       updatePublishBar(view, data);

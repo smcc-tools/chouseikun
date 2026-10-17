@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
-const { buildEventDoc } = loadFunctions(['buildEventDoc']);
+const { buildEventDoc } = loadFunctions(['buildEventDoc', 'normalizeTheme']);
 
 // ID生成は決定的なスタブにして比較可能にする
 let _n = 0;
@@ -74,4 +74,25 @@ test('seating: 1卓(定員=人数)・1次会・seatTags空でスタート', () =
 
 test('未知のactionIdはnull（想定外の作成を書き込まない）', () => {
   assert.equal(buildEventDoc('unknown', { name: 'X' }, ctx()), null);
+});
+
+// ── テーマ（イベントごと） ──
+
+test('テーマ: ちいかわを選ぶと theme が保存される（5種類すべて）', () => {
+  for (const kind of ['schedule', 'settle', 'announce', 'walica', 'seating']) {
+    const doc = buildEventDoc(kind, { name: 'x', members: ['a'], dates: ['2026-11-01'], theme: 'chiikawa' }, ctx());
+    assert.equal(doc.theme, 'chiikawa', kind);
+  }
+});
+
+test('テーマ: オリーブ・未指定では theme を保存しない（既存と同じ形のまま）', () => {
+  for (const theme of ['olive', undefined]) {
+    const doc = buildEventDoc('schedule', { name: 'x', dates: ['2026-11-01'], theme }, ctx());
+    assert.equal('theme' in doc, false, String(theme));
+  }
+});
+
+test('テーマ: 知らない値は保存しない', () => {
+  const doc = buildEventDoc('walica', { name: 'x', members: ['a'], theme: 'sakura' }, ctx());
+  assert.equal('theme' in doc, false);
 });
