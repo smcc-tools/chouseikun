@@ -87,7 +87,7 @@
   --lime: #FF96D2; --forest: #462E31;
   --wood: #FFFBD6; --wood-border: #F2E6A0; --wood-text: #6E5A5C;
   --bg: #D3ECBF; --surface: #FFFFFF; --surface-2: #FFFDF0; --field-bg: #FFFFFF;
-  --gold: #D4A12C; --clay: #C4485F;
+  --gold: #D4A12C; --clay: #B23D56;
   --text: #462E31; --text-muted: #6E5A5C; --border: #EADFC8; --line-soft: #F3EDDA;
   --shadow: none;
   --shadow-press: none;
@@ -95,19 +95,19 @@
   --font-ui: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
   --font-display: 'M PLUS Rounded 1c', 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', sans-serif;
 
-  --brand-hover: #2E1D20; --brand-disabled: #BFB3B4;
+  --brand-hover: #2E1D20; --brand-disabled: #7D6C6E;
   --brand-tint: #FFFBD6; --brand-tint-soft: #FFFDF0;
   --on-dark: #FFFFFF; --deco-on-dark: #FFF578;
-  --gold-tint: #FFF6DD; --gold-tint-strong: #FCE7A6; --gold-text: #8A6410;
+  --gold-tint: #FFF6DD; --gold-tint-strong: #FCE7A6; --gold-text: #7A570B;
   --clay-tint: #FDEDF0; --clay-border: #F4C3CC;
-  --table-head: #FFF578; --row-hover: #FFFDF0; --text-label: #462E31; --text-faint: #B9A6A8;
+  --table-head: #FFF578; --row-hover: #FFFDF0; --text-label: #462E31; --text-faint: #8E7C7E;
   --surface-sunken: #FFFDF0; --bg-glow: #D3ECBF; --scrollbar: #C9DDB8;
-  --vote-yes: #462E31; --vote-no: #C4485F; --host-badge: #C4485F;
+  --vote-yes: #462E31; --vote-no: #B23D56; --host-badge: #B23D56;
   --scrim: rgba(70,46,49,0.32);
   --vote-radius: 999px; --nav-radius: 999px; --nav-radius-sm: 999px; --bulk-radius: 999px;
   --ink: #462E31;
   /* ちいかわ専用の見た目で使う色 */
-  --panel-yellow: #FFF578; --rule: #B9A6A8; --accent-text: #B0307F; --logo-text: #E054AE; --deco-flower: #FFE36E;
+  --panel-yellow: #FFF578; --rule: #B9A6A8; --accent-text: #B0307F; --logo-text: #C63B97; --deco-flower: #FFE36E;
 
   --text-strong: var(--text); --nav-text: var(--text-muted); --clay-text: var(--clay);
   --brand-tint-head: var(--green-light); --brand-tint-hover: var(--green-mid);
@@ -1339,8 +1339,8 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] .btn { border: none; letter-spacing: 0.16em; font-family: var(--font-display); font-weight: 800; }
 :root[data-theme="chiikawa"] .btn-primary, :root[data-theme="chiikawa"] .btn-primary:hover { border: none; box-shadow: none; }
 :root[data-theme="chiikawa"] #publishViewBtn { box-shadow: 0 4px 12px rgba(var(--shadow-rgb,70,46,49), 0.25) !important; }
-/* 副ボタンは濃い黄色（淡い黄色の枠の中でもボタンと分かるように） */
-:root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost), :root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost):hover { border: none; background: var(--panel-yellow); color: var(--text); box-shadow: none; }
+/* 副ボタン：白地＋こげ茶の細い縁取り（黄色だと白・グレー・淡い黄色の地に溶けた。実測の地の色の差 1.04〜1.13） */
+:root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost), :root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost):hover { border: 1.5px solid var(--green); background: var(--surface); color: var(--text); box-shadow: none; }
 :root[data-theme="chiikawa"] .btn:active { transform: scale(0.97); }
 :root[data-theme="chiikawa"] .register-btn { border: none; box-shadow: none; letter-spacing: 0.16em; }
 :root[data-theme="chiikawa"] :is(#addCalendarBtn, #announceCalendarBtn) { border: none !important; background: var(--green) !important; color: #fff !important; box-shadow: none; letter-spacing: 0.1em; }
@@ -1364,7 +1364,7 @@ body.gourmet-open #gFrame {
 /* 座席 */
 :root[data-theme="chiikawa"] .seat-table-block { border: none; border-radius: 12px; background: var(--green-light); }
 :root[data-theme="chiikawa"] .seat-table-bar { border: none; background: var(--panel-yellow); }
-:root[data-theme="chiikawa"] .seat-chip:not(.locked):not(.empty):not(.selected):not(.seat-settled) { border-color: transparent; background: var(--surface); }
+:root[data-theme="chiikawa"] .seat-chip:not(.locked):not(.empty):not(.selected):not(.seat-settled) { border-color: var(--rule); background: var(--surface); }
 /* 割り勘 */
 :root[data-theme="chiikawa"] :is(.wl-settle-line, .wl-expense, .wl-settle-done) { border: none; border-radius: 12px; background: var(--green-light); box-shadow: none; }
 :root[data-theme="chiikawa"] .wl-settle-line .wl-pay { color: var(--accent-text); }
@@ -1373,8 +1373,9 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] .wl-empty { border: none; background: none; padding: 12px 0; }
 :root[data-theme="chiikawa"] img.theme-art-empty { padding: 0; background: none; border: none; border-radius: 0; }
 :root[data-theme="chiikawa"] .toast { background: var(--green); }
-/* 日程の「変更・削除」：草原の緑（黄色い見出しの行の上でも分かれる。編集中は今までどおり金色） */
-:root[data-theme="chiikawa"] .edit-btn:not(.editing), :root[data-theme="chiikawa"] .edit-btn:not(.editing):hover { background: var(--bg); border-color: transparent; color: var(--text); font-weight: 700; }
+:root[data-theme] .confirm-btn.confirmed { color: var(--forest); }
+/* 日程の「変更・削除」：白地＋こげ茶の細い縁取り（黄色い見出しの行の上でも、どの地の上でもボタンと分かる。編集中は今までどおり金色） */
+:root[data-theme="chiikawa"] .edit-btn:not(.editing), :root[data-theme="chiikawa"] .edit-btn:not(.editing):hover { background: var(--surface); border: 1.5px solid var(--green); color: var(--text); font-weight: 700; }
 /* スマホ：字間を広げた分ヘッダーの右側がはみ出す（ログイン中の320・360px幅で実測 6px・2px）ので、字間を戻す */
 @media (max-width: 520px) {
   :root[data-theme="chiikawa"] .header-logo { letter-spacing: 0.02em; }
