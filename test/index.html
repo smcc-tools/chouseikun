@@ -1373,6 +1373,11 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] .wl-empty { border: none; background: none; padding: 12px 0; }
 :root[data-theme="chiikawa"] img.theme-art-empty { padding: 0; background: none; border: none; border-radius: 0; }
 :root[data-theme="chiikawa"] .toast { background: var(--green); }
+/* スマホ：字間を広げた分ヘッダーの右側がはみ出す（ログイン中の320・360px幅で実測 6px・2px）ので、字間を戻す */
+@media (max-width: 520px) {
+  :root[data-theme="chiikawa"] .header-logo { letter-spacing: 0.02em; }
+  :root[data-theme="chiikawa"] :is(#signInBtn, #myEventsNavBtn, #signOutBtn) { letter-spacing: 0; }
+}
   </style>
 </head>
 <body>
