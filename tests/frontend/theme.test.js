@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
 const { normalizeTheme, themeAssetBase, themeAssetUrl } =
-  loadFunctions(['DECO_KINDS', 'TOAST_ART_KINDS', 'THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl']);
+  loadFunctions(['DECO_KINDS', 'TOAST_ART_KINDS', 'themeImages', 'THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl']);
 
 test('chiikawa はそのまま', () => {
   assert.equal(normalizeTheme('chiikawa'), 'chiikawa');
@@ -49,4 +49,15 @@ test('オリーブには画像が無い', () => {
 
 test('知らない種類の画像は空', () => {
   assert.equal(themeAssetUrl('chiikawa', 'banner', '/chouseikun/'), '');
+});
+
+test('pokemon はそのまま・一覧に無い値（__proto__ 等）はオリーブ', () => {
+  assert.equal(normalizeTheme('pokemon'), 'pokemon');
+  for (const v of ['__proto__', 'constructor', 'toString', 'Pokemon', 'pokemon ']) assert.equal(normalizeTheme(v), 'olive', v);
+});
+
+test('ポケモンの画像は themes/pokemon/ を読む（種類はちいかわと同じ）', () => {
+  assert.equal(themeAssetUrl('pokemon', 'header', '/chouseikun/'), 'themes/pokemon/header.png');
+  assert.equal(themeAssetUrl('pokemon', 'vote-o', '/chouseikun/test/'), '../themes/pokemon/vote-o.png');
+  assert.equal(themeAssetUrl('pokemon', 'toast-11', '/chouseikun/'), 'themes/pokemon/toast-11.png');
 });

@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
-const NAMES = ['DECO_KINDS', 'TOAST_ART_KINDS', 'THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl', 'escHtml', 'themeArtHtml'];
+const NAMES = ['DECO_KINDS', 'TOAST_ART_KINDS', 'themeImages', 'THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl', 'escHtml', 'themeArtHtml'];
 const load = (currentTheme, pathname) =>
   loadFunctions(NAMES, { currentTheme, location: { pathname } });
 
@@ -73,7 +73,7 @@ test('ロゴの3人並びはちいかわにだけある', () => {
 });
 
 test('座席の色タグ：ちいかわでは色と名前だけが変わり、保存する key と並び順は同じ', () => {
-  const names = ['DECO_KINDS', 'TOAST_ART_KINDS', 'THEMES', 'SEAT_TAG_COLORS', 'seatTagPalette'];
+  const names = ['DECO_KINDS', 'TOAST_ART_KINDS', 'themeImages', 'THEMES', 'SEAT_TAG_COLORS', 'seatTagPalette'];
   const olive = loadFunctions(names, { currentTheme: 'olive' });
   const chii = loadFunctions(names, { currentTheme: 'chiikawa' });
   const o = olive.seatTagPalette(), c = chii.seatTagPalette();
@@ -82,4 +82,12 @@ test('座席の色タグ：ちいかわでは色と名前だけが変わり、�
   assert.deepEqual(c.map(x => x.name), ['みどり', 'きいろ', 'ピンク', 'みずいろ', 'むらさき']);
   c.forEach((x, i) => assert.notEqual(x.color, o[i].color));
   assert.equal(new Set(c.map(x => x.color)).size, 5); // 5色とも別の色
+});
+
+test('座席の色タグ：ポケモンはタイプの色（番号ごとの系統はほかのテーマと同じ順）', () => {
+  const names = ['DECO_KINDS', 'TOAST_ART_KINDS', 'themeImages', 'THEMES', 'SEAT_TAG_COLORS', 'seatTagPalette'];
+  const pk = loadFunctions(names, { currentTheme: 'pokemon' }).seatTagPalette();
+  assert.deepEqual(pk.map(x => x.key), ['c0', 'c1', 'c2', 'c3', 'c4']);
+  assert.deepEqual(pk.map(x => x.name), ['くさ', 'でんき', 'ほのお', 'みず', 'どく']);
+  assert.equal(new Set(pk.map(x => x.color)).size, 5);
 });

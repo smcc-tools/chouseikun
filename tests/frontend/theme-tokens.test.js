@@ -52,9 +52,10 @@ test('置き換えたトークンの var() には必ずフォールバックが�
 
 test('色味のある直書きの色が残っていない', () => {
   let s = HTML;
-  // トークンの定義ブロック（オリーブ・ちいかわ）は直書きの色を持つのが正しい
+  // トークンの定義ブロック（オリーブ・ちいかわ・ポケモン）は直書きの色を持つのが正しい
   s = s.replace(OLIVE_ROOT, '');
   s = s.replace(block(s, ':root[data-theme="chiikawa"] {'), '');
+  s = s.replace(block(s, ':root[data-theme="pokemon"] {'), '');
   // データURI（CSSで描いたロゴなど）は var() が使えない
   s = s.replace(/url\(\s*["']?data:[^)]*\)/g, '');
   // var(--x, フォールバック) はフォールバックごと取り除く

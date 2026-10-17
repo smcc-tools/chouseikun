@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
-const { buildEventDoc } = loadFunctions(['buildEventDoc', 'normalizeTheme']);
+const { buildEventDoc } = loadFunctions(['DECO_KINDS', 'TOAST_ART_KINDS', 'themeImages', 'THEMES', 'buildEventDoc', 'normalizeTheme']);
 
 // ID生成は決定的なスタブにして比較可能にする
 let _n = 0;
@@ -95,4 +95,11 @@ test('テーマ: オリーブ・未指定では theme を保存しない（既�
 test('テーマ: 知らない値は保存しない', () => {
   const doc = buildEventDoc('walica', { name: 'x', members: ['a'], theme: 'sakura' }, ctx());
   assert.equal('theme' in doc, false);
+});
+
+test('テーマ: ポケモンを選ぶと theme が保存される（5種類すべて）', () => {
+  for (const kind of ['schedule', 'settle', 'announce', 'walica', 'seating']) {
+    const doc = buildEventDoc(kind, { name: 'x', members: ['a'], dates: ['2026-11-01'], theme: 'pokemon' }, ctx());
+    assert.equal(doc.theme, 'pokemon', kind);
+  }
 });
