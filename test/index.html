@@ -752,6 +752,12 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 :root.has-toast-art .toast[data-art="9"]::before { background-image: var(--art-toast-9); }
 :root.has-toast-art .toast[data-art="10"]::before { background-image: var(--art-toast-10); }
 :root.has-toast-art .toast[data-art="11"]::before { background-image: var(--art-toast-11); }
+/* PC・タブレット：カードが広くなるぶん、空の画面の絵とカード下の列を少し大きくする（スマホはそのまま） */
+@media (min-width: 768px) {
+  .theme-art-empty { width: 144px; height: 144px; }
+  :root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard) { margin-bottom: 120px; }
+  :root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard)::after { width: 380px; height: 86px; }
+}
 /* ちいかわでは空の画面の案内文を画像のすぐ下に出すので、淡すぎる色を避ける（白地 4.87:1） */
 :root[data-theme="chiikawa"] .empty-msg { color: var(--text-muted); }
 /* ヘッダーのロゴ：画像が読み込めたときだけ html に has-header-art が付く */
