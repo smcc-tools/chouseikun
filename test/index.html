@@ -769,10 +769,12 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 /* ロゴの3人並び（うさぎ・ちいかわ・ハチワレ）。スマホでは少し小さく、とても狭い画面では1人に戻す */
 :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo::before { background-image: var(--art-header-wide); width: 96px; }
 @media (max-width: 520px) {
-  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo::before { width: 72px; height: 30px; border-radius: 0; }
+  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo { gap: 6px; }
+  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo::before { width: 80px; height: 33px; border-radius: 0; }
 }
 @media (max-width: 340px) {
   :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo::before { background-image: var(--header-art); width: 40px; height: 40px; }
+  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo { gap: 10px; }
 }
 .register-btn {
   width: 100%; padding: 9px 4px; background: var(--green); color: white;
