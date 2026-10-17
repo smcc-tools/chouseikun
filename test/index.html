@@ -675,13 +675,13 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 .bulk-vote-btn.cross.active  { background: var(--clay);  border-color: var(--clay); }
 /* 作成画面のテーマ選択。見本の丸はテーマに関係なく、各テーマ自身の色を見せる */
 .theme-pick-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.theme-pick-opt {
+.field .theme-pick-opt {
   display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 8px 14px;
   border: 1.5px solid var(--border); border-radius: 999px; background: var(--surface);
   color: var(--text); font-size: 0.85rem; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer;
 }
-.theme-pick-opt input { width: auto; margin: 0; }
-.theme-pick-opt:has(input:checked) { border-color: var(--green); background: var(--green-light); }
+.field .theme-pick-opt input { width: auto; margin: 0; }
+.field .theme-pick-opt:has(input:checked) { border-color: var(--green); background: var(--green-light); }
 .tp-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .tp-olive { background: #3D5A3A; } /* theme-literal-ok */
 .tp-chiikawa { background: linear-gradient(135deg, #46749F 50%, #F2A7B8 50%); } /* theme-literal-ok */
