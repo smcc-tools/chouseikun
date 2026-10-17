@@ -6,6 +6,18 @@
   <title>調整くん | Scheduling Tool</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#3D5A3A">
+  <script>
+    // テーマのちらつき対策：前回このイベントを開いたときのテーマを、描画より先に当てる。
+    // 正しいテーマはイベントのデータが届いた時点で applyTheme が当て直す。
+    (function () {
+      try {
+        var id = new URLSearchParams(location.search).get('event');
+        if (id && localStorage.getItem('chouseikun_theme_' + id) === 'chiikawa') {
+          document.documentElement.setAttribute('data-theme', 'chiikawa');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -64,11 +76,53 @@
   --font-display:'Montserrat', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', -apple-system, sans-serif;
 }
 
+/* ちいかわテーマ。<html data-theme="chiikawa"> のときだけ効く（イベントごとに選ぶ）。
+   新しいトークン（--brand-tint など）はオリーブの :root では定義しない。使う側が
+   var(--トークン, 元の色) とフォールバックに元の色を持っているので、オリーブでは
+   元の色がそのまま使われ、見た目が変わらない。 */
+:root[data-theme="chiikawa"] {
+  --green: #46749F; --green-dark: #355A7D; --green-light: #EAF2FA; --green-mid: #CFE0EF;
+  --lime: #F2A7B8; --forest: #3E5A7A;
+  --wood: #FFF1F4; --wood-border: #F6D2DB; --wood-text: #9A4D66;
+  --bg: #FFFAF7; --surface: #FFFFFF; --surface-2: #FFFCFB; --field-bg: #FFFBFA;
+  --gold: #D4A12C; --clay: #C4485F;
+  --text: #3A3438; --text-muted: #7A6E74; --border: #F1E4E7; --line-soft: #F8EEF0;
+  --shadow: 0 1px 2px rgba(122,78,92,0.05), 0 14px 34px rgba(122,78,92,0.08);
+  --shadow-press: 0 8px 20px rgba(70,116,159,0.26);
+  --radius: 28px; --radius-sm: 16px;
+  --font-ui: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
+  --font-display: 'M PLUS Rounded 1c', 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', sans-serif;
+
+  --brand-hover: #3D678F; --brand-disabled: #BFCCD8;
+  --brand-tint: #EDF4FB; --brand-tint-soft: #F6FAFD;
+  --on-dark: #FFF8FA; --deco-on-dark: #FAD3DC;
+  --gold-tint: #FFF6DD; --gold-tint-strong: #FCE7A6; --gold-text: #8A6410;
+  --clay-tint: #FDEDF0; --clay-border: #F4C3CC;
+  --table-head: #FAF3F4; --row-hover: #FFF7F8; --text-label: #6E6270; --text-faint: #C9BCC1;
+  --surface-sunken: #FCF8F8; --bg-glow: #FFE9EF; --scrollbar: #EBD9DE;
+  --vote-yes: #46749F; --vote-no: #C4485F; --host-badge: #C4485F;
+  --scrim: rgba(58,52,56,0.32);
+  --vote-radius: 999px; --nav-radius: 999px; --nav-radius-sm: 999px; --bulk-radius: 999px;
+
+  /* オリーブでは別々の直書き色だったが、ちいかわでは既存の色と同じ役割 */
+  --text-strong: var(--text); --nav-text: var(--text-muted); --clay-text: var(--clay);
+  --brand-tint-head: var(--green-light); --brand-tint-hover: var(--green-mid);
+  --panel-cream: var(--wood); --deco-gold: var(--gold);
+
+  /* 半透明の影・面の元の色（rgba(var(--x), 不透明度) で使う） */
+  --press-rgb: 70,116,159; --brand-rgb: 70,116,159; --shadow-rgb: 122,78,92;
+  --muted-rgb: 122,110,116; --gold-rgb: 212,161,44; --bg-rgb: 255,250,247; --bg-glow-rgb: 255,233,239;
+
+  /* 紙吹雪（Claude Design の指定: 差し色・黄・水色の淡色・白） */
+  --confetti-1: var(--lime); --confetti-2: var(--gold); --confetti-3: var(--green-mid); --confetti-4: var(--surface);
+  --confetti-5: var(--lime); --confetti-6: var(--gold); --confetti-7: var(--green-mid);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: var(--font-ui);
   background: var(--bg);
-  background-image: radial-gradient(1200px 600px at 80% -10%, #F2F5EC 0%, rgba(242,245,236,0) 60%);
+  background-image: radial-gradient(1200px 600px at 80% -10%, var(--bg-glow, #F2F5EC) 0%, rgba(var(--bg-glow-rgb,242,245,236),0) 60%);
   background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
@@ -78,13 +132,13 @@ body {
 }
 ::selection { background: var(--green-mid); }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
-::-webkit-scrollbar-thumb { background: #D8D3C4; border-radius: 999px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar, #D8D3C4); border-radius: 999px; }
 
 /* ── 旧・上部ダークバーは非表示 ── */
 
 /* ── ヘッダー：明るい半透明バー＋明朝ロゴ ── */
 .header {
-  background: rgba(250,248,242,0.82);
+  background: rgba(var(--bg-rgb,250,248,242),0.82);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
@@ -97,6 +151,7 @@ body {
   display: flex; align-items: center; gap: 12px; height: 62px;
 }
 .header-logo {
+  white-space: nowrap; flex-shrink: 0;
   font-family: var(--font-display);
   font-size: clamp(1.15rem, 2vw, 1.32rem); font-weight: 700;
   color: var(--forest); letter-spacing: 0.02em;
@@ -107,7 +162,7 @@ body {
   width: 1.7em; height: 1.7em; flex-shrink: 0;
   display: inline-block;
   background: var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 74 74' fill='none'%3E%3Crect x='9' y='15' width='56' height='50' rx='11' stroke='%23EFE5CD' stroke-width='6'/%3E%3Cline x1='9' y1='29' x2='65' y2='29' stroke='%23EFE5CD' stroke-width='6'/%3E%3Cline x1='25' y1='9' x2='25' y2='21' stroke='%23EFE5CD' stroke-width='6' stroke-linecap='round'/%3E%3Cline x1='49' y1='9' x2='49' y2='21' stroke='%23EFE5CD' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M37 51 C37 44 39.5 40.5 45 38.5' stroke='%239DB87C' stroke-width='2.2' stroke-linecap='round'/%3E%3Cellipse cx='48.6' cy='34.4' rx='5.4' ry='2.7' fill='%239DB87C' transform='rotate(-42 48.6 34.4)'/%3E%3Cellipse cx='42' cy='35.4' rx='5' ry='2.5' fill='%2386A064' transform='rotate(18 42 35.4)'/%3E%3Cellipse cx='36.5' cy='51.5' rx='5' ry='6.6' fill='%2386A064' transform='rotate(-34 36.5 51.5)'/%3E%3Cellipse cx='33.7' cy='49.4' rx='1.3' ry='1.8' fill='%23BCD09B' transform='rotate(-40 33.7 49.4)'/%3E%3C/svg%3E") center / 72% no-repeat;
-  border-radius: 11px; box-shadow: 0 4px 10px rgba(45,66,40,0.22);
+  border-radius: 11px; box-shadow: 0 4px 10px rgba(var(--press-rgb,45,66,40),0.22);
 }
 .header-logo span { color: var(--forest); }
 /* 明るい地に合わせて認証まわりを濃色へ */
@@ -115,7 +170,7 @@ body {
 .header #signOutBtn { color: var(--text-muted) !important; border-color: var(--border) !important; background: transparent !important; }
 .header #signOutBtn:hover { background: var(--green-light) !important; }
 .header #myEventsNavBtn { background: var(--green-light) !important; border-color: var(--green-mid) !important; color: var(--green) !important; }
-.header #myEventsNavBtn:hover { background: #E3EAD6 !important; }
+.header #myEventsNavBtn:hover { background: var(--brand-tint-hover, #E3EAD6) !important; }
 .header #authAvatar { border-color: var(--green-mid) !important; }
 
 .page { max-width: 980px; margin: 0 auto; padding: clamp(20px, 3vw, 30px) clamp(12px, 3vw, 18px) 0; }
@@ -164,7 +219,7 @@ body {
    （英字ラベル前提の装飾。日本語には効果がなく崩れだけが出る） */
 .field label {
   display: block; font-size: 0.72rem; font-weight: 700;
-  color: #5A6B4E; margin-bottom: 8px;
+  color: var(--text-label, #5A6B4E); margin-bottom: 8px;
   letter-spacing: 0.12em;
 }
 input[type="text"], input[type="date"], input[type="password"], input[type="number"], input[type="time"], textarea, select {
@@ -178,7 +233,7 @@ input[type="text"], input[type="date"], input[type="time"], input[type="number"]
 }
 input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="number"]:focus, input[type="password"]:focus {
   border-color: var(--green); background: #fff;
-  box-shadow: 0 0 0 3px rgba(61,90,58,0.12);
+  box-shadow: 0 0 0 3px rgba(var(--brand-rgb,61,90,58),0.12);
 }
 
 /* ── チップ（期間・曜日） ── */
@@ -194,7 +249,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .radio-chip label:hover { border-color: var(--green-mid); }
 .radio-chip input[type="radio"]:checked + label {
   background: var(--green); border-color: var(--green);
-  color: white; box-shadow: 0 2px 8px rgba(61,90,58,0.25);
+  color: white; box-shadow: 0 2px 8px rgba(var(--brand-rgb,61,90,58),0.25);
 }
 
 .date-row {
@@ -237,7 +292,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   text-decoration: underline; cursor: pointer; padding: 0; font-weight: 600; }
 .auth-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.6; margin-top: 8px; }
 .btn-remove {
-  background: none; border: none; color: #B6B3A2; font-size: 1.1rem;
+  background: none; border: none; color: var(--text-faint, #B6B3A2); font-size: 1.1rem;
   cursor: pointer; padding: 4px 8px; border-radius: 6px;
   transition: color 0.15s; flex-shrink: 0;
 }
@@ -253,7 +308,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .member-line .mbr-rename, .member-line .mbr-del {
   font-size: 0.74rem; padding: 4px 10px; white-space: nowrap;
 }
-.member-line .mbr-del { color: var(--clay); border-color: #E6C6BC; }
+.member-line .mbr-del { color: var(--clay); border-color: var(--clay-border, #E6C6BC); }
 .member-empty {
   padding: 12px 0; color: var(--text-muted); font-size: 0.85rem;
   border-bottom: 1px solid var(--line-soft);
@@ -291,7 +346,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .wl-expense .wl-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .wl-expense .wl-actions button {
   background: none; border: none; cursor: pointer; padding: 4px 6px;
-  border-radius: 6px; font-size: 0.9rem; color: #B6B3A2;
+  border-radius: 6px; font-size: 0.9rem; color: var(--text-faint, #B6B3A2);
 }
 .wl-expense .wl-actions button:hover { color: var(--clay); }
 .wl-empty { padding: 14px; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border); border-radius: 10px; }
@@ -309,7 +364,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   cursor: pointer; background: #fff; user-select: none;
 }
 .wl-share-chip input { width: auto !important; accent-color: var(--green); cursor: pointer; }
-.wl-share-chip.on { border-color: var(--green); background: #eef4e4; color: var(--green); font-weight: 600; }
+.wl-share-chip.on { border-color: var(--green); background: var(--brand-tint, #eef4e4); color: var(--green); font-weight: 600; }
 .wl-form-actions { display: flex; gap: 8px; margin-top: 4px; }
 .wl-settle-line {
   display: flex; align-items: center; gap: 8px; padding: 11px 14px;
@@ -319,12 +374,12 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .wl-settle-line .wl-arrow { color: var(--green); font-weight: 700; }
 .wl-settle-line .wl-to { font-weight: 600; }
 .wl-settle-line .wl-pay { margin-left: auto; font-weight: 700; font-family: var(--font-display); color: var(--clay); }
-.wl-settle-done { padding: 14px; text-align: center; color: var(--green); font-weight: 600; font-size: 0.9rem; background: #eef4e4; border: 1px solid var(--green-mid); border-radius: 10px; }
+.wl-settle-done { padding: 14px; text-align: center; color: var(--green); font-weight: 600; font-size: 0.9rem; background: var(--brand-tint, #eef4e4); border: 1px solid var(--green-mid); border-radius: 10px; }
 
 /* 座席決め */
 .seating-actions { display: flex; gap: 8px; }
-.seat-empty-slot { padding: 5px 0; font-size: 0.82rem; color: #cfcabc; }
-.seat-unassigned { margin-top: 12px; background: #F7EAE6; border: 1px solid #E6C6BC; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; color: var(--clay); }
+.seat-empty-slot { padding: 5px 0; font-size: 0.82rem; color: var(--text-faint, #cfcabc); }
+.seat-unassigned { margin-top: 12px; background: var(--clay-tint, #F7EAE6); border: 1px solid var(--clay-border, #E6C6BC); border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; color: var(--clay); }
 
 /* 卓設定行・タグ行・条件行 */
 /* 卓の設定：設定欄全体を1つのグリッドにして、各行の要素を同じ列に並べる。
@@ -416,22 +471,22 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   background: #fff; font-size: 0.82rem; font-weight: 600; color: var(--text);
   max-width: 138px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.seat-chip.empty { color: #c9c4b4; border-style: dashed; background: #fafaf6; font-weight: 500; }
+.seat-chip.empty { color: var(--text-faint, #c9c4b4); border-style: dashed; background: var(--surface-sunken, #fafaf6); font-weight: 500; }
 .seat-chip.clickable { cursor: pointer; }
 .seat-chip.clickable:hover { border-color: var(--green); }
 .seat-chip .sc-name { overflow: hidden; text-overflow: ellipsis; }
 /* ロック=金色（固定・シャッフルでも動かない）。選択と混同しないよう選択は緑系にする */
-.seat-chip.locked { border-color: var(--gold); background: #FBF4E2; }
+.seat-chip.locked { border-color: var(--gold); background: var(--gold-tint, #FBF4E2); }
 /* 確定バナー。ホストツールを隠すため、解除ボタンはこのバナー（隠す領域の外）に置く */
 .seat-confirmed-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: #FBF4E2; border: 1px solid var(--gold); border-radius: 8px;
+  background: var(--gold-tint, #FBF4E2); border: 1px solid var(--gold); border-radius: 8px;
   padding: 10px 14px; margin-bottom: 20px; font-size: 0.85rem; color: var(--text); }
 .seat-confirmed-banner button { flex: 0 0 auto; }
 /* 選択中=緑（これから動かす席）。ロックの金色とは別系統の色で明確に区別する。
    locked より後に定義し、ロック席を選択した場合も「選択中」の見た目を優先 */
 .seat-chip.selected {
   border-color: var(--green); background: var(--green-light); color: var(--green-dark);
-  box-shadow: 0 0 0 2.5px rgba(61,90,58,0.3);
+  box-shadow: 0 0 0 2.5px rgba(var(--brand-rgb,61,90,58),0.3);
 }
 /* ロックボタンは「名前（＝移動）」とはっきり分かる独立した丸ボタンに */
 .seat-lock-btn {
@@ -470,16 +525,16 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 @keyframes seatFlicker { 0%,100% { transform: translateY(0) scale(0.96); } 50% { transform: translateY(-3px) scale(1.07); } }
 .seat-chip.flicker {
   animation: seatFlicker 0.3s infinite ease-in-out;
-  border-color: var(--gold); color: #94701C;
-  background: linear-gradient(135deg, #FBF4E2, #F3E4B8);
-  box-shadow: 0 4px 12px rgba(176,136,58,0.3);
+  border-color: var(--gold); color: var(--gold-text, #94701C);
+  background: linear-gradient(135deg, var(--gold-tint, #FBF4E2), var(--gold-tint-strong, #F3E4B8));
+  box-shadow: 0 4px 12px rgba(var(--gold-rgb,176,136,58),0.3);
 }
 @keyframes seatSettle {
-  0% { transform: scale(1.28); box-shadow: 0 0 0 9px rgba(61,90,58,0.22); }
+  0% { transform: scale(1.28); box-shadow: 0 0 0 9px rgba(var(--brand-rgb,61,90,58),0.22); }
   55% { transform: scale(0.93); }
-  100% { transform: scale(1); box-shadow: 0 2px 8px rgba(61,90,58,0.12); }
+  100% { transform: scale(1); box-shadow: 0 2px 8px rgba(var(--brand-rgb,61,90,58),0.12); }
 }
-.seat-chip.seat-settled { animation: seatSettle 0.5s cubic-bezier(.2,1.5,.4,1); border-color: var(--green); background: #eef4e4; }
+.seat-chip.seat-settled { animation: seatSettle 0.5s cubic-bezier(.2,1.5,.4,1); border-color: var(--green); background: var(--brand-tint, #eef4e4); }
 /* 店の入り口：座席表の四方に配置（ホスト=選択ボタン、参加者=選択済み表示のみ） */
 .seat-entrance-grid { display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto 1fr auto; gap: 6px; align-items: stretch; }
 .se-top    { grid-column: 2; grid-row: 1; display: flex; justify-content: center; }
@@ -487,7 +542,7 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .se-main   { grid-column: 2; grid-row: 2; min-width: 0; }
 .se-right  { grid-column: 3; grid-row: 2; display: flex; align-items: center; }
 .se-bottom { grid-column: 2; grid-row: 3; display: flex; justify-content: center; }
-.seat-entrance-btn { border: 1.5px dashed var(--border); background: #fafaf6; color: var(--text-muted);
+.seat-entrance-btn { border: 1.5px dashed var(--border); background: var(--surface-sunken, #fafaf6); color: var(--text-muted);
   border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; cursor: pointer; white-space: nowrap; }
 .seat-entrance-btn:hover { border-color: var(--green); color: var(--green); }
 .seat-entrance-btn.vert { writing-mode: vertical-rl; padding: 10px 3px; }
@@ -508,31 +563,31 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-tables-grid.uniform .seat-round { margin: auto; }
 .seat-table-block.move-sel { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 8px; }
 /* 「⟳ 縦にする」と「⇄ 移動」は文字数が違うと幅がばらつくので、最小幅を揃えて同じ大きさにする */
-.seat-move-btn, .seat-ori-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
+.seat-move-btn, .seat-ori-btn { border: 1px solid var(--border); background: var(--surface-sunken, #fafaf6); color: var(--text-muted);
   border-radius: 6px; font-size: 0.7rem; padding: 2px 8px; cursor: pointer; white-space: nowrap;
   min-width: 78px; text-align: center; }
 .seat-move-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
 .seat-empty-slot { border: 1.5px dashed var(--border); border-radius: 12px; min-height: 90px;
-  display: flex; align-items: center; justify-content: center; color: #c9c4b4;
+  display: flex; align-items: center; justify-content: center; color: var(--text-faint, #c9c4b4);
   font-size: 0.74rem; margin-bottom: 14px; align-self: stretch; }
-.seat-empty-slot.active { border-color: var(--green); color: var(--green); cursor: pointer; background: #f7faf0; }
+.seat-empty-slot.active { border-color: var(--green); color: var(--green); cursor: pointer; background: var(--brand-tint-soft, #f7faf0); }
 .seat-empty-slot.ghost { border: none; min-height: 0; margin: 0; }
 /* ホストが配置を調整した次会では、空けたマスが通常表示でも高さを保つ。
    min-height:0 のままだと空きマスだけの行が潰れ、意図して空けた行が消えてしまう。 */
 .seat-tables-grid.free .seat-empty-slot.ghost { min-height: 90px; margin-bottom: 14px; }
 .seat-cols-ctrl { display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
   font-size: 0.74rem; color: var(--text-muted); flex-wrap: wrap; }
-.seat-cols-btn { border: 1px solid var(--border); background: #fafaf6; color: var(--text-muted);
+.seat-cols-btn { border: 1px solid var(--border); background: var(--surface-sunken, #fafaf6); color: var(--text-muted);
   border-radius: 6px; font-size: 0.72rem; padding: 2px 9px; cursor: pointer; }
 .seat-cols-btn.selected { border-color: var(--green); color: var(--green); background: var(--green-light); font-weight: 700; }
 .seat-grid-sel { width: auto; margin-bottom: 0; padding: 2px 6px; font-size: 0.74rem;
-  border: 1px solid var(--border); border-radius: 6px; background: #fafaf6; color: var(--text); }
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface-sunken, #fafaf6); color: var(--text); }
 /* シャッフル中バナー（グラデのきらめき＋波打つドット） */
 .seat-shuffle-banner {
   position: relative; overflow: hidden; text-align: center;
   font-family: var(--font-display); font-weight: 800; color: var(--green);
   letter-spacing: 0.08em; font-size: 1rem;
-  background: linear-gradient(100deg, #eef4e4 0%, #FBF4E2 25%, #F3E4B8 50%, #FBF4E2 75%, #eef4e4 100%);
+  background: linear-gradient(100deg, var(--brand-tint, #eef4e4) 0%, var(--gold-tint, #FBF4E2) 25%, var(--gold-tint-strong, #F3E4B8) 50%, var(--gold-tint, #FBF4E2) 75%, var(--brand-tint, #eef4e4) 100%);
   background-size: 220% 100%; animation: shimmerSweep 1.15s linear infinite;
   border: 1px solid var(--green-mid); border-radius: 12px; padding: 11px 16px; margin-bottom: 14px;
 }
@@ -573,9 +628,9 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   transition: all 0.15s; letter-spacing: 0.02em;
 }
 .btn:active { transform: scale(0.97); }
-.btn-primary { background: var(--green); color: white; border: 1px solid var(--green); box-shadow: 0 4px 12px rgba(45,66,40,0.18); }
-.btn-primary:hover { background: #34502F; border-color: #34502F; box-shadow: 0 8px 20px rgba(45,66,40,0.26); }
-.btn-primary:disabled { background: #B7BCAC; border-color: #B7BCAC; cursor: not-allowed; box-shadow: none; }
+.btn-primary { background: var(--green); color: white; border: 1px solid var(--green); box-shadow: 0 4px 12px rgba(var(--press-rgb,45,66,40),0.18); }
+.btn-primary:hover { background: var(--brand-hover, #34502F); border-color: var(--brand-hover, #34502F); box-shadow: 0 8px 20px rgba(var(--press-rgb,45,66,40),0.26); }
+.btn-primary:disabled { background: var(--brand-disabled, #B7BCAC); border-color: var(--brand-disabled, #B7BCAC); cursor: not-allowed; box-shadow: none; }
 .btn-secondary { background: white; color: var(--green); border: 1.5px solid var(--green-mid); }
 .btn-secondary:hover { background: var(--green-light); border-color: var(--green); }
 .btn-ghost { background: white; color: var(--text-muted); border: 1.5px solid var(--border); }
@@ -590,26 +645,26 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   position: fixed; bottom: 24px; left: 50%;
   /* 固定80pxだと2行以上の長文トーストは非表示後も上端が画面内に残るため、自身の高さ基準で確実に画面外へ */
   transform: translateX(-50%) translateY(calc(100% + 48px));
-  background: var(--forest); color: #EDF1E4; padding: 13px 22px;
+  background: var(--forest); color: var(--on-dark, #EDF1E4); padding: 13px 22px;
   border-radius: 12px; font-size: 0.9rem; font-weight: 600;
   z-index: 1000; transition: transform 0.3s cubic-bezier(.2,.8,.2,1);
-  pointer-events: none; box-shadow: 0 10px 30px rgba(43,66,40,0.3);
+  pointer-events: none; box-shadow: 0 10px 30px rgba(var(--press-rgb,43,66,40),0.3);
   max-width: calc(100vw - 32px); text-align: center; line-height: 1.5;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
 /* ── テーブル：入力列 ── */
-th.input-col { background: #EEF2E8; min-width: 72px; width: 160px; max-width: 160px; }
+th.input-col { background: var(--brand-tint-head, #EEF2E8); min-width: 72px; width: 160px; max-width: 160px; }
 th.input-col input[type="text"] {
   width: 100%; padding: 6px 9px; border-radius: 8px;
   border: 1.5px solid var(--green-mid); font-size: 0.82rem; background: #FFFFFF;
   color: var(--text); outline: none;
 }
-td.input-col { background: #F6F9F0; border-left: 1px solid var(--green-mid); text-align: center; white-space: nowrap; }
+td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px solid var(--green-mid); text-align: center; white-space: nowrap; }
 /* 新規入力列：全候補日を一括選択するボタン（候補日が多いときの手間を減らす） */
 .bulk-vote-row { display: flex; gap: 4px; justify-content: center; margin-top: 5px; }
 .bulk-vote-btn {
-  flex: 1; background: #fff; border: 1.5px solid var(--border); border-radius: 7px;
+  flex: 1; background: #fff; border: 1.5px solid var(--border); border-radius: var(--bulk-radius, 7px);
   font-size: 0.7rem; font-weight: 700; line-height: 1.2; padding: 4px 2px;
   cursor: pointer; transition: all 0.13s; white-space: nowrap;
 }
@@ -619,6 +674,108 @@ td.input-col { background: #F6F9F0; border-left: 1px solid var(--green-mid); tex
 .bulk-vote-btn.active { color: #fff; }
 .bulk-vote-btn.circle.active { background: var(--green); border-color: var(--green); }
 .bulk-vote-btn.cross.active  { background: var(--clay);  border-color: var(--clay); }
+/* 作成画面のテーマ選択。見本の丸はテーマに関係なく、各テーマ自身の色を見せる */
+.theme-pick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.field .theme-pick-opt {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 8px 14px;
+  border: 1.5px solid var(--border); border-radius: 999px; background: var(--surface);
+  color: var(--text); font-size: 0.85rem; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer;
+}
+.field .theme-pick-opt input { width: auto; margin: 0; }
+.field .theme-pick-opt:has(input:checked) { border-color: var(--green); background: var(--green-light); }
+.tp-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.tp-olive { background: #3D5A3A; } /* theme-literal-ok */
+.tp-chiikawa { background: linear-gradient(135deg, #46749F 50%, #F2A7B8 50%); } /* theme-literal-ok */
+/* テーマのキャラクター画像（ちいかわ）。画像はオーナーが themes/chiikawa/ に置く */
+.theme-art { display: block; margin: 0 auto 10px; object-fit: contain; }
+.theme-art-empty { width: 112px; height: 112px; }
+.theme-celebrate {
+  position: fixed; inset: 0; z-index: 9997; pointer-events: none;
+  background: var(--scrim); display: flex; align-items: center; justify-content: center;
+  animation: fadeUp 0.25s ease;
+}
+.theme-art-celebrate { width: min(340px, 88vw); height: auto; margin: 0; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
+/* ちいかわの ◯△✕：文字は残したまま（読み上げ・凡例の意味は保つ）見た目だけ顔にする。
+   選んだボタンは今の色（緑・金・赤）が顔のまわりの輪になり、同じ行の選ばなかった顔は薄くなる */
+:root.has-vote-art :is(.vote-btn, .vote-display, .vmark) { font-size: 0 !important; line-height: 0; }
+:root.has-vote-art :is(.vote-btn, .vote-display, .vmark)::before {
+  content: ''; display: inline-block; vertical-align: middle; width: 26px; height: 26px;
+  background: center / contain no-repeat;
+}
+:root.has-vote-art :is(.vote-btn.circle, .vote-display-o, .vmark-o)::before { background-image: var(--art-vote-o); }
+:root.has-vote-art :is(.vote-btn.triangle, .vote-display-t, .vmark-t)::before { background-image: var(--art-vote-t); }
+:root.has-vote-art :is(.vote-btn.cross, .vote-display-x, .vmark-x)::before { background-image: var(--art-vote-x); }
+:root.has-vote-art .vote-btn { padding: 3px; border-radius: 50%; }
+:root.has-vote-art .vote-display { display: inline-block; }
+:root.has-vote-art .vote-display::before { width: 30px; height: 30px; }
+:root.has-vote-art .vmark::before { width: 22px; height: 22px; }
+:root.has-vote-art .bulk-vote-btn .vmark::before { width: 16px; height: 16px; margin-left: 2px; }
+:root.has-vote-art .vote-btns:has(.vote-btn.selected) .vote-btn:not(.selected)::before { opacity: 0.35; filter: grayscale(0.7); }
+/* ちいかわの飾り（has-deco-art は飾りの画像が全部読めたときだけ付く） */
+/* カードの下の余白に、キャラ5人の列を置く */
+:root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard) { position: relative; margin-bottom: 100px; }
+:root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard)::after {
+  content: ''; position: absolute; left: 50%; top: calc(100% + 16px); transform: translateX(-50%);
+  width: min(300px, 80vw); height: 68px; background: var(--art-deco-footer) center / contain no-repeat; pointer-events: none;
+}
+/* 見出し・開催日・ACCESS の前に小さなキャラ */
+:root.has-deco-art :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label::before,
+:root.has-deco-art :is(.venue-head, .ann-date-label)::before {
+  content: ''; display: inline-block; width: 24px; height: 24px; margin-right: 5px; vertical-align: -7px;
+  background: center / contain no-repeat;
+}
+:root.has-deco-art #walicaMemberField > label::before { background-image: var(--art-deco-member); }
+:root.has-deco-art #walicaExpenseField > label::before { background-image: var(--art-deco-expense); }
+:root.has-deco-art #walicaSettleField > label::before { background-image: var(--art-deco-settle); }
+:root.has-deco-art #seatingResultField > label::before { background-image: var(--art-deco-seat); width: 30px; }
+:root.has-deco-art .venue-head::before { background-image: var(--art-deco-venue); }
+:root.has-deco-art .ann-date-label::before { background-image: var(--art-deco-date); }
+/* 確定の印：🎉 の代わりにちいかわ */
+:root.has-deco-art .confirmed-flag .cf-emoji { display: none; }
+:root.has-deco-art .confirmed-flag::before {
+  content: ''; display: inline-block; width: 16px; height: 16px; margin-right: 3px; vertical-align: -4px;
+  background: var(--art-deco-confirm) center / contain no-repeat;
+}
+/* うまくいったときの通知に、キャラをランダムに1体（番号は showToast が付ける） */
+:root.has-toast-art .toast[data-art]::before {
+  content: ''; display: inline-block; width: 32px; height: 32px; margin-right: 8px; vertical-align: -10px;
+  background: center / contain no-repeat;
+}
+:root.has-toast-art .toast[data-art="0"]::before { background-image: var(--art-toast-0); }
+:root.has-toast-art .toast[data-art="1"]::before { background-image: var(--art-toast-1); }
+:root.has-toast-art .toast[data-art="2"]::before { background-image: var(--art-toast-2); }
+:root.has-toast-art .toast[data-art="3"]::before { background-image: var(--art-toast-3); }
+:root.has-toast-art .toast[data-art="4"]::before { background-image: var(--art-toast-4); }
+:root.has-toast-art .toast[data-art="5"]::before { background-image: var(--art-toast-5); }
+:root.has-toast-art .toast[data-art="6"]::before { background-image: var(--art-toast-6); }
+:root.has-toast-art .toast[data-art="7"]::before { background-image: var(--art-toast-7); }
+:root.has-toast-art .toast[data-art="8"]::before { background-image: var(--art-toast-8); }
+:root.has-toast-art .toast[data-art="9"]::before { background-image: var(--art-toast-9); }
+:root.has-toast-art .toast[data-art="10"]::before { background-image: var(--art-toast-10); }
+:root.has-toast-art .toast[data-art="11"]::before { background-image: var(--art-toast-11); }
+/* PC・タブレット：カードが広くなるぶん、空の画面の絵とカード下の列を少し大きくする（スマホはそのまま） */
+@media (min-width: 768px) {
+  .theme-art-empty { width: 144px; height: 144px; }
+  :root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard) { margin-bottom: 120px; }
+  :root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard)::after { width: 380px; height: 86px; }
+}
+/* ちいかわでは空の画面の案内文を画像のすぐ下に出すので、淡すぎる色を避ける（白地 4.87:1） */
+:root[data-theme="chiikawa"] .empty-msg { color: var(--text-muted); }
+/* ヘッダーのロゴ：画像が読み込めたときだけ html に has-header-art が付く */
+:root[data-theme="chiikawa"].has-header-art .header-logo::before {
+  background: var(--header-art) center / contain no-repeat;
+  box-shadow: none; border-radius: 12px; width: 40px; height: 40px;
+}
+/* ロゴの3人並び（うさぎ・ちいかわ・ハチワレ）。スマホでは少し小さく、とても狭い画面では1人に戻す */
+:root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo::before { background-image: var(--art-header-wide); width: 96px; }
+@media (max-width: 520px) {
+  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo { gap: 6px; }
+  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo::before { width: 80px; height: 33px; border-radius: 0; }
+}
+@media (max-width: 340px) {
+  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo::before { background-image: var(--header-art); width: 40px; height: 40px; }
+  :root[data-theme="chiikawa"].has-header-art.has-header-wide .header-logo { gap: 10px; }
+}
 .register-btn {
   width: 100%; padding: 9px 4px; background: var(--green); color: white;
   border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
@@ -630,11 +787,11 @@ td.input-col { background: #F6F9F0; border-left: 1px solid var(--green-mid); tex
 .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--border); background: #fff; }
 /* 回答入力への導線CTA（表が横スクロールするときだけ表示） */
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 300px; }
-thead tr { background: #F4F2EA; }
-th { padding: 13px 6px; text-align: center; color: #5A6B4E; font-weight: 700; white-space: nowrap; font-size: 0.8rem; border-bottom: 1.5px solid var(--green-mid); letter-spacing: 0.02em; }
-th.date-col { text-align: left; min-width: 96px; position: sticky; left: 0; z-index: 3; background: #F4F2EA; }
+thead tr { background: var(--table-head, #F4F2EA); }
+th { padding: 13px 6px; text-align: center; color: var(--text-label, #5A6B4E); font-weight: 700; white-space: nowrap; font-size: 0.8rem; border-bottom: 1.5px solid var(--green-mid); letter-spacing: 0.02em; }
+th.date-col { text-align: left; min-width: 96px; position: sticky; left: 0; z-index: 3; background: var(--table-head, #F4F2EA); }
 tbody tr { transition: background 0.12s; }
-tbody tr:hover { background: #FAFBF4; }
+tbody tr:hover { background: var(--row-hover, #FAFBF4); }
 tbody tr:last-child td { border-bottom: none; }
 td { padding: 9px 6px; text-align: center; border-bottom: 1px solid var(--line-soft); }
 /* 参加者ごとの列を縦線で区切る */
@@ -642,12 +799,12 @@ th, td { border-left: 1px solid var(--line-soft); }
 thead th { border-left-color: var(--green-mid); }
 th:first-child, td:first-child { border-left: none; }
 td.date-cell { text-align: left; font-weight: 700; color: var(--text); white-space: nowrap; font-size: 0.86rem; position: sticky; left: 0; z-index: 1; background: #fff; }
-tbody tr:hover td.date-cell { background: #FAFBF4; }
+tbody tr:hover td.date-cell { background: var(--row-hover, #FAFBF4); }
 td.date-cell.is-best { color: var(--green); background: var(--green-light); }
 td.date-cell.is-best::before { content: '★ '; color: var(--gold); }
 
 .vote-btn {
-  background: #fff; border: 1.5px solid var(--border); border-radius: 9px;
+  background: #fff; border: 1.5px solid var(--border); border-radius: var(--vote-radius, 9px);
   font-size: 1.02rem; line-height: 1; cursor: pointer; padding: 5px 7px;
   opacity: 1; transition: all 0.13s; display: inline-block; font-weight: 700;
 }
@@ -664,16 +821,16 @@ td.date-cell.is-best::before { content: '★ '; color: var(--gold); }
 .point-cell.is-best { color: var(--green); background: var(--green-light); }
 
 /* 確定日 */
-tr.confirmed-row td { background: #FBF4E2 !important; }
-tr.confirmed-row td.date-cell { color: #94701C; font-weight: 800; }
-tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important; }
+tr.confirmed-row td { background: var(--gold-tint, #FBF4E2) !important; }
+tr.confirmed-row td.date-cell { color: var(--gold-text, #94701C); font-weight: 800; }
+tr.confirmed-row td.point-cell { color: var(--gold-text, #94701C); background: var(--gold-tint-strong, #F3E9CD) !important; }
 /* 確定日を目立たせるバッジ */
 .confirmed-flag {
   display: inline-block; background: var(--gold); color: #fff;
   font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em;
   padding: 3px 9px; border-radius: 999px; margin-right: 7px;
   vertical-align: middle; white-space: nowrap;
-  box-shadow: 0 2px 7px rgba(176,136,58,0.4);
+  box-shadow: 0 2px 7px rgba(var(--gold-rgb,176,136,58),0.4);
   animation: confirmedPop 0.35s ease;
 }
 @keyframes confirmedPop {
@@ -684,7 +841,7 @@ tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important;
 
 .confirm-btn {
   font-size: 0.68rem; background: none;
-  border: 1px solid var(--green-mid); color: #5A6B4E;
+  border: 1px solid var(--green-mid); color: var(--text-label, #5A6B4E);
   border-radius: 999px; cursor: pointer; padding: 6px 12px; margin-left: 6px;
   transition: all 0.15s; white-space: nowrap; font-weight: 600;
 }
@@ -692,7 +849,7 @@ tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important;
 .confirm-btn.confirmed { background: var(--gold); border-color: var(--gold); color: white; }
 .reorder-btn {
   font-size: 0.72rem; background: none;
-  border: 1px solid var(--green-mid); color: #5A6B4E;
+  border: 1px solid var(--green-mid); color: var(--text-label, #5A6B4E);
   border-radius: 999px; cursor: pointer; padding: 4px 10px; margin: 1px;
   transition: all 0.15s;
 }
@@ -701,23 +858,23 @@ tr.confirmed-row td.point-cell { color: #94701C; background: #F3E9CD !important;
 .edit-btn {
   display: inline-block; margin-top: 5px; font-size: 0.7rem;
   background: none; border: 1px solid var(--green-mid);
-  color: #5A6B4E; border-radius: 999px; cursor: pointer;
+  color: var(--text-label, #5A6B4E); border-radius: 999px; cursor: pointer;
   padding: 5px 11px; font-weight: 500; transition: all 0.15s;
 }
 .edit-btn:hover { background: var(--green-light); }
 .edit-btn.editing { background: var(--gold); border-color: var(--gold); color: white; }
 .del-btn {
   display: none; margin-top: 4px; font-size: 0.7rem;
-  background: none; border: 1px solid #E6C6BC;
+  background: none; border: 1px solid var(--clay-border, #E6C6BC);
   color: var(--clay); border-radius: 999px; cursor: pointer;
   padding: 5px 11px; font-weight: 500; transition: all 0.15s;
 }
 .del-btn.visible { display: inline-block; }
-.del-btn:hover { background: #F7EAE6; }
+.del-btn:hover { background: var(--clay-tint, #F7EAE6); }
 .vote-btns { display: flex; gap: 4px; justify-content: center; align-items: center; }
 td.locked .vote-btn { pointer-events: none; opacity: 0.4; }
 td.locked .note-input { pointer-events: none; color: #aaa; border-color: transparent; }
-.note-row td { background: #FAFBF4; padding: 9px 10px; }
+.note-row td { background: var(--row-hover, #FAFBF4); padding: 9px 10px; }
 .note-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 700; }
 .note-input {
   font-size: 0.8rem; color: #555; border: none;
@@ -734,7 +891,7 @@ td.locked .note-input { pointer-events: none; color: #aaa; border-color: transpa
   margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
 }
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--text-muted); }
-.empty-msg, .loading { text-align: center; color: #B6B3A2; padding: 40px; font-size: 0.9rem; }
+.empty-msg, .loading { text-align: center; color: var(--text-faint, #B6B3A2); padding: 40px; font-size: 0.9rem; }
 .loading::before { content: ''; }
 #viewCard { display: none; }
 
@@ -751,10 +908,10 @@ td.locked .note-input { pointer-events: none; color: #aaa; border-color: transpa
 .settle-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
 .settle-table { width: 100%; border-collapse: collapse; }
 .settle-table-wrap .settle-table { margin-bottom: 0; }
-.settle-table th { background: #F4F2EA; color: #5A6B4E; padding: 12px 12px; font-size: 0.82rem; font-weight: 700; text-align: left; border-bottom: 1.5px solid var(--green-mid); }
+.settle-table th { background: var(--table-head, #F4F2EA); color: var(--text-label, #5A6B4E); padding: 12px 12px; font-size: 0.82rem; font-weight: 700; text-align: left; border-bottom: 1.5px solid var(--green-mid); }
 .settle-table td { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); font-size: 0.9rem; vertical-align: middle; }
 .settle-table tr:last-child td { border-bottom: none; }
-.settle-table tbody tr:hover { background: #FAFBF4; }
+.settle-table tbody tr:hover { background: var(--row-hover, #FAFBF4); }
 .settle-amount-input {
   width: 120px; padding: 7px 10px; border: 1.5px solid var(--border);
   border-radius: 8px; font-size: 0.9rem; outline: none; text-align: right; background: var(--field-bg);
@@ -772,7 +929,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .settle-amount-cell { text-align: right; font-weight: 700; }
 .settle-banner { border-radius: 10px; padding: 11px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .settle-banner-ok { background: var(--green-light); border: 1.5px solid var(--green-mid); color: var(--green); }
-.settle-banner-ng { background: #F7EAE6; border: 1.5px solid #E6C6BC; color: var(--clay); }
+.settle-banner-ng { background: var(--clay-tint, #F7EAE6); border: 1.5px solid var(--clay-border, #E6C6BC); color: var(--clay); }
 .time-input { width: 110px; padding: 10px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; background: var(--field-bg); }
 .time-input:focus { border-color: var(--green); }
 
@@ -781,7 +938,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .vote-display-o { color: var(--green); }
 .vote-display-t { color: var(--gold); }
 .vote-display-x { color: var(--clay); }
-.vote-display-empty { color: #C9C7BB; font-size: 0.8rem; }
+.vote-display-empty { color: var(--text-faint, #C9C7BB); font-size: 0.8rem; }
 
 /* ── インライン編集 ── */
 .inline-edit-input { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--forest); border: 1.5px solid var(--green); border-radius: 6px; padding: 3px 10px; outline: none; width: auto; }
@@ -792,7 +949,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 .branch-ac-list {
   display: none; position: absolute; top: calc(100% + 2px); left: 0; right: 0;
   background: white; border: 1.5px solid var(--green); border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(45,66,40,0.14); z-index: 200;
+  box-shadow: 0 8px 24px rgba(var(--press-rgb,45,66,40),0.14); z-index: 200;
   max-height: 200px; overflow-y: auto;
 }
 .branch-ac-item { padding: 10px 14px; cursor: pointer; font-size: 0.88rem; color: var(--text); border-bottom: 1px solid var(--line-soft); }
@@ -801,15 +958,15 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
 /* ── 日程削除ボタン ── */
 .date-del-btn {
-  font-size: 0.65rem; background: none; border: 1px solid #E6C6BC; color: var(--clay);
+  font-size: 0.65rem; background: none; border: 1px solid var(--clay-border, #E6C6BC); color: var(--clay);
   border-radius: 999px; cursor: pointer; padding: 3px 9px; margin-left: 4px;
   transition: all 0.15s; white-space: nowrap;
 }
-.date-del-btn:hover { background: #F7EAE6; }
+.date-del-btn:hover { background: var(--clay-tint, #F7EAE6); }
 
 /* ── ログインボタン ── */
 #signInBtn { transition: border-color 0.2s, box-shadow 0.2s; }
-#signInBtn:hover { border-color: var(--green); box-shadow: 0 0 0 2px rgba(61,90,58,0.1); }
+#signInBtn:hover { border-color: var(--green); box-shadow: 0 0 0 2px rgba(var(--brand-rgb,61,90,58),0.1); }
 
 /* ── マイイベント一覧 ── */
 .my-event-item {
@@ -817,17 +974,17 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px;
   margin-bottom: 10px; background: var(--surface-2); transition: all 0.18s;
 }
-.my-event-item:hover { background: #F5F8EF; border-color: var(--green-mid); box-shadow: 0 8px 20px rgba(54,60,42,0.06); transform: translateY(-1px); }
+.my-event-item:hover { background: var(--brand-tint-soft, #F5F8EF); border-color: var(--green-mid); box-shadow: 0 8px 20px rgba(var(--shadow-rgb,54,60,42),0.06); transform: translateY(-1px); }
 .my-event-info { flex: 1 1 200px; min-width: 0; }
 .my-event-name {
-  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: #23291F; word-break: break-word;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: var(--text-strong, #23291F); word-break: break-word;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .my-event-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; font-weight: 600; }
 .my-event-status { display:inline-block; font-size:0.68rem; font-weight:700; color:var(--green); background:var(--green-light); border:1px solid var(--green-mid); border-radius:4px; padding:1px 7px; }
 .my-event-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .my-event-open { white-space: nowrap; font-size: 0.82rem; padding: 7px 16px; }
-.my-event-remove { background: none; border: none; color: #C9C7BB; cursor: pointer; font-size: 1rem; padding: 4px; line-height: 1; transition: color 0.15s; }
+.my-event-remove { background: none; border: none; color: var(--text-faint, #C9C7BB); cursor: pointer; font-size: 1rem; padding: 4px; line-height: 1; transition: color 0.15s; }
 .my-event-remove:hover { color: var(--clay); }
 @media (max-width: 520px) {
   .my-event-info { flex-basis: 100%; }
@@ -844,7 +1001,7 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   padding: 9px 8px; border-radius: 999px; transition: all 0.18s;
   display: flex; align-items: center; justify-content: center; gap: 7px; font-family: var(--font-ui);
 }
-.my-event-tab.active { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(46,70,50,0.2); }
+.my-event-tab.active { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(var(--press-rgb,46,70,50),0.2); }
 .my-event-finish, .my-event-unfinish {
   white-space: nowrap; font-size: 0.74rem; padding: 5px 12px; border-radius: 999px;
   border: 1px solid var(--border); background: white; color: var(--text-muted); cursor: pointer; transition: all 0.15s;
@@ -863,8 +1020,8 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
 
 /* ── メニュー（機能ランチャー） ── */
 .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.menu-cta { display:flex; align-items:center; gap:14px; background:var(--green); color:#fff; border-radius:16px; padding:15px 18px; cursor:pointer; margin-bottom:20px; box-shadow:0 6px 16px rgba(45,66,40,0.2); transition:transform .12s, box-shadow .12s; }
-.menu-cta:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(45,66,40,0.28); }
+.menu-cta { display:flex; align-items:center; gap:14px; background:var(--green); color:#fff; border-radius:16px; padding:15px 18px; cursor:pointer; margin-bottom:20px; box-shadow:0 6px 16px rgba(var(--press-rgb,45,66,40),0.2); transition:transform .12s, box-shadow .12s; }
+.menu-cta:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(var(--press-rgb,45,66,40),0.28); }
 .menu-cta:active { transform:translateY(0); }
 .menu-cta-icon { width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .menu-cta-title { font-family:var(--font-display); font-weight:700; font-size:1.1rem; }
@@ -882,22 +1039,27 @@ tr.paid td:last-child { opacity: 1; text-decoration: none; }
   padding: 26px 16px; border: 1.5px solid var(--green-mid); border-radius: 16px; background: var(--surface-2);
   cursor: pointer; transition: all 0.18s; color: var(--forest);
 }
-.menu-tile:hover { background: var(--green-light); border-color: var(--green); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(54,60,42,0.08); }
-.menu-tile .mt-icon { width: 54px; height: 54px; border-radius: 15px; background: var(--green); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(45,66,40,0.2); }
+.menu-tile:hover { background: var(--green-light); border-color: var(--green); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(var(--shadow-rgb,54,60,42),0.08); }
+.menu-tile .mt-icon { width: 54px; height: 54px; border-radius: 15px; background: var(--green); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(var(--press-rgb,45,66,40),0.2); }
 .menu-tile .mt-title { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; }
 .menu-tile .mt-desc { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; font-weight: 400; }
 .menu-tile.soon { opacity: 0.55; cursor: default; border-style: dashed; }
 .menu-tile.soon:hover { transform: none; box-shadow: none; background: var(--surface-2); border-color: var(--green-mid); }
 /* OliveLounge 風：浮遊するフロスト調ナビ。絵文字なしのテキストタブ、アクティブはオリーブのピル
    SPは下部浮遊ピル、PC(≥768px)はヘッダー直下の上部横タブバーに切替（下のmedia queryで上書き） */
-#hostNav { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; top:auto; width:min(680px, calc(100% - 20px)); z-index:50; background:rgba(251,247,236,0.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--green-mid); border-radius:18px; box-shadow:0 10px 30px rgba(45,66,40,0.16); }
-#hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:5px; }
-.hostnav-btn { position:relative; display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:#6E7460; cursor:pointer; border-radius:13px; font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
+#hostNav { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; top:auto; width:min(680px, calc(100% - 20px)); z-index:50; background:rgba(var(--bg-rgb,251,247,236),0.94); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--green-mid); border-radius:18px; box-shadow:0 10px 30px rgba(var(--press-rgb,45,66,40),0.16); }
+#hostNav .hostnav-inner { display:grid; grid-template-columns:repeat(7,1fr) auto; gap:2px; padding:5px; }
+.hostnav-theme-btn { border:none; background:none; cursor:pointer; font-size:1.05rem; padding:6px 10px; border-radius:var(--nav-radius, 13px); }
+.hostnav-theme-btn:hover { background: var(--green-light); }
+.theme-menu { position:fixed; z-index:9999; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow); padding:6px; display:flex; flex-direction:column; gap:4px; min-width:150px; }
+.theme-menu button { display:flex; align-items:center; gap:8px; border:none; background:none; padding:9px 12px; border-radius:10px; cursor:pointer; font-size:0.88rem; font-weight:600; color:var(--text); text-align:left; }
+.theme-menu button:hover, .theme-menu button.on { background: var(--green-light); }
+.hostnav-btn { position:relative; display:flex; align-items:center; justify-content:center; border:none; background:none; padding:11px 2px; min-height:44px; color:var(--nav-text, #6E7460); cursor:pointer; border-radius:var(--nav-radius, 13px); font-size:0.74rem; font-weight:600; letter-spacing:0.02em; transition:background .18s, color .18s; }
 .hostnav-btn .hn-lbl { white-space:nowrap; }
 /* 参加者に公開中のビューを示すドット（作業画面のハイライトとは別軸。ゴールド＋背景色リングで緑・無地どちらでも視認可） */
-.hostnav-btn.live::after { content:''; position:absolute; top:6px; right:7px; width:7px; height:7px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 2px rgba(251,247,236,0.95); }
-.hostnav-btn:hover { background:rgba(110,116,96,0.10); color:var(--green); }
-.hostnav-btn.active { background:var(--green); color:#fff; box-shadow:0 3px 10px rgba(45,66,40,0.25); }
+.hostnav-btn.live::after { content:''; position:absolute; top:6px; right:7px; width:7px; height:7px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 2px rgba(var(--bg-rgb,251,247,236),0.95); }
+.hostnav-btn:hover { background:rgba(var(--muted-rgb,110,116,96),0.10); color:var(--green); }
+.hostnav-btn.active { background:var(--green); color:#fff; box-shadow:0 3px 10px rgba(var(--press-rgb,45,66,40),0.25); }
 body.has-hostnav { padding-bottom:80px; }
 /* 公開バー表示中はナビと二段重ねになり最下部（共有URL等）が隠れるため余白を増やす */
 body.publish-bar-open { padding-bottom:150px; }
@@ -906,9 +1068,9 @@ body.has-hostnav #gFrame { height:calc(100vh - 250px) !important; min-height:360
 @media (min-width:768px){
   /* PC：ホストナビをヘッダー直下の上部横タブバーに（SPは下部ピルのまま）
      top はヘッダー実寸に追従するよう CSS変数 --header-h を使用（M1修正） */
-  #hostNav { top:var(--header-h, 62px); bottom:auto; left:0; right:0; transform:none; width:100%; border-radius:0; border:none; border-bottom:1px solid var(--green-mid); box-shadow:0 3px 14px rgba(45,66,40,0.06); background:rgba(250,248,242,0.92); }
+  #hostNav { top:var(--header-h, 62px); bottom:auto; left:0; right:0; transform:none; width:100%; border-radius:0; border:none; border-bottom:1px solid var(--green-mid); box-shadow:0 3px 14px rgba(var(--press-rgb,45,66,40),0.06); background:rgba(var(--bg-rgb,250,248,242),0.92); }
   #hostNav .hostnav-inner { max-width:980px; margin:0 auto; gap:4px; padding:6px 12px; }
-  .hostnav-btn { font-size:0.82rem; padding:12px 4px; min-height:42px; border-radius:11px; }
+  .hostnav-btn { font-size:0.82rem; padding:12px 4px; min-height:42px; border-radius:var(--nav-radius-sm, 11px); }
   body.has-hostnav { padding-bottom:0; }
   body.publish-bar-open { padding-bottom:88px; } /* PCはナビが上部なので公開バー分だけ確保 */
   body.has-hostnav .page { padding-top:calc(var(--header-h, 62px) + 12px); }
@@ -930,14 +1092,14 @@ body.gourmet-open .header,
 body.gourmet-open .page { max-width: none; margin: 0; padding: 0; }
 body.gourmet-open #gourmetCard {
   position: fixed; inset: 0; z-index: 200; margin: 0;
-  border: none; border-radius: 0; box-shadow: none; background: #FDFBF6;
+  border: none; border-radius: 0; box-shadow: none; background: var(--surface-sunken, #FDFBF6);
   animation: none; overflow: hidden;
 }
 /* 「← メニューに戻る」バー：上部に固定高さで配置 */
 body.gourmet-open #gourmetCard > div:first-child {
   position: absolute; top: 0; left: 0; right: 0; height: 44px;
   display: flex; align-items: center; padding: 0 14px !important; margin: 0; z-index: 2;
-  background: #FDFBF6;
+  background: var(--surface-sunken, #FDFBF6);
 }
 /* iframe：バーの下から画面下端まで。置換要素はtop/bottomでは伸びないので高さを明示 */
 body.gourmet-open #gFrame {
@@ -957,6 +1119,10 @@ body.gourmet-open #gFrame {
   .menu-tile .mt-desc { display: block; font-size: 0.68rem; line-height: 1.4; }
   .card-title { font-size: 1.08rem; margin-bottom: 18px; }
   h1.header-logo { font-size: 1.1rem; }
+  /* ログイン中は右側（トップに戻る・アイコン・名前・ログアウト）が広く、ロゴが2行以上に折り返していた。
+     ロゴは折り返さず縮ませず、スマホでは名前を隠してアイコンだけにする */
+  #authName { display: none; }
+  #authArea, #authUser { gap: 6px !important; min-width: 0; }
   #viewTitle { font-size: 1.18rem; }
   .settle-summary { gap: 8px; }
   .settle-summary-item .val { font-size: 1.15rem; }
@@ -968,6 +1134,16 @@ body.gourmet-open #gFrame {
   .vote-btn { font-size: 0.95rem; padding: 4px 6px; }
   .toast { bottom: 16px; font-size: 0.85rem; padding: 11px 16px; }
 }
+/* さらに狭いスマホ：アイコンも隠し、ボタンの余白を詰めてロゴを1行に保つ */
+@media (max-width: 430px) {
+  #authAvatar { display: none; }
+}
+@media (max-width: 380px) {
+  #myEventsNavBtn { padding: 4px 8px !important; font-size: 0.72rem !important; }
+  #signOutBtn { padding: 3px 7px !important; font-size: 0.7rem !important; }
+}
+/* ヘッダー右側のボタンも折り返さない */
+#myEventsNavBtn, #signOutBtn { white-space: nowrap; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -1011,7 +1187,7 @@ body.gourmet-open #gFrame {
   <div class="menu-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="menu-tile" id="menuSettleBtn" role="button" tabindex="0">
       <div class="mt-icon">
-        <span style="color:#EFE5CD;font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
+        <span style="color:var(--deco-on-dark, #EFE5CD);font-size:30px;font-weight:700;line-height:1;font-family:var(--font-display);">¥</span>
       </div>
       <div class="mt-title">精算</div>
       <div class="mt-desc">日程調整なしで<wbr>割り勘・傾斜精算</div>
@@ -1020,12 +1196,12 @@ body.gourmet-open #gFrame {
       <div class="mt-icon">
         <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- 割り勘：2人＋送金矢印＋¥（誰から誰へ払うかの精算関係） -->
-          <circle cx="14" cy="26" r="7" stroke="#EFE5CD" stroke-width="5"/>
-          <path d="M4 50 C4 42 10 38 14 38 C18 38 24 42 24 50" stroke="#EFE5CD" stroke-width="5" stroke-linecap="round"/>
-          <circle cx="60" cy="26" r="7" stroke="#EFE5CD" stroke-width="5"/>
-          <path d="M50 50 C50 42 56 38 60 38 C64 38 70 42 70 50" stroke="#EFE5CD" stroke-width="5" stroke-linecap="round"/>
-          <path d="M27 32 H45 M45 32 L40 27 M45 32 L40 37" stroke="#EFE5CD" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M33 22 L36 24 L39 22 M36 24 V27" stroke="#EFE5CD" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="14" cy="26" r="7" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5"/>
+          <path d="M4 50 C4 42 10 38 14 38 C18 38 24 42 24 50" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="60" cy="26" r="7" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5"/>
+          <path d="M50 50 C50 42 56 38 60 38 C64 38 70 42 70 50" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5" stroke-linecap="round"/>
+          <path d="M27 32 H45 M45 32 L40 27 M45 32 L40 37" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M33 22 L36 24 L39 22 M36 24 V27" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="3" stroke-linecap="round"/>
         </svg>
       </div>
       <div class="mt-title">割り勘</div>
@@ -1034,11 +1210,11 @@ body.gourmet-open #gFrame {
     <div class="menu-tile" id="menuSeatingBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="22" y="22" width="30" height="30" rx="7" stroke="#EFE5CD" stroke-width="6"/>
-          <circle cx="37" cy="11" r="6" stroke="#EFE5CD" stroke-width="5"/>
-          <circle cx="37" cy="63" r="6" stroke="#EFE5CD" stroke-width="5"/>
-          <circle cx="11" cy="37" r="6" stroke="#EFE5CD" stroke-width="5"/>
-          <circle cx="63" cy="37" r="6" stroke="#EFE5CD" stroke-width="5"/>
+          <rect x="22" y="22" width="30" height="30" rx="7" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="6"/>
+          <circle cx="37" cy="11" r="6" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5"/>
+          <circle cx="37" cy="63" r="6" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5"/>
+          <circle cx="11" cy="37" r="6" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5"/>
+          <circle cx="63" cy="37" r="6" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="5"/>
         </svg>
       </div>
       <div class="mt-title">座席決め</div>
@@ -1049,12 +1225,12 @@ body.gourmet-open #gFrame {
         <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- お店検索：ナイフ×フォーク交差（±18°）。既存の全ストローク線画に整合、線幅 6/4 -->
           <g transform="rotate(-18 37 37)">
-            <path d="M31 12 V25 M37 12 V25 M43 12 V25 M31 25 H43" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M37 25 V66" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+            <path d="M31 12 V25 M37 12 V25 M43 12 V25 M31 25 H43" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M37 25 V66" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="6" stroke-linecap="round"/>
           </g>
           <g transform="rotate(18 37 37)">
-            <path d="M37 10 V66" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
-            <path d="M37 12 C45 17 45 29 37 33" stroke="#EFE5CD" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M37 10 V66" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="6" stroke-linecap="round"/>
+            <path d="M37 12 C45 17 45 29 37 33" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
           </g>
         </svg>
       </div>
@@ -1064,8 +1240,8 @@ body.gourmet-open #gFrame {
     <div class="menu-tile" id="menuAnnounceBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <svg width="30" height="30" viewBox="0 0 74 74" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M37 11 C26 11 20 19 20 31 L20 44 L14 52 L60 52 L54 44 L54 31 C54 19 48 11 37 11 Z" stroke="#EFE5CD" stroke-width="6" stroke-linejoin="round"/>
-          <path d="M30 58 a7 7 0 0 0 14 0" stroke="#EFE5CD" stroke-width="6" stroke-linecap="round"/>
+          <path d="M37 11 C26 11 20 19 20 31 L20 44 L14 52 L60 52 L54 44 L54 31 C54 19 48 11 37 11 Z" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="6" stroke-linejoin="round"/>
+          <path d="M30 58 a7 7 0 0 0 14 0" style="stroke:var(--deco-on-dark, #EFE5CD)" stroke-width="6" stroke-linecap="round"/>
         </svg>
       </div>
       <div class="mt-title">お知らせ</div>
@@ -1074,11 +1250,11 @@ body.gourmet-open #gFrame {
     <div class="menu-tile" id="menuOrderAiBtn" role="button" tabindex="0">
       <div class="mt-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="5" y="3" width="14" height="18" rx="2.5" stroke="#EDF1E4" stroke-width="2"/>
-          <line x1="9" y1="8" x2="15" y2="8" stroke="#EDF1E4" stroke-width="2" stroke-linecap="round"/>
-          <line x1="9" y1="12" x2="15" y2="12" stroke="#EDF1E4" stroke-width="2" stroke-linecap="round"/>
-          <line x1="9" y1="16" x2="12" y2="16" stroke="#EDF1E4" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="15.8" cy="16" r="1.3" fill="#D9A73E"/>
+          <rect x="5" y="3" width="14" height="18" rx="2.5" style="stroke:var(--on-dark, #EDF1E4)" stroke-width="2"/>
+          <line x1="9" y1="8" x2="15" y2="8" style="stroke:var(--on-dark, #EDF1E4)" stroke-width="2" stroke-linecap="round"/>
+          <line x1="9" y1="12" x2="15" y2="12" style="stroke:var(--on-dark, #EDF1E4)" stroke-width="2" stroke-linecap="round"/>
+          <line x1="9" y1="16" x2="12" y2="16" style="stroke:var(--on-dark, #EDF1E4)" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="15.8" cy="16" r="1.3" style="fill:var(--deco-gold, #D9A73E)"/>
         </svg>
       </div>
       <div class="mt-title">注文提案</div>
@@ -1169,6 +1345,13 @@ body.gourmet-open #gFrame {
     <button class="btn btn-ghost" id="addPresetParticipantBtn" style="margin-top:6px;">＋ 参加者を追加</button>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-schedule" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-schedule" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createBtn" style="padding:14px;">
     イベントを作成してリンクを発行
   </button>
@@ -1193,6 +1376,13 @@ body.gourmet-open #gFrame {
     <div id="settleDraftBox"></div>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-settle" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-settle" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createSettleBtn" style="padding:14px;">精算表を作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
@@ -1205,6 +1395,13 @@ body.gourmet-open #gFrame {
   <div class="field">
     <label>タイトル</label>
     <input type="text" id="announceName" placeholder="例：新年会のご案内">
+  </div>
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-announce" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-announce" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
   </div>
   <button class="btn btn-primary btn-full" id="createAnnounceBtn" style="padding:14px;">お知らせを作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
@@ -1232,7 +1429,7 @@ body.gourmet-open #gFrame {
   <input type="text" id="orderMoodInput" placeholder="例: 肉多め・お酒に合う・さっぱりめ" style="margin-bottom:14px;">
   <button class="btn btn-primary btn-full" id="orderSuggestBtn">注文プランを提案してもらう</button>
   <div id="orderPlanLoading" style="display:none;text-align:center;padding:14px;color:var(--text-muted);">メニューを調べています…（20〜40秒）</div>
-  <div id="orderPlanError" style="display:none;margin-top:10px;padding:10px;background:#FDF2E9;border:1px solid #F0B090;border-radius:6px;">
+  <div id="orderPlanError" style="display:none;margin-top:10px;padding:10px;background:var(--clay-tint, #FDF2E9);border:1px solid var(--clay-border, #F0B090);border-radius:6px;">
     <div id="orderPlanErrorText" style="font-size:0.85rem;color:var(--text);"></div>
     <button class="btn btn-secondary" id="orderRetryBtn" style="margin-top:8px;">再試行</button>
   </div>
@@ -1259,6 +1456,13 @@ body.gourmet-open #gFrame {
     <div id="walicaDraftBox"></div>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-walica" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-walica" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createWalicaBtn" style="padding:14px;">割り勘を作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
@@ -1281,6 +1485,13 @@ body.gourmet-open #gFrame {
     <div id="seatingDraftBox"></div>
   </div>
 
+  <div class="field theme-pick" data-theme-pick>
+    <label>テーマ</label>
+    <div class="theme-pick-row">
+      <label class="theme-pick-opt"><input type="radio" name="themePick-seating" value="olive" checked><span class="tp-swatch tp-olive"></span>オリーブ</label>
+      <label class="theme-pick-opt"><input type="radio" name="themePick-seating" value="chiikawa"><span class="tp-swatch tp-chiikawa"></span>ちいかわ</label>
+    </div>
+  </div>
   <button class="btn btn-primary btn-full" id="createSeatingBtn" style="padding:14px;">座席決めを作成</button>
   <p class="login-note" style="display:none;">🔑 作成にはログインが必要です（未ログインのときはログイン後そのまま作成されます）<br><button type="button" class="login-note-btn">ログイン / 新規登録</button></p>
 </div>
@@ -1292,7 +1503,7 @@ body.gourmet-open #gFrame {
     <h2 class="card-title" id="gourmetTitle" style="display:none;margin:10px 0 0;">お店検索</h2>
   </div>
   <iframe id="gFrame" title="お店検索（食べログ）" allow="geolocation; clipboard-write"
-          style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:#FDFBF6;"></iframe>
+          style="width:100%;border:none;display:block;height:calc(100vh - 150px);min-height:540px;background:var(--surface-sunken, #FDFBF6);"></iframe>
 </div>
 
 <!-- 回答カード -->
@@ -1303,7 +1514,7 @@ body.gourmet-open #gFrame {
       <h2 id="viewTitle" style="margin:0;font-size:inherit;font-weight:inherit;color:inherit;">出欠を回答する</h2>
       <button id="editTitleBtn" class="host-only" style="display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">編集</button>
     </div>
-    <div id="hostBadge" style="display:none;background:#C0705A;color:white;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:0.04em;">HOST</div>
+    <div id="hostBadge" style="display:none;background:var(--host-badge, #C0705A);color:white;font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:0.04em;">HOST</div>
   </div>
 
   <div id="memoWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.88rem;color:var(--text);line-height:1.6;">
@@ -1321,9 +1532,9 @@ body.gourmet-open #gFrame {
   <!-- ホスト専用：共同ホスト管理（ホスト専用URL方式） -->
   <!-- 共同ホスト管理パネルは非表示（ユーザー要望 2026-07-17）。招待はホスト専用URL（各共有欄に表示）で行う。
        共同ホストの解除UIが再度必要になったら class="host-only" を戻せば復活する -->
-  <div id="coHostWrap" style="display:none;background:#fff8f0;border:1px solid #f5d5a0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
-    <div style="font-size:0.8rem;font-weight:600;color:#b8860b;margin-bottom:8px;">共同ホスト管理</div>
-    <div style="font-size:0.75rem;color:#8a6d3b;margin-bottom:8px;line-height:1.5;">共同ホストにしたい人には下の「ホスト専用URL」を共有してください。開いた人がホストになります（ログイン不要）。</div>
+  <div id="coHostWrap" style="display:none;background:var(--gold-tint, #fff8f0);border:1px solid var(--gold-tint-strong, #f5d5a0);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
+    <div style="font-size:0.8rem;font-weight:600;color:var(--gold-text, #b8860b);margin-bottom:8px;">共同ホスト管理</div>
+    <div style="font-size:0.75rem;color:var(--gold-text, #8a6d3b);margin-bottom:8px;line-height:1.5;">共同ホストにしたい人には下の「ホスト専用URL」を共有してください。開いた人がホストになります（ログイン不要）。</div>
     <div id="coHostUrlList"></div>
     <div class="host-url-row" style="display:none;margin-top:10px;">
       <div style="display:flex;gap:8px;">
@@ -1337,11 +1548,11 @@ body.gourmet-open #gFrame {
   <div id="tableWrap"><p class="loading">読み込み中</p></div>
 
   <div class="legend" id="voteLegend">
-    <div class="legend-item"><span style="color:#3D5A3A;font-size:1rem;">◯</span> 参加できる（1pt）</div>
-    <div class="legend-item"><span style="color:var(--gold);font-size:1rem;">△</span> おそらく参加可能（0.5pt）</div>
-    <div class="legend-item"><span style="color:#C0705A;font-size:1rem;">✕</span> 参加できない（0pt）</div>
+    <div class="legend-item"><span class="vmark vmark-o" style="color:var(--vote-yes, #3D5A3A);font-size:1rem;">◯</span> 参加できる（1pt）</div>
+    <div class="legend-item"><span class="vmark vmark-t" style="color:var(--gold);font-size:1rem;">△</span> おそらく参加可能（0.5pt）</div>
+    <div class="legend-item"><span class="vmark vmark-x" style="color:var(--vote-no, #C0705A);font-size:1rem;">✕</span> 参加できない（0pt）</div>
     <div class="legend-item"><span style="color:var(--gold);">★</span> 最高得点日</div>
-    <div class="legend-item host-only" style="display:none;margin-top:4px;width:100%;background:#f4f8e8;border:1px solid var(--green-mid);border-radius:6px;padding:6px 10px;font-size:0.8rem;color:var(--green);">
+    <div class="legend-item host-only" style="display:none;margin-top:4px;width:100%;background:var(--brand-tint, #f4f8e8);border:1px solid var(--green-mid);border-radius:6px;padding:6px 10px;font-size:0.8rem;color:var(--green);">
       日付の横の <b>確定</b> ボタンを押すと開催日を確定できます
     </div>
   </div>
@@ -1353,7 +1564,7 @@ body.gourmet-open #gFrame {
       <line x1="9" y1="30" x2="65" y2="30" stroke="currentColor" stroke-width="5.5"/>
       <line x1="25" y1="9" x2="25" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
       <line x1="49" y1="9" x2="49" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
-      <circle cx="37" cy="48" r="7.5" fill="#B0883A"/>
+      <circle cx="37" cy="48" r="7.5" style="fill:var(--deco-gold, #B0883A)"/>
     </svg>Googleカレンダーに追加
   </a>
 
@@ -1590,7 +1801,7 @@ body.gourmet-open #gFrame {
   <div id="seatingPartyTabs" class="my-event-tabs" style="flex-wrap:wrap;margin-bottom:14px;"></div>
 
   <!-- 結果（参加者・ホスト共通で表示） -->
-  <div class="field" style="margin-bottom:20px;">
+  <div class="field" id="seatingResultField" style="margin-bottom:20px;">
     <label>座席表<span id="seatingKeishoNote" style="display:none;font-weight:400;text-transform:none;letter-spacing:0;">（敬称略）</span></label>
     <div id="seatingResult"></div>
   </div>
@@ -1656,11 +1867,11 @@ body.gourmet-open #gFrame {
 <!-- お知らせ（集合時間・お店） -->
 <div class="card" id="announceCard" style="display:none;">
   <div class="card-title" id="announceCardTitle">集合時間・お店のお知らせ</div>
-  <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
+  <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span class="ann-date-label" style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
 
   <!-- お店・行き方（参加者には内容があるときだけ表示） -->
   <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:#5C7A4E;margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
+    <div class="venue-head" style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:var(--text-label, #5C7A4E);margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
     <div id="venueMeetTimeRow" style="display:none;font-size:0.95rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">集合時間：</span><span id="venueMeetTimeText" style="font-weight:700;color:var(--green);"></span></div>
     <div id="venueMeetPlaceRow" style="display:none;font-size:0.95rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">集合場所：</span><span id="venueMeetPlaceText" style="font-weight:700;color:var(--green);"></span></div>
     <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
@@ -1684,7 +1895,7 @@ body.gourmet-open #gFrame {
   </div>
 
   <!-- お店の概要・おすすめメニュー（AI要約、参加者向け） -->
-  <div id="participantBriefSection" style="display:none; margin-top:14px; padding:14px; background:#FBF7EC; border:1px solid var(--border); border-radius:10px;">
+  <div id="participantBriefSection" style="display:none; margin-top:14px; padding:14px; background:var(--panel-cream, #FBF7EC); border:1px solid var(--border); border-radius:10px;">
     <div style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">📖 お店の概要</div>
     <p id="participantBriefOverview" style="font-size:0.86rem; line-height:1.7; color:var(--text); margin:0 0 12px;"></p>
     <div id="participantBriefDishesLabel" style="font-size:0.85rem; font-weight:700; color:var(--green); margin-bottom:6px;">🍽 おすすめメニュー</div>
@@ -1693,7 +1904,7 @@ body.gourmet-open #gFrame {
       ※ AIによる自動要約のため、実際の情報と異なる場合があります。
     </div>
   </div>
-  <div id="announceEmpty" class="empty-msg" style="display:none;">集合時間・お店はまだ設定されていません。</div>
+  <div id="announceEmpty" class="empty-msg" style="display:none;"><span class="theme-art-slot" data-kind="empty"></span>集合時間・お店はまだ設定されていません。</div>
 
   <!-- ホスト専用：お店・行き方の入力 -->
   <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
@@ -1755,8 +1966,8 @@ body.gourmet-open #gFrame {
         </div>
       </details>
 
-      <div id="venueBriefError" style="display:none; margin-top:10px; padding:10px; background:#FDF2E9; border:1px solid #F0B090; border-radius:6px;">
-        <div style="font-size:0.85rem; color:#C05010; margin-bottom:8px;">
+      <div id="venueBriefError" style="display:none; margin-top:10px; padding:10px; background:var(--clay-tint, #FDF2E9); border:1px solid var(--clay-border, #F0B090); border-radius:6px;">
+        <div style="font-size:0.85rem; color:var(--clay-text, #C05010); margin-bottom:8px;">
           店の情報を取得できませんでした。<span id="briefErrorDetail"></span>
         </div>
         <button id="retryVenueBriefBtn" class="btn btn-secondary" type="button" style="width:100%;">再取得</button>
@@ -1772,7 +1983,7 @@ body.gourmet-open #gFrame {
       <line x1="9" y1="30" x2="65" y2="30" stroke="currentColor" stroke-width="5.5"/>
       <line x1="25" y1="9" x2="25" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
       <line x1="49" y1="9" x2="49" y2="21" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"/>
-      <circle cx="37" cy="48" r="7.5" fill="#B0883A"/>
+      <circle cx="37" cy="48" r="7.5" style="fill:var(--deco-gold, #B0883A)"/>
     </svg>Googleカレンダーに追加
   </a>
 
@@ -1795,7 +2006,7 @@ body.gourmet-open #gFrame {
 
 <div id="publishBar" style="display:none;position:fixed;left:0;right:0;bottom:74px;z-index:49;pointer-events:none;">
   <div style="max-width:760px;margin:0 auto;padding:8px 14px;text-align:center;">
-    <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(45,66,40,0.25);">この画面を参加者に表示</button>
+    <button type="button" id="publishViewBtn" class="btn btn-primary" style="pointer-events:auto;box-shadow:0 4px 14px rgba(var(--press-rgb,45,66,40),0.25);">この画面を参加者に表示</button>
   </div>
 </div>
 
@@ -1808,6 +2019,7 @@ body.gourmet-open #gFrame {
     <button type="button" class="hostnav-btn" data-view="seating"><span class="hn-lbl">座席</span></button>
     <button type="button" class="hostnav-btn" data-view="walica"><span class="hn-lbl">割り勘</span></button>
     <button type="button" class="hostnav-btn" data-view="settle"><span class="hn-lbl">精算</span></button>
+    <button type="button" class="hostnav-theme-btn" id="themeNavBtn" aria-label="テーマを変える" title="テーマを変える">🎨</button>
   </div>
 </nav>
 
@@ -1912,9 +2124,12 @@ body.gourmet-open #gFrame {
   // ── ユーティリティ ──────────────────────────
 
   let _toastTimer = null;
-  function showToast(msg) {
+  function showToast(msg, opts) {
     const t = document.getElementById('toast');
     t.textContent = msg;
+    // ちいかわのイベントでは CSS が data-art の番号のキャラ（12体）を出す。他のテーマでは何も起きない
+    if (opts && opts.art) t.dataset.art = String(Math.floor(Math.random() * 12));
+    else delete t.dataset.art;
     t.classList.add('show');
     // 長文（コピー失敗時の操作案内など）が読み切れないよう、文字数に応じて表示時間を延ばす
     if (_toastTimer) clearTimeout(_toastTimer);
@@ -3335,6 +3550,151 @@ body.gourmet-open #gFrame {
     goToMenu(); // 認証解決前でもメニューを表示
   }
 
+  // ── テーマ（イベントごと） ──
+  const DECO_KINDS = ['deco-footer', 'deco-member', 'deco-expense', 'deco-settle', 'deco-seat', 'deco-venue', 'deco-confirm', 'deco-date'];
+  const TOAST_ART_KINDS = Array.from({ length: 12 }, (_, i) => 'toast-' + i);
+  // 画像は themes/ の下に置く。オーナーが用意し、無ければ表示しない。
+  const THEMES = {
+    olive: { label: 'オリーブ', metaColor: '#3D5A3A' }, // theme-literal-ok
+    chiikawa: {
+      label: 'ちいかわ', metaColor: '#46749F', // theme-literal-ok
+      fontHref: 'https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap',
+      images: {
+        header: 'chiikawa/header.png', 'header-wide': 'chiikawa/header-wide.png', empty: 'chiikawa/empty.png', celebrate: 'chiikawa/celebrate.png',
+        // 画面ごとの空の画面（無い画面は empty を使う）
+        'empty-sleep': 'chiikawa/empty-sleep.png', 'empty-tools': 'chiikawa/empty-tools.png',
+        // ◯△✕ の代わりに出す顔（◯ちいかわ・✕ハチワレ・△うさぎ）
+        'vote-o': 'chiikawa/vote-o.png', 'vote-t': 'chiikawa/vote-t.png', 'vote-x': 'chiikawa/vote-x.png',
+        'empty-lying': 'chiikawa/empty-lying.png', 'empty-field': 'chiikawa/empty-field.png',
+        // 飾り（カード下の列・見出し・確定の印・開催日）と、通知に出すキャラ12体
+        ...Object.fromEntries(DECO_KINDS.map(k => [k, `chiikawa/${k}.png`])),
+        ...Object.fromEntries(TOAST_ART_KINDS.map(k => [k, `chiikawa/${k}.png`])),
+      },
+    },
+  };
+
+  // 未設定・知らない値・大文字違いはオリーブ。既存イベントの移行は要らない。
+  function normalizeTheme(value) {
+    return value === 'chiikawa' ? 'chiikawa' : 'olive';
+  }
+
+  // 画像はリポジトリ直下の themes/ にある。promote.sh は index.html と sw.js しか本番に
+  // コピーしないので test/ には置けず、test のページからは1つ上をたどる。
+  function themeAssetBase(pathname) {
+    return /\/test\//.test(pathname || '') ? '../themes/' : 'themes/';
+  }
+
+  function themeAssetUrl(theme, kind, pathname) {
+    const images = THEMES[normalizeTheme(theme)].images;
+    const rel = images && images[kind];
+    return rel ? themeAssetBase(pathname) + rel : '';
+  }
+
+  let currentTheme = 'olive';
+
+  // 空の画面などに添えるキャラクター画像。オリーブ（画像なし）では空文字を返す。
+  // 読み込めなければ onerror で自分を消し、枠だけが残らないようにする（画像の到着前でも崩れない）。
+  function themeArtHtml(kind) {
+    const url = themeAssetUrl(currentTheme, kind, location.pathname);
+    if (!url) return '';
+    const cls = kind.startsWith('empty-') ? `theme-art-empty theme-art-${kind}` : `theme-art-${kind}`;
+    return `<img class="theme-art ${cls}" src="${escHtml(url)}" alt="" onerror="this.remove()">`;
+  }
+
+  // 座席のシャッフル完了時のお祝い（日程の確定時には出さない）。紙吹雪と同じ約2秒で消える。
+  // 画像が読み込めてから暗幕ごと出すので、読み込めなければ何も出ない（暗幕だけが残らない）。
+  function showThemeCelebration() {
+    const url = themeAssetUrl(currentTheme, 'celebrate', location.pathname);
+    if (!url) return;
+    const img = new Image();
+    img.onload = () => {
+      const ov = document.createElement('div');
+      ov.className = 'theme-celebrate';
+      ov.setAttribute('aria-hidden', 'true');
+      img.className = 'theme-art theme-art-celebrate';
+      img.alt = '';
+      ov.appendChild(img);
+      document.body.appendChild(ov);
+      setTimeout(() => ov.remove(), 2000);
+    };
+    img.src = url;
+  }
+
+  // ヘッダーのロゴの差し替え。テーマが変わったときだけ読み直す（毎回外すとスナップショットの
+  // たびに一瞬オリーブのロゴに戻ってしまうため）。読み込めなければ従来のロゴのまま。
+  let headerArtTheme = null;
+  function refreshThemeArt() {
+    const root = document.documentElement;
+    if (currentTheme !== headerArtTheme) {
+      headerArtTheme = currentTheme;
+      root.classList.remove('has-header-art');
+      const url = themeAssetUrl(currentTheme, 'header', location.pathname);
+      if (url) {
+        const t = currentTheme;
+        const probe = new Image();
+        probe.onload = () => {
+          if (currentTheme !== t) return; // 読み込み中にテーマが変わった
+          root.style.setProperty('--header-art', `url("${url}")`);
+          root.classList.add('has-header-art');
+        };
+        probe.src = url;
+      }
+      loadArtSet('has-header-wide', ['header-wide']); // ロゴの3人並び（狭い画面では1人に戻す）
+      loadArtSet('has-vote-art', ['vote-o', 'vote-t', 'vote-x']); // 1枚でも欠ければ記号のまま
+      loadArtSet('has-deco-art', DECO_KINDS);
+      loadArtSet('has-toast-art', TOAST_ART_KINDS);
+    }
+    // 静的な空の画面（お知らせ）に置いた差し込み口を埋める
+    document.querySelectorAll('.theme-art-slot').forEach(slot => { slot.innerHTML = themeArtHtml(slot.dataset.kind); });
+  }
+
+  // 画像の組を読み込み、全部読めたときだけ html に印のクラス（cls）を付けて CSS の --art-<種類> に渡す。
+  // 一部だけ表示されて崩れることがないよう、1枚でも読めなければ何も変えない。
+  function loadArtSet(cls, kinds) {
+    const root = document.documentElement;
+    root.classList.remove(cls);
+    const urls = kinds.map(k => themeAssetUrl(currentTheme, k, location.pathname));
+    if (!urls.every(Boolean)) return;
+    const t = currentTheme;
+    Promise.all(urls.map(u => new Promise((ok, ng) => {
+      const im = new Image(); im.onload = ok; im.onerror = ng; im.src = u;
+    }))).then(() => {
+      if (currentTheme !== t) return; // 読み込み中にテーマが変わった
+      kinds.forEach((k, i) => root.style.setProperty('--art-' + k, `url("${urls[i]}")`));
+      root.classList.add(cls);
+    }).catch(() => {});
+  }
+
+  // イベントのテーマを当てる。イベントのデータを受け取るたびに呼ばれるので、何度呼んでも同じ結果になる。
+  // イベントの外（トップ・マイイベント）は ?event= の無い別の読み込みなので、ここは呼ばれずオリーブのまま。
+  function applyTheme(theme) {
+    const t = normalizeTheme(theme);
+    currentTheme = t;
+    const root = document.documentElement;
+    if (t === 'olive') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', t);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', THEMES[t].metaColor);
+    // フォントはそのテーマのときだけ読む（オリーブの人に余計な通信をさせない）
+    const href = THEMES[t].fontHref;
+    if (href && !document.querySelector(`link[data-theme-font="${t}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.dataset.themeFont = t;
+      document.head.appendChild(link);
+    }
+    // 次に開いたとき、データを待たずに先に当てるための記録（<head> の先読みスクリプトが読む）
+    // 記録はちいかわのときだけ（オリーブは何も残さない＝キーが増え続けない）
+    try {
+      if (eventId) {
+        if (t === 'olive') localStorage.removeItem('chouseikun_theme_' + eventId);
+        else localStorage.setItem('chouseikun_theme_' + eventId, t);
+      }
+    } catch (_) {}
+    refreshThemeArt();
+  }
+
   // ── イベント作成 ──────────────────────────────
 
   // 作成イベントのFirestoreドキュメントを組み立てる純粋関数（DOM・認証に非依存）。
@@ -3349,6 +3709,8 @@ body.gourmet-open #gFrame {
       return participants;
     };
     const base = { name: p.name || '', dates: [], memo: '', participants: {}, ownerUids: [uid], confirmedDate: null, participantOrder: [] };
+    // テーマはちいかわのときだけ持たせる（オリーブは未設定のまま＝既存イベントと同じ形）
+    if (normalizeTheme(p.theme) === 'chiikawa') base.theme = 'chiikawa';
     switch (actionId) {
       case 'schedule': {
         const dates = p.dates || [];
@@ -3404,11 +3766,56 @@ body.gourmet-open #gFrame {
       // サマリも一緒に書いておくと、一覧描画でこのイベントを読み直さずに済む
       await addMyEvent(evId, docData.name, true, myEventSummary(docData))
         .catch(e => console.warn('マイイベントへの記録に失敗:', e));
+      // 作成者が開いた最初の一瞬だけオリーブに見えないよう、新しいIDのテーマを先に記録する
+      try { if (docData.theme === 'chiikawa') localStorage.setItem('chouseikun_theme_' + evId, 'chiikawa'); } catch (_) {}
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       if (btn && info) { btn.textContent = info.label; btn.disabled = false; }
       showToast('作成に失敗しました'); console.error(e);
     }
+  }
+
+  // ナビの🎨：ホストだけがイベントのテーマを変える（ナビ自体がホストにしか出ない）。
+  // 書き込みはホストのみ通る（Firestore ルールの isOwner）。参加者の画面には出ない。
+  function openThemeMenu(anchor) {
+    document.querySelector('.theme-menu')?.remove();
+    const menu = document.createElement('div');
+    menu.className = 'theme-menu';
+    menu.innerHTML = Object.entries(THEMES).map(([key, t]) =>
+      `<button type="button" data-theme-choice="${key}" class="${key === currentTheme ? 'on' : ''}">` +
+      `<span class="tp-swatch tp-${key}"></span>${escHtml(t.label)}</button>`).join('');
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    const top = r.top - menu.offsetHeight - 8;
+    menu.style.top = `${top > 8 ? top : r.bottom + 8}px`;
+    menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
+    const close = (e) => {
+      if (menu.contains(e.target) || e.target === anchor) return;
+      menu.remove(); document.removeEventListener('click', close, true);
+    };
+    setTimeout(() => document.addEventListener('click', close, true), 0);
+    menu.querySelectorAll('[data-theme-choice]').forEach(b => b.addEventListener('click', async () => {
+      const next = normalizeTheme(b.dataset.themeChoice);
+      menu.remove(); document.removeEventListener('click', close, true);
+      if (next === currentTheme || !isHost || !eventId) return;
+      const prev = currentTheme;
+      applyTheme(next); // 先に見た目を変え、失敗したら戻す
+      try {
+        // オリーブは保存しない（テーマ未設定＝オリーブ）。フィールドごと消す
+        await updateDoc(doc(db, 'events', eventId), { theme: next === 'olive' ? deleteField() : next });
+        showToast(`テーマを「${THEMES[next].label}」にしました`);
+      } catch (e) {
+        applyTheme(prev);
+        showToast('テーマを変えられませんでした'); console.error(e);
+      }
+    }));
+  }
+  document.getElementById('themeNavBtn')?.addEventListener('click', e => openThemeMenu(e.currentTarget));
+
+  // 作成画面のテーマ選択。カードごとに独立したラジオなので、作成ボタンのあるカードから読む。
+  function pickedTheme(cardId) {
+    const el = document.querySelector(`#${cardId} [data-theme-pick] input[type="radio"]:checked`);
+    return normalizeTheme(el ? el.value : 'olive');
   }
 
   // ログイン必須の作成を実行。未ログインなら入力内容を保留してログイン→復帰後に自動継続する
@@ -3459,7 +3866,7 @@ body.gourmet-open #gFrame {
       if (err) { showToast(`事前参加者「${pName}」：${err}`); return; }
     }
     const memo = document.getElementById('eventMemo').value.trim();
-    submitCreate('schedule', { name, memo, dates, presetNames });
+    submitCreate('schedule', { name, memo, dates, presetNames, theme: pickedTheme('setupCard') });
   });
 
   // ── 精算のみ：作成 ──
@@ -3479,14 +3886,14 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    submitCreate('settle', { name, members });
+    submitCreate('settle', { name, members, theme: pickedTheme('settleSetupCard') });
   });
 
   // お知らせを作成（日程調整なし・集合/お店のみ）
   document.getElementById('createAnnounceBtn')?.addEventListener('click', () => {
     const name = (document.getElementById('announceName')?.value || '').trim();
     if (!name) { showToast('タイトルを入力してください'); return; }
-    submitCreate('announce', { name });
+    submitCreate('announce', { name, theme: pickedTheme('announceSetupCard') });
   });
 
   // 立替・割り勘を作成
@@ -3505,7 +3912,7 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    submitCreate('walica', { name, members });
+    submitCreate('walica', { name, members, theme: pickedTheme('walicaSetupCard') });
   });
 
   // 座席決めを作成
@@ -3524,7 +3931,7 @@ body.gourmet-open #gFrame {
       if (seen.has(k)) { showToast(`メンバー名が重複しています：${m}`); return; }
       seen.add(k);
     }
-    submitCreate('seating', { name, members });
+    submitCreate('seating', { name, members, theme: pickedTheme('seatingSetupCard') });
   });
 
   function copyText(text, btnEl, label) {
@@ -3729,6 +4136,7 @@ body.gourmet-open #gFrame {
 
     onSnapshot(eventRef, (snap) => {
       if (!snap.exists()) {
+        applyTheme('olive'); // 先読みで当たったちいかわを、存在しないイベントには残さない
         document.getElementById('viewCard').style.display = 'block';
         document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">イベントが見つかりません</p>';
         // 投票の凡例（◯△✕）はイベントが無い時には無関係なので隠す
@@ -3739,6 +4147,8 @@ body.gourmet-open #gFrame {
       const data = snap.data();
       latestEventData = data;
       lastServerEventData = data;
+      // 描画より先にテーマを当てる（空の画面の画像などが currentTheme を見るため）
+      applyTheme(data.theme);
       currentDates = data.dates;
       currentParticipantOrder = data.participantOrder || [];
 
@@ -3780,7 +4190,7 @@ body.gourmet-open #gFrame {
         showEventPage('schedule');
         const legendEl = document.getElementById('voteLegend');
         if (legendEl) legendEl.style.display = 'none';
-        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty-field') + '精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
         return;
       }
       showEventPage(view);
@@ -3792,7 +4202,7 @@ body.gourmet-open #gFrame {
         const showCreate = participantView === 'scheduleCreate';
         createNavBtn.style.display = showCreate ? '' : 'none';
         const navInner = document.querySelector('#hostNav .hostnav-inner');
-        if (navInner) navInner.style.gridTemplateColumns = `repeat(${showCreate ? 7 : 6}, 1fr)`;
+        if (navInner) navInner.style.gridTemplateColumns = `repeat(${showCreate ? 7 : 6}, 1fr) auto`;
       }
       syncHostNav(view);
       updatePublishBar(view, data);
@@ -3984,7 +4394,7 @@ body.gourmet-open #gFrame {
       const prepMode = (view === 'scheduleCreate' && !isHost); // 参加者：準備中
       if (legendEl) legendEl.style.display = prepMode ? 'none' : '';
       if (prepMode) {
-        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">日程調整の準備中です。しばらくお待ちください。</p>';
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty-sleep') + '日程調整の準備中です。しばらくお待ちください。</p>';
       } else {
         renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
       }
@@ -4226,7 +4636,7 @@ body.gourmet-open #gFrame {
         ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueCourseInput','venueNoteInput','announceEventDateInput'].forEach(id => {
           const el = document.getElementById(id); if (el) el.dataset.dirty = '';
         });
-        showToast((shop || note || meetTime || meetPlace || eventDate) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
+        showToast((shop || note || meetTime || meetPlace || eventDate) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました', { art: true });
       } catch (e) { showToast('保存に失敗しました'); console.error(e); }
     });
 
@@ -4481,8 +4891,8 @@ body.gourmet-open #gFrame {
   function bulkVoteRowHtml(name) {
     const attr = name === undefined ? '' : ` data-bulk-name="${escHtml(name)}"`;
     return `<div class="bulk-vote-row">
-        <button type="button" class="bulk-vote-btn circle" data-bulk="o"${attr} aria-label="全ての候補日を参加できるにする">全て◯</button>
-        <button type="button" class="bulk-vote-btn cross" data-bulk="x"${attr} aria-label="全ての候補日を参加できないにする">全て✕</button>
+        <button type="button" class="bulk-vote-btn circle" data-bulk="o"${attr} aria-label="全ての候補日を参加できるにする">全て<span class="vmark vmark-o">◯</span></button>
+        <button type="button" class="bulk-vote-btn cross" data-bulk="x"${attr} aria-label="全ての候補日を参加できないにする">全て<span class="vmark vmark-x">✕</span></button>
       </div>`;
   }
 
@@ -4539,7 +4949,7 @@ body.gourmet-open #gFrame {
       const deleteDateBtn = isHost
         ? `<button class="date-del-btn" data-date-idx="${i}">削除</button>`
         : '';
-      const confirmedFlag = isConfirmed ? '<span class="confirmed-flag">🎉 確定</span>' : '';
+      const confirmedFlag = isConfirmed ? '<span class="confirmed-flag"><span class="cf-emoji">🎉</span> 確定</span>' : '';
       return `<tr class="${isConfirmed?'confirmed-row':''}">
         <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${confirmedFlag}${dateLabel}${confirmBtn}${deleteDateBtn}</td>
         ${cells}
@@ -4729,7 +5139,7 @@ body.gourmet-open #gFrame {
                 const order = (Array.isArray(data.participantOrder) ? data.participantOrder : []).map(n => n === name ? newName : n);
                 tx.update(ref, { participants: ps, participantOrder: order });
               });
-              showToast('変更を保存しました');
+              showToast('変更を保存しました', { art: true });
             } catch (e) {
               if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
               else if (e.message === 'GONE') showToast('対象の参加者が見つかりません');
@@ -4787,7 +5197,7 @@ body.gourmet-open #gFrame {
             }
           });
           delBtn.classList.remove('visible');
-          showToast('変更を保存しました');
+          showToast('変更を保存しました', { art: true });
           if (rerenderCurrentEvent) rerenderCurrentEvent(); // 最新データで再描画（同値保存でも◯△✕が消えないように）
         } else {
           // 編集モード開始：投票ボタンを出す。保存は下部の「登録する」で行う（上部の「完了」は廃止）
@@ -5083,7 +5493,7 @@ body.gourmet-open #gFrame {
     const list = document.getElementById('walicaExpenseList');
     const expenses = (data.expenses || []).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     if (!expenses.length) {
-      list.innerHTML = '<div class="wl-empty">まだ立替がありません。「＋ 立替を追加」から記録してください。</div>';
+      list.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty-tools') + 'まだ立替がありません。「＋ 立替を追加」から記録してください。</div>';
       return;
     }
     list.innerHTML = expenses.map(e => {
@@ -5877,12 +6287,12 @@ body.gourmet-open #gFrame {
     const isPreview = !party.assignment;
     // 参加者側は未確定なら placeholder
     if (isPreview && !isHost) {
-      el.innerHTML = '<div class="wl-empty">この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
+      el.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty-lying') + 'この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
       return;
     }
     // ホスト側で卓が0件なら placeholder（設定を促す）
     if (isPreview && tables.length === 0) {
-      el.innerHTML = '<div class="wl-empty">参加者・卓を設定して「席を決める」を押すと、ここに座席表が表示されます。</div>';
+      el.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty') + '参加者・卓を設定して「席を決める」を押すと、ここに座席表が表示されます。</div>';
       return;
     }
     // プレビューモード：空 assignment を合成してレイアウトだけ描画
@@ -6451,6 +6861,7 @@ body.gourmet-open #gFrame {
         el.classList.add('seat-result-reveal');
         setTimeout(() => el.classList.remove('seat-result-reveal'), 500);
         launchConfetti();
+        showThemeCelebration(); // ちいかわのみ。日程の確定時には出さない
         // 直前の配置を席替え履歴（直近2件）へ退避してから新しい配置を保存
         const curParty = activeParty(data);
         updateActiveParty({
@@ -6464,7 +6875,7 @@ body.gourmet-open #gFrame {
   }
 
   function launchConfetti() {
-    const colors = ['#6E8B4F', '#B78A3C', '#BC6B50', '#6E8B96', '#8A5E70', '#3D5A3A', '#E9C46A'];
+    const colors = ['var(--confetti-1, #6E8B4F)', 'var(--confetti-2, #B78A3C)', 'var(--confetti-3, #BC6B50)', 'var(--confetti-4, #6E8B96)', 'var(--confetti-5, #8A5E70)', 'var(--confetti-6, #3D5A3A)', 'var(--confetti-7, #E9C46A)'];
     const n = 100;
     for (let k = 0; k < n; k++) {
       const p = document.createElement('div');
@@ -6798,7 +7209,7 @@ body.gourmet-open #gFrame {
         });
         try {
           await updateDoc(doc(db, 'events', eventId), updates);
-          showToast(`${name} さんの回答を登録しました`);
+          showToast(`${name} さんの回答を登録しました`, { art: true });
           if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画（列がブランクにならないように）
         } catch (e) {
           btn.disabled = false; // 失敗時はボタンを復帰させ、選択済みの回答から再登録できるようにする
@@ -6854,7 +7265,7 @@ body.gourmet-open #gFrame {
             [`participants.${rawName}`]: votes,
             participantOrder: newOrder,
           });
-          showToast(`${rawName} さんの回答を登録しました`);
+          showToast(`${rawName} さんの回答を登録しました`, { art: true });
           if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画
         } catch (e) {
           resetNewEntry = false; // 失敗時は入力を維持
@@ -6985,7 +7396,7 @@ body.gourmet-open #gFrame {
     list.innerHTML = others.map((uid, i) =>
       `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
         <span style="flex:1;font-size:0.82rem;color:var(--text);">共同ホスト${i+1}</span>
-        <button class="revoke-btn btn" data-uid="${escHtml(uid)}" style="font-size:0.78rem;padding:5px 8px;background:none;border:1px solid #E2BFB6;color:#C0705A;">削除</button>
+        <button class="revoke-btn btn" data-uid="${escHtml(uid)}" style="font-size:0.78rem;padding:5px 8px;background:none;border:1px solid var(--clay-border, #E2BFB6);color:var(--vote-no, #C0705A);">削除</button>
       </div>`
     ).join('');
 
@@ -7563,7 +7974,7 @@ body.gourmet-open #gFrame {
 
   // 保存（公開状態は変えない。公開は下部の「この画面を参加者に表示」バーで統一）
   document.getElementById('publishSettleBtn')?.addEventListener('click', async () => {
-    if (await saveSettleData(false)) showToast('保存しました');
+    if (await saveSettleData(false)) showToast('保存しました', { art: true });
   });
 
   // ── 精算：何次会入力UI ────────────────────────────
