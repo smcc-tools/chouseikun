@@ -65,3 +65,9 @@ test('飾りの8枚と通知のキャラ12体がそろっている（オリー�
     assert.equal(themeAssetUrl('olive', k, '/chouseikun/'), '');
   }
 });
+
+test('ロゴの3人並びはちいかわにだけある', () => {
+  const { themeAssetUrl } = load('chiikawa', '/chouseikun/');
+  assert.equal(themeAssetUrl('chiikawa', 'header-wide', '/chouseikun/'), 'themes/chiikawa/header-wide.png');
+  assert.equal(themeAssetUrl('olive', 'header-wide', '/chouseikun/'), '');
+});
