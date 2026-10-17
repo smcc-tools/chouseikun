@@ -2786,6 +2786,17 @@ body.gourmet-open #gFrame {
     try { fetch(GOURMET_URL, { mode: 'no-cors', cache: 'no-store' }).catch(() => {}); } catch (_) {}
   }
 
+  // Tabel にイベントのテーマを伝える。読み込み時は URL の ?theme=、表示中の変更はメッセージで。
+  // Tabel は埋め込み表示のときだけこれを使い、オリーブ（既定）では何も付けない。
+  function tabelThemeParam() {
+    return currentTheme === 'olive' ? '' : '&theme=' + encodeURIComponent(currentTheme);
+  }
+  function pushThemeToTabel() {
+    const f = document.getElementById('gFrame');
+    if (!f || !f.contentWindow || !f.getAttribute('src')) return;
+    try { f.contentWindow.postMessage({ type: 'chouseikun-theme', theme: currentTheme }, TABEL_ORIGIN); } catch (_) {}
+  }
+
   function goToGourmet() {
     hideOtherSetupCards('gourmetCard');
     document.body.classList.add('gourmet-open'); // 調整くんヘッダーを隠しTabelを全画面表示
@@ -2794,7 +2805,7 @@ body.gourmet-open #gFrame {
     // 初回のみ現在地検索でロード（nearby=1）。以降は再読込せず、前回の検索結果を保持したまま表示する。
     // （ユーザーが食べログ側で新たに検索を実行するまで結果は消えない）
     if (f && !f.getAttribute('src')) {
-      f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+      f.src = GOURMET_URL + '?nearby=1' + tabelThemeParam() + '&_t=' + Date.now();
     }
     window.scrollTo(0, 0);
     pushNav('gourmetCard');
@@ -2820,7 +2831,7 @@ body.gourmet-open #gFrame {
   window.addEventListener('message', e => {
     if (e.origin !== TABEL_ORIGIN) return;
     const d = e.data || {};
-    if (d.type === 'tabel-ready') pushAuthToTabel();
+    if (d.type === 'tabel-ready') { pushAuthToTabel(); pushThemeToTabel(); }
   });
 
 
@@ -3762,7 +3773,10 @@ body.gourmet-open #gFrame {
   // イベントの外（トップ・マイイベント）は ?event= の無い別の読み込みなので、ここは呼ばれずオリーブのまま。
   function applyTheme(theme) {
     const t = normalizeTheme(theme);
+    const changed = t !== currentTheme;
     currentTheme = t;
+    // お店（Tabel）を開いたあとに🎨でテーマが変わったら、埋め込みの中にも伝える
+    if (changed && typeof pushThemeToTabel === 'function') pushThemeToTabel();
     const root = document.documentElement;
     if (t === 'olive') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', t);
@@ -4223,7 +4237,7 @@ body.gourmet-open #gFrame {
       // お店検索：iframe を初回ロード
       if (keep === 'gourmetCard') {
         const f = document.getElementById('gFrame');
-        if (f && !f.getAttribute('src')) f.src = GOURMET_URL + '?nearby=1&_t=' + Date.now();
+        if (f && !f.getAttribute('src')) f.src = GOURMET_URL + '?nearby=1' + tabelThemeParam() + '&_t=' + Date.now();
       }
     }
 
