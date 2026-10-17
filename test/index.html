@@ -1303,7 +1303,8 @@ body.gourmet-open #gFrame {
     linear-gradient(var(--surface), var(--surface)) center / 100% calc(100% - 26px) no-repeat;
 }
 /* 見出し：中央寄せ・下に小さな英字 */
-:root[data-theme="chiikawa"] .card-title { justify-content: center; flex-wrap: wrap; border-bottom: none; letter-spacing: 0.06em; text-align: center; }
+/* 見出しの部品は HTML に両端寄せが直接書かれているので !important で中央へ（タイトルと HOST の印をまとめて中央に） */
+:root[data-theme="chiikawa"] .card-title { justify-content: center !important; column-gap: 10px; flex-wrap: wrap; border-bottom: none; letter-spacing: 0.06em; text-align: center; }
 :root[data-theme="chiikawa"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .card-title::after {
   flex-basis: 100%; font-family: var(--font-display); font-size: 8px; font-weight: 800; letter-spacing: 0.3em; color: var(--text);
 }
@@ -1318,7 +1319,8 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .field > label {
   background: none; border: none; border-radius: 0; padding: 0; color: var(--text); font-size: 0.85rem;
 }
-:root[data-theme="chiikawa"] :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label {
+/* 共通の小見出し（#カード .field > label）より強くするため、カードのIDから書く */
+:root[data-theme="chiikawa"] :is(#walicaCard, #seatingCard) :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label {
   width: 100%; justify-content: center; flex-wrap: wrap; font-size: 1rem; letter-spacing: 0.06em; gap: 0;
 }
 :root[data-theme="chiikawa"] :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label::after {
