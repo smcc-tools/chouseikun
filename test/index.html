@@ -694,6 +694,8 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
   animation: fadeUp 0.25s ease;
 }
 .theme-art-celebrate { width: 240px; height: 240px; margin: 0; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
+/* ちいかわでは空の画面の案内文を画像のすぐ下に出すので、淡すぎる色を避ける（白地 4.87:1） */
+:root[data-theme="chiikawa"] .empty-msg { color: var(--text-muted); }
 /* ヘッダーのロゴ：画像が読み込めたときだけ html に has-header-art が付く */
 :root[data-theme="chiikawa"].has-header-art .header-logo::before {
   background: var(--header-art) center / contain no-repeat;
@@ -3557,7 +3559,13 @@ body.gourmet-open #gFrame {
       document.head.appendChild(link);
     }
     // 次に開いたとき、データを待たずに先に当てるための記録（<head> の先読みスクリプトが読む）
-    try { if (eventId) localStorage.setItem('chouseikun_theme_' + eventId, t); } catch (_) {}
+    // 記録はちいかわのときだけ（オリーブは何も残さない＝キーが増え続けない）
+    try {
+      if (eventId) {
+        if (t === 'olive') localStorage.removeItem('chouseikun_theme_' + eventId);
+        else localStorage.setItem('chouseikun_theme_' + eventId, t);
+      }
+    } catch (_) {}
     refreshThemeArt();
   }
 
@@ -3632,6 +3640,8 @@ body.gourmet-open #gFrame {
       // サマリも一緒に書いておくと、一覧描画でこのイベントを読み直さずに済む
       await addMyEvent(evId, docData.name, true, myEventSummary(docData))
         .catch(e => console.warn('マイイベントへの記録に失敗:', e));
+      // 作成者が開いた最初の一瞬だけオリーブに見えないよう、新しいIDのテーマを先に記録する
+      try { if (docData.theme === 'chiikawa') localStorage.setItem('chouseikun_theme_' + evId, 'chiikawa'); } catch (_) {}
       location.href = `${location.origin}${location.pathname}?event=${evId}`;
     } catch (e) {
       if (btn && info) { btn.textContent = info.label; btn.disabled = false; }
@@ -3639,7 +3649,6 @@ body.gourmet-open #gFrame {
     }
   }
 
-  // ログイン必須の作成を実行。未ログインなら入力内容を保留してログイン→復帰後に自動継続する
   // ナビの🎨：ホストだけがイベントのテーマを変える（ナビ自体がホストにしか出ない）。
   // 書き込みはホストのみ通る（Firestore ルールの isOwner）。参加者の画面には出ない。
   function openThemeMenu(anchor) {
@@ -3666,7 +3675,8 @@ body.gourmet-open #gFrame {
       const prev = currentTheme;
       applyTheme(next); // 先に見た目を変え、失敗したら戻す
       try {
-        await updateDoc(doc(db, 'events', eventId), { theme: next });
+        // オリーブは保存しない（テーマ未設定＝オリーブ）。フィールドごと消す
+        await updateDoc(doc(db, 'events', eventId), { theme: next === 'olive' ? deleteField() : next });
         showToast(`テーマを「${THEMES[next].label}」にしました`);
       } catch (e) {
         applyTheme(prev);
@@ -3682,6 +3692,7 @@ body.gourmet-open #gFrame {
     return normalizeTheme(el ? el.value : 'olive');
   }
 
+  // ログイン必須の作成を実行。未ログインなら入力内容を保留してログイン→復帰後に自動継続する
   function submitCreate(actionId, payload) {
     if (currentUser && !currentUser.isAnonymous) { writeCreatedEvent(actionId, payload); return; }
     try { sessionStorage.setItem(PENDING_CREATE_KEY, JSON.stringify({ actionId, payload, path: location.pathname, ts: Date.now() })); } catch (_) {}
@@ -3999,6 +4010,7 @@ body.gourmet-open #gFrame {
 
     onSnapshot(eventRef, (snap) => {
       if (!snap.exists()) {
+        applyTheme('olive'); // 先読みで当たったちいかわを、存在しないイベントには残さない
         document.getElementById('viewCard').style.display = 'block';
         document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">イベントが見つかりません</p>';
         // 投票の凡例（◯△✕）はイベントが無い時には無関係なので隠す
