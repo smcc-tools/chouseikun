@@ -685,6 +685,20 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 .tp-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .tp-olive { background: #3D5A3A; } /* theme-literal-ok */
 .tp-chiikawa { background: linear-gradient(135deg, #46749F 50%, #F2A7B8 50%); } /* theme-literal-ok */
+/* テーマのキャラクター画像（ちいかわ）。画像はオーナーが themes/chiikawa/ に置く */
+.theme-art { display: block; margin: 0 auto 10px; object-fit: contain; }
+.theme-art-empty { width: 112px; height: 112px; }
+.theme-celebrate {
+  position: fixed; inset: 0; z-index: 9997; pointer-events: none;
+  background: var(--scrim); display: flex; align-items: center; justify-content: center;
+  animation: fadeUp 0.25s ease;
+}
+.theme-art-celebrate { width: 240px; height: 240px; margin: 0; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
+/* ヘッダーのロゴ：画像が読み込めたときだけ html に has-header-art が付く */
+:root[data-theme="chiikawa"].has-header-art .header-logo::before {
+  background: var(--header-art) center / contain no-repeat;
+  box-shadow: none; border-radius: 12px; width: 40px; height: 40px;
+}
 .register-btn {
   width: 100%; padding: 9px 4px; background: var(--green); color: white;
   border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
@@ -1799,7 +1813,7 @@ body.gourmet-open #gFrame {
       ※ AIによる自動要約のため、実際の情報と異なる場合があります。
     </div>
   </div>
-  <div id="announceEmpty" class="empty-msg" style="display:none;">集合時間・お店はまだ設定されていません。</div>
+  <div id="announceEmpty" class="empty-msg" style="display:none;"><span class="theme-art-slot" data-kind="empty"></span>集合時間・お店はまだ設定されていません。</div>
 
   <!-- ホスト専用：お店・行き方の入力 -->
   <div id="venueEdit" class="host-only" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
@@ -3472,6 +3486,57 @@ body.gourmet-open #gFrame {
 
   let currentTheme = 'olive';
 
+  // 空の画面などに添えるキャラクター画像。オリーブ（画像なし）では空文字を返す。
+  // 読み込めなければ onerror で自分を消し、枠だけが残らないようにする（画像の到着前でも崩れない）。
+  function themeArtHtml(kind) {
+    const url = themeAssetUrl(currentTheme, kind, location.pathname);
+    if (!url) return '';
+    return `<img class="theme-art theme-art-${kind}" src="${escHtml(url)}" alt="" onerror="this.remove()">`;
+  }
+
+  // 座席のシャッフル完了時のお祝い（日程の確定時には出さない）。紙吹雪と同じ約2秒で消える。
+  // 画像が読み込めてから暗幕ごと出すので、読み込めなければ何も出ない（暗幕だけが残らない）。
+  function showThemeCelebration() {
+    const url = themeAssetUrl(currentTheme, 'celebrate', location.pathname);
+    if (!url) return;
+    const img = new Image();
+    img.onload = () => {
+      const ov = document.createElement('div');
+      ov.className = 'theme-celebrate';
+      ov.setAttribute('aria-hidden', 'true');
+      img.className = 'theme-art theme-art-celebrate';
+      img.alt = '';
+      ov.appendChild(img);
+      document.body.appendChild(ov);
+      setTimeout(() => ov.remove(), 2000);
+    };
+    img.src = url;
+  }
+
+  // ヘッダーのロゴの差し替え。テーマが変わったときだけ読み直す（毎回外すとスナップショットの
+  // たびに一瞬オリーブのロゴに戻ってしまうため）。読み込めなければ従来のロゴのまま。
+  let headerArtTheme = null;
+  function refreshThemeArt() {
+    const root = document.documentElement;
+    if (currentTheme !== headerArtTheme) {
+      headerArtTheme = currentTheme;
+      root.classList.remove('has-header-art');
+      const url = themeAssetUrl(currentTheme, 'header', location.pathname);
+      if (url) {
+        const t = currentTheme;
+        const probe = new Image();
+        probe.onload = () => {
+          if (currentTheme !== t) return; // 読み込み中にテーマが変わった
+          root.style.setProperty('--header-art', `url("${url}")`);
+          root.classList.add('has-header-art');
+        };
+        probe.src = url;
+      }
+    }
+    // 静的な空の画面（お知らせ）に置いた差し込み口を埋める
+    document.querySelectorAll('.theme-art-slot').forEach(slot => { slot.innerHTML = themeArtHtml(slot.dataset.kind); });
+  }
+
   // イベントのテーマを当てる。イベントのデータを受け取るたびに呼ばれるので、何度呼んでも同じ結果になる。
   // イベントの外（トップ・マイイベント）は ?event= の無い別の読み込みなので、ここは呼ばれずオリーブのまま。
   function applyTheme(theme) {
@@ -3493,6 +3558,7 @@ body.gourmet-open #gFrame {
     }
     // 次に開いたとき、データを待たずに先に当てるための記録（<head> の先読みスクリプトが読む）
     try { if (eventId) localStorage.setItem('chouseikun_theme_' + eventId, t); } catch (_) {}
+    refreshThemeArt();
   }
 
   // ── イベント作成 ──────────────────────────────
@@ -3986,7 +4052,7 @@ body.gourmet-open #gFrame {
         showEventPage('schedule');
         const legendEl = document.getElementById('voteLegend');
         if (legendEl) legendEl.style.display = 'none';
-        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty') + '精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
         return;
       }
       showEventPage(view);
@@ -4190,7 +4256,7 @@ body.gourmet-open #gFrame {
       const prepMode = (view === 'scheduleCreate' && !isHost); // 参加者：準備中
       if (legendEl) legendEl.style.display = prepMode ? 'none' : '';
       if (prepMode) {
-        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">日程調整の準備中です。しばらくお待ちください。</p>';
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty') + '日程調整の準備中です。しばらくお待ちください。</p>';
       } else {
         renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
       }
@@ -5289,7 +5355,7 @@ body.gourmet-open #gFrame {
     const list = document.getElementById('walicaExpenseList');
     const expenses = (data.expenses || []).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     if (!expenses.length) {
-      list.innerHTML = '<div class="wl-empty">まだ立替がありません。「＋ 立替を追加」から記録してください。</div>';
+      list.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty') + 'まだ立替がありません。「＋ 立替を追加」から記録してください。</div>';
       return;
     }
     list.innerHTML = expenses.map(e => {
@@ -6083,12 +6149,12 @@ body.gourmet-open #gFrame {
     const isPreview = !party.assignment;
     // 参加者側は未確定なら placeholder
     if (isPreview && !isHost) {
-      el.innerHTML = '<div class="wl-empty">この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
+      el.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty') + 'この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
       return;
     }
     // ホスト側で卓が0件なら placeholder（設定を促す）
     if (isPreview && tables.length === 0) {
-      el.innerHTML = '<div class="wl-empty">参加者・卓を設定して「席を決める」を押すと、ここに座席表が表示されます。</div>';
+      el.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty') + '参加者・卓を設定して「席を決める」を押すと、ここに座席表が表示されます。</div>';
       return;
     }
     // プレビューモード：空 assignment を合成してレイアウトだけ描画
@@ -6657,6 +6723,7 @@ body.gourmet-open #gFrame {
         el.classList.add('seat-result-reveal');
         setTimeout(() => el.classList.remove('seat-result-reveal'), 500);
         launchConfetti();
+        showThemeCelebration(); // ちいかわのみ。日程の確定時には出さない
         // 直前の配置を席替え履歴（直近2件）へ退避してから新しい配置を保存
         const curParty = activeParty(data);
         updateActiveParty({
