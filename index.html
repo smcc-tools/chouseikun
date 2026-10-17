@@ -727,10 +727,12 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 }
 .field .theme-pick-opt input { width: auto; margin: 0; }
 .field .theme-pick-opt:has(input:checked) { border-color: var(--green); background: var(--green-light); }
-.tp-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-.tp-olive { background: #3D5A3A; } /* theme-literal-ok */
-.tp-chiikawa { background: linear-gradient(135deg, #46749F 50%, #F2A7B8 50%); } /* theme-literal-ok */
-.tp-pokemon { background: linear-gradient(135deg, #FFCB05 50%, #0066C0 50%); } /* theme-literal-ok */
+/* 色見本：そのテーマの実際の「地・ボタン・差し色」を円グラフ状に並べる（テーマの色を変えたらここも直す）。
+   淡い地の色が白の上で消えないよう、内側に薄い輪 */
+.tp-swatch { width: 18px; height: 18px; border-radius: 50%; display: inline-block; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18); }
+.tp-olive { background: conic-gradient(#F3ECDD 0 120deg, #3D5A3A 0 240deg, #B0883A 0); } /* theme-literal-ok */
+.tp-chiikawa { background: conic-gradient(#D3ECBF 0 120deg, #462E31 0 240deg, #FF96D2 0); } /* theme-literal-ok */
+.tp-pokemon { background: conic-gradient(#F5F7FA 0 120deg, #0066C0 0 240deg, #F5B700 0); } /* theme-literal-ok */
 /* テーマのキャラクター画像（ちいかわ）。画像はオーナーが themes/chiikawa/ に置く */
 .theme-art { display: block; margin: 0 auto 10px; object-fit: contain; }
 .theme-art-empty { width: 112px; height: 112px; }
