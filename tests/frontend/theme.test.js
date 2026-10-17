@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
 const { normalizeTheme, themeAssetBase, themeAssetUrl } =
-  loadFunctions(['THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl']);
+  loadFunctions(['DECO_KINDS', 'TOAST_ART_KINDS', 'THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl']);
 
 test('chiikawa はそのまま', () => {
   assert.equal(normalizeTheme('chiikawa'), 'chiikawa');

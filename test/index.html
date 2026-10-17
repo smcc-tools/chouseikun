@@ -701,15 +701,57 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
   content: ''; display: inline-block; vertical-align: middle; width: 26px; height: 26px;
   background: center / contain no-repeat;
 }
-:root.has-vote-art :is(.vote-btn.circle, .vote-display-o, .vmark-o)::before { background-image: var(--vote-art-o); }
-:root.has-vote-art :is(.vote-btn.triangle, .vote-display-t, .vmark-t)::before { background-image: var(--vote-art-t); }
-:root.has-vote-art :is(.vote-btn.cross, .vote-display-x, .vmark-x)::before { background-image: var(--vote-art-x); }
+:root.has-vote-art :is(.vote-btn.circle, .vote-display-o, .vmark-o)::before { background-image: var(--art-vote-o); }
+:root.has-vote-art :is(.vote-btn.triangle, .vote-display-t, .vmark-t)::before { background-image: var(--art-vote-t); }
+:root.has-vote-art :is(.vote-btn.cross, .vote-display-x, .vmark-x)::before { background-image: var(--art-vote-x); }
 :root.has-vote-art .vote-btn { padding: 3px; border-radius: 50%; }
 :root.has-vote-art .vote-display { display: inline-block; }
 :root.has-vote-art .vote-display::before { width: 30px; height: 30px; }
 :root.has-vote-art .vmark::before { width: 22px; height: 22px; }
 :root.has-vote-art .bulk-vote-btn .vmark::before { width: 16px; height: 16px; margin-left: 2px; }
 :root.has-vote-art .vote-btns:has(.vote-btn.selected) .vote-btn:not(.selected)::before { opacity: 0.35; filter: grayscale(0.7); }
+/* ちいかわの飾り（has-deco-art は飾りの画像が全部読めたときだけ付く） */
+/* カードの下の余白に、キャラ5人の列を置く */
+:root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard) { position: relative; margin-bottom: 100px; }
+:root.has-deco-art :is(#viewCard, #settleCard, #walicaCard, #seatingCard, #announceCard)::after {
+  content: ''; position: absolute; left: 50%; top: calc(100% + 16px); transform: translateX(-50%);
+  width: min(300px, 80vw); height: 68px; background: var(--art-deco-footer) center / contain no-repeat; pointer-events: none;
+}
+/* 見出し・開催日・ACCESS の前に小さなキャラ */
+:root.has-deco-art :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label::before,
+:root.has-deco-art :is(.venue-head, .ann-date-label)::before {
+  content: ''; display: inline-block; width: 24px; height: 24px; margin-right: 5px; vertical-align: -7px;
+  background: center / contain no-repeat;
+}
+:root.has-deco-art #walicaMemberField > label::before { background-image: var(--art-deco-member); }
+:root.has-deco-art #walicaExpenseField > label::before { background-image: var(--art-deco-expense); }
+:root.has-deco-art #walicaSettleField > label::before { background-image: var(--art-deco-settle); }
+:root.has-deco-art #seatingResultField > label::before { background-image: var(--art-deco-seat); width: 30px; }
+:root.has-deco-art .venue-head::before { background-image: var(--art-deco-venue); }
+:root.has-deco-art .ann-date-label::before { background-image: var(--art-deco-date); }
+/* 確定の印：🎉 の代わりにちいかわ */
+:root.has-deco-art .confirmed-flag .cf-emoji { display: none; }
+:root.has-deco-art .confirmed-flag::before {
+  content: ''; display: inline-block; width: 16px; height: 16px; margin-right: 3px; vertical-align: -4px;
+  background: var(--art-deco-confirm) center / contain no-repeat;
+}
+/* うまくいったときの通知に、キャラをランダムに1体（番号は showToast が付ける） */
+:root.has-toast-art .toast[data-art]::before {
+  content: ''; display: inline-block; width: 32px; height: 32px; margin-right: 8px; vertical-align: -10px;
+  background: center / contain no-repeat;
+}
+:root.has-toast-art .toast[data-art="0"]::before { background-image: var(--art-toast-0); }
+:root.has-toast-art .toast[data-art="1"]::before { background-image: var(--art-toast-1); }
+:root.has-toast-art .toast[data-art="2"]::before { background-image: var(--art-toast-2); }
+:root.has-toast-art .toast[data-art="3"]::before { background-image: var(--art-toast-3); }
+:root.has-toast-art .toast[data-art="4"]::before { background-image: var(--art-toast-4); }
+:root.has-toast-art .toast[data-art="5"]::before { background-image: var(--art-toast-5); }
+:root.has-toast-art .toast[data-art="6"]::before { background-image: var(--art-toast-6); }
+:root.has-toast-art .toast[data-art="7"]::before { background-image: var(--art-toast-7); }
+:root.has-toast-art .toast[data-art="8"]::before { background-image: var(--art-toast-8); }
+:root.has-toast-art .toast[data-art="9"]::before { background-image: var(--art-toast-9); }
+:root.has-toast-art .toast[data-art="10"]::before { background-image: var(--art-toast-10); }
+:root.has-toast-art .toast[data-art="11"]::before { background-image: var(--art-toast-11); }
 /* ちいかわでは空の画面の案内文を画像のすぐ下に出すので、淡すぎる色を避ける（白地 4.87:1） */
 :root[data-theme="chiikawa"] .empty-msg { color: var(--text-muted); }
 /* ヘッダーのロゴ：画像が読み込めたときだけ html に has-header-art が付く */
@@ -1728,7 +1770,7 @@ body.gourmet-open #gFrame {
   <div id="seatingPartyTabs" class="my-event-tabs" style="flex-wrap:wrap;margin-bottom:14px;"></div>
 
   <!-- 結果（参加者・ホスト共通で表示） -->
-  <div class="field" style="margin-bottom:20px;">
+  <div class="field" id="seatingResultField" style="margin-bottom:20px;">
     <label>座席表<span id="seatingKeishoNote" style="display:none;font-weight:400;text-transform:none;letter-spacing:0;">（敬称略）</span></label>
     <div id="seatingResult"></div>
   </div>
@@ -1794,11 +1836,11 @@ body.gourmet-open #gFrame {
 <!-- お知らせ（集合時間・お店） -->
 <div class="card" id="announceCard" style="display:none;">
   <div class="card-title" id="announceCardTitle">集合時間・お店のお知らせ</div>
-  <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
+  <div id="announceDateRow" style="font-size:0.95rem;margin-bottom:14px;"><span class="ann-date-label" style="font-weight:700;">開催日：</span><span id="announceDateText" style="font-weight:700;color:var(--green);"></span></div>
 
   <!-- お店・行き方（参加者には内容があるときだけ表示） -->
   <div id="venueWrap" style="display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
-    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:var(--text-label, #5C7A4E);margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
+    <div class="venue-head" style="font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:var(--text-label, #5C7A4E);margin-bottom:8px;">ACCESS ｜ 集合・お店</div>
     <div id="venueMeetTimeRow" style="display:none;font-size:0.95rem;margin-bottom:4px;color:var(--text);"><span style="font-weight:700;">集合時間：</span><span id="venueMeetTimeText" style="font-weight:700;color:var(--green);"></span></div>
     <div id="venueMeetPlaceRow" style="display:none;font-size:0.95rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">集合場所：</span><span id="venueMeetPlaceText" style="font-weight:700;color:var(--green);"></span></div>
     <div id="venueShopRow" style="display:none;font-size:0.9rem;margin-bottom:10px;color:var(--text);"><span style="font-weight:700;">お店：</span><span id="venueShopText"></span></div>
@@ -2051,9 +2093,12 @@ body.gourmet-open #gFrame {
   // ── ユーティリティ ──────────────────────────
 
   let _toastTimer = null;
-  function showToast(msg) {
+  function showToast(msg, opts) {
     const t = document.getElementById('toast');
     t.textContent = msg;
+    // ちいかわのイベントでは CSS が data-art の番号のキャラ（12体）を出す。他のテーマでは何も起きない
+    if (opts && opts.art) t.dataset.art = String(Math.floor(Math.random() * 12));
+    else delete t.dataset.art;
     t.classList.add('show');
     // 長文（コピー失敗時の操作案内など）が読み切れないよう、文字数に応じて表示時間を延ばす
     if (_toastTimer) clearTimeout(_toastTimer);
@@ -3475,6 +3520,8 @@ body.gourmet-open #gFrame {
   }
 
   // ── テーマ（イベントごと） ──
+  const DECO_KINDS = ['deco-footer', 'deco-member', 'deco-expense', 'deco-settle', 'deco-seat', 'deco-venue', 'deco-confirm', 'deco-date'];
+  const TOAST_ART_KINDS = Array.from({ length: 12 }, (_, i) => 'toast-' + i);
   // 画像は themes/ の下に置く。オーナーが用意し、無ければ表示しない。
   const THEMES = {
     olive: { label: 'オリーブ', metaColor: '#3D5A3A' }, // theme-literal-ok
@@ -3487,6 +3534,10 @@ body.gourmet-open #gFrame {
         'empty-sleep': 'chiikawa/empty-sleep.png', 'empty-tools': 'chiikawa/empty-tools.png',
         // ◯△✕ の代わりに出す顔（◯ちいかわ・✕ハチワレ・△うさぎ）
         'vote-o': 'chiikawa/vote-o.png', 'vote-t': 'chiikawa/vote-t.png', 'vote-x': 'chiikawa/vote-x.png',
+        'empty-lying': 'chiikawa/empty-lying.png', 'empty-field': 'chiikawa/empty-field.png',
+        // 飾り（カード下の列・見出し・確定の印・開催日）と、通知に出すキャラ12体
+        ...Object.fromEntries(DECO_KINDS.map(k => [k, `chiikawa/${k}.png`])),
+        ...Object.fromEntries(TOAST_ART_KINDS.map(k => [k, `chiikawa/${k}.png`])),
       },
     },
   };
@@ -3557,22 +3608,29 @@ body.gourmet-open #gFrame {
         };
         probe.src = url;
       }
-      root.classList.remove('has-vote-art');
-      const keys = ['o', 't', 'x'];
-      const voteUrls = keys.map(k => themeAssetUrl(currentTheme, 'vote-' + k, location.pathname));
-      if (voteUrls.every(Boolean)) {
-        const t = currentTheme;
-        Promise.all(voteUrls.map(u => new Promise((ok, ng) => {
-          const im = new Image(); im.onload = ok; im.onerror = ng; im.src = u;
-        }))).then(() => {
-          if (currentTheme !== t) return;
-          keys.forEach((k, i) => root.style.setProperty('--vote-art-' + k, `url("${voteUrls[i]}")`));
-          root.classList.add('has-vote-art');
-        }).catch(() => {}); // 1枚でも読めなければ記号のまま
-      }
+      loadArtSet('has-vote-art', ['vote-o', 'vote-t', 'vote-x']); // 1枚でも欠ければ記号のまま
+      loadArtSet('has-deco-art', DECO_KINDS);
+      loadArtSet('has-toast-art', TOAST_ART_KINDS);
     }
     // 静的な空の画面（お知らせ）に置いた差し込み口を埋める
     document.querySelectorAll('.theme-art-slot').forEach(slot => { slot.innerHTML = themeArtHtml(slot.dataset.kind); });
+  }
+
+  // 画像の組を読み込み、全部読めたときだけ html に印のクラス（cls）を付けて CSS の --art-<種類> に渡す。
+  // 一部だけ表示されて崩れることがないよう、1枚でも読めなければ何も変えない。
+  function loadArtSet(cls, kinds) {
+    const root = document.documentElement;
+    root.classList.remove(cls);
+    const urls = kinds.map(k => themeAssetUrl(currentTheme, k, location.pathname));
+    if (!urls.every(Boolean)) return;
+    const t = currentTheme;
+    Promise.all(urls.map(u => new Promise((ok, ng) => {
+      const im = new Image(); im.onload = ok; im.onerror = ng; im.src = u;
+    }))).then(() => {
+      if (currentTheme !== t) return; // 読み込み中にテーマが変わった
+      kinds.forEach((k, i) => root.style.setProperty('--art-' + k, `url("${urls[i]}")`));
+      root.classList.add(cls);
+    }).catch(() => {});
   }
 
   // イベントのテーマを当てる。イベントのデータを受け取るたびに呼ばれるので、何度呼んでも同じ結果になる。
@@ -4100,7 +4158,7 @@ body.gourmet-open #gFrame {
         showEventPage('schedule');
         const legendEl = document.getElementById('voteLegend');
         if (legendEl) legendEl.style.display = 'none';
-        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty') + '精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty-field') + '精算はまだ公開されていません。<br>ホストの公開をお待ちください。</p>';
         return;
       }
       showEventPage(view);
@@ -4546,7 +4604,7 @@ body.gourmet-open #gFrame {
         ['venueMeetTimeInput','venueMeetPlaceInput','venueShopInput','venueCourseInput','venueNoteInput','announceEventDateInput'].forEach(id => {
           const el = document.getElementById(id); if (el) el.dataset.dirty = '';
         });
-        showToast((shop || note || meetTime || meetPlace || eventDate) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました');
+        showToast((shop || note || meetTime || meetPlace || eventDate) ? '🏠 集合・お店を保存しました' : '集合・お店をクリアしました', { art: true });
       } catch (e) { showToast('保存に失敗しました'); console.error(e); }
     });
 
@@ -4859,7 +4917,7 @@ body.gourmet-open #gFrame {
       const deleteDateBtn = isHost
         ? `<button class="date-del-btn" data-date-idx="${i}">削除</button>`
         : '';
-      const confirmedFlag = isConfirmed ? '<span class="confirmed-flag">🎉 確定</span>' : '';
+      const confirmedFlag = isConfirmed ? '<span class="confirmed-flag"><span class="cf-emoji">🎉</span> 確定</span>' : '';
       return `<tr class="${isConfirmed?'confirmed-row':''}">
         <td class="date-cell${isBest&&!isConfirmed?' is-best':''}">${confirmedFlag}${dateLabel}${confirmBtn}${deleteDateBtn}</td>
         ${cells}
@@ -5049,7 +5107,7 @@ body.gourmet-open #gFrame {
                 const order = (Array.isArray(data.participantOrder) ? data.participantOrder : []).map(n => n === name ? newName : n);
                 tx.update(ref, { participants: ps, participantOrder: order });
               });
-              showToast('変更を保存しました');
+              showToast('変更を保存しました', { art: true });
             } catch (e) {
               if (e.message === 'DUP') showToast('同じ名前が既に登録されています');
               else if (e.message === 'GONE') showToast('対象の参加者が見つかりません');
@@ -5107,7 +5165,7 @@ body.gourmet-open #gFrame {
             }
           });
           delBtn.classList.remove('visible');
-          showToast('変更を保存しました');
+          showToast('変更を保存しました', { art: true });
           if (rerenderCurrentEvent) rerenderCurrentEvent(); // 最新データで再描画（同値保存でも◯△✕が消えないように）
         } else {
           // 編集モード開始：投票ボタンを出す。保存は下部の「登録する」で行う（上部の「完了」は廃止）
@@ -6197,7 +6255,7 @@ body.gourmet-open #gFrame {
     const isPreview = !party.assignment;
     // 参加者側は未確定なら placeholder
     if (isPreview && !isHost) {
-      el.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty') + 'この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
+      el.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty-lying') + 'この次会の座席はまだ決まっていません。ホストの確定をお待ちください。</div>';
       return;
     }
     // ホスト側で卓が0件なら placeholder（設定を促す）
@@ -7119,7 +7177,7 @@ body.gourmet-open #gFrame {
         });
         try {
           await updateDoc(doc(db, 'events', eventId), updates);
-          showToast(`${name} さんの回答を登録しました`);
+          showToast(`${name} さんの回答を登録しました`, { art: true });
           if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画（列がブランクにならないように）
         } catch (e) {
           btn.disabled = false; // 失敗時はボタンを復帰させ、選択済みの回答から再登録できるようにする
@@ -7175,7 +7233,7 @@ body.gourmet-open #gFrame {
             [`participants.${rawName}`]: votes,
             participantOrder: newOrder,
           });
-          showToast(`${rawName} さんの回答を登録しました`);
+          showToast(`${rawName} さんの回答を登録しました`, { art: true });
           if (rerenderCurrentEvent) rerenderCurrentEvent(); // 念のため最新データで即再描画
         } catch (e) {
           resetNewEntry = false; // 失敗時は入力を維持
@@ -7884,7 +7942,7 @@ body.gourmet-open #gFrame {
 
   // 保存（公開状態は変えない。公開は下部の「この画面を参加者に表示」バーで統一）
   document.getElementById('publishSettleBtn')?.addEventListener('click', async () => {
-    if (await saveSettleData(false)) showToast('保存しました');
+    if (await saveSettleData(false)) showToast('保存しました', { art: true });
   });
 
   // ── 精算：何次会入力UI ────────────────────────────

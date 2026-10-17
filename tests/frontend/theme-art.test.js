@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadFunctions } = require('./extract');
 
-const NAMES = ['THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl', 'escHtml', 'themeArtHtml'];
+const NAMES = ['DECO_KINDS', 'TOAST_ART_KINDS', 'THEMES', 'normalizeTheme', 'themeAssetBase', 'themeAssetUrl', 'escHtml', 'themeArtHtml'];
 const load = (currentTheme, pathname) =>
   loadFunctions(NAMES, { currentTheme, location: { pathname } });
 
@@ -53,5 +53,15 @@ test('◯△✕ の顔は3つそろっている（1つでも欠けると記号�
   for (const k of ['o', 't', 'x']) {
     assert.equal(themeAssetUrl('chiikawa', 'vote-' + k, '/chouseikun/'), `themes/chiikawa/vote-${k}.png`);
     assert.equal(themeAssetUrl('olive', 'vote-' + k, '/chouseikun/'), '');
+  }
+});
+
+test('飾りの8枚と通知のキャラ12体がそろっている（オリーブには無い）', () => {
+  const { themeAssetUrl, DECO_KINDS, TOAST_ART_KINDS } = load('chiikawa', '/chouseikun/');
+  assert.equal(DECO_KINDS.length, 8);
+  assert.equal(TOAST_ART_KINDS.length, 12);
+  for (const k of [...DECO_KINDS, ...TOAST_ART_KINDS, 'empty-lying', 'empty-field']) {
+    assert.equal(themeAssetUrl('chiikawa', k, '/chouseikun/'), `themes/chiikawa/${k}.png`);
+    assert.equal(themeAssetUrl('olive', k, '/chouseikun/'), '');
   }
 });
