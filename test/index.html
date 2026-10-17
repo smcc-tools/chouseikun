@@ -81,43 +81,44 @@
    var(--トークン, 元の色) とフォールバックに元の色を持っているので、オリーブでは
    元の色がそのまま使われ、見た目が変わらない。 */
 :root[data-theme="chiikawa"] {
-  --green: #46749F; --green-dark: #355A7D; --green-light: #EAF2FA; --green-mid: #CFE0EF;
-  --lime: #F2A7B8; --forest: #3E5A7A;
-  --wood: #FFF1F4; --wood-border: #F6D2DB; --wood-text: #9A4D66;
-  --bg: #FFFAF7; --surface: #FFFFFF; --surface-2: #FFFCFB; --field-bg: #FFFBFA;
+  /* 公式サイト風（2026-10-18）：アニメ公式の草原の緑・こげ茶の文字とボタン・黄色のカード・ピンクの差し色。
+     形はスタンプ帳（オリーブ以外の共通）の上に、下の「ちいかわ専用」の指定で平らな見た目を重ねる */
+  --green: #462E31; --green-dark: #2E1D20; --green-light: #FFFBD6; --green-mid: #EADFB4;
+  --lime: #FF96D2; --forest: #462E31;
+  --wood: #FFFBD6; --wood-border: #F2E6A0; --wood-text: #6E5A5C;
+  --bg: #D3ECBF; --surface: #FFFFFF; --surface-2: #FFFDF0; --field-bg: #FFFFFF;
   --gold: #D4A12C; --clay: #C4485F;
-  --text: #3A3438; --text-muted: #7A6E74; --border: #F1E4E7; --line-soft: #F8EEF0;
-  --shadow: 0 1px 2px rgba(122,78,92,0.05), 0 14px 34px rgba(122,78,92,0.08);
-  --shadow-press: 0 8px 20px rgba(70,116,159,0.26);
-  --radius: 28px; --radius-sm: 16px;
+  --text: #462E31; --text-muted: #6E5A5C; --border: #EADFC8; --line-soft: #F3EDDA;
+  --shadow: none;
+  --shadow-press: none;
+  --radius: 12px; --radius-sm: 10px;
   --font-ui: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
   --font-display: 'M PLUS Rounded 1c', 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', sans-serif;
 
-  --brand-hover: #3D678F; --brand-disabled: #BFCCD8;
-  --brand-tint: #EDF4FB; --brand-tint-soft: #F6FAFD;
-  --on-dark: #FFF8FA; --deco-on-dark: #FAD3DC;
+  --brand-hover: #2E1D20; --brand-disabled: #BFB3B4;
+  --brand-tint: #FFFBD6; --brand-tint-soft: #FFFDF0;
+  --on-dark: #FFFFFF; --deco-on-dark: #FFF578;
   --gold-tint: #FFF6DD; --gold-tint-strong: #FCE7A6; --gold-text: #8A6410;
   --clay-tint: #FDEDF0; --clay-border: #F4C3CC;
-  --table-head: #FAF3F4; --row-hover: #FFF7F8; --text-label: #6E6270; --text-faint: #C9BCC1;
-  --surface-sunken: #FCF8F8; --bg-glow: #FFE9EF; --scrollbar: #EBD9DE;
-  --vote-yes: #46749F; --vote-no: #C4485F; --host-badge: #C4485F;
-  --scrim: rgba(58,52,56,0.32);
+  --table-head: #FFF578; --row-hover: #FFFDF0; --text-label: #462E31; --text-faint: #B9A6A8;
+  --surface-sunken: #FFFDF0; --bg-glow: #D3ECBF; --scrollbar: #C9DDB8;
+  --vote-yes: #462E31; --vote-no: #C4485F; --host-badge: #C4485F;
+  --scrim: rgba(70,46,49,0.32);
   --vote-radius: 999px; --nav-radius: 999px; --nav-radius-sm: 999px; --bulk-radius: 999px;
-  /* 手描きのスタンプ帳：縁取りの線（こげ茶） */
-  --ink: #4B3A35;
+  --ink: #462E31;
+  /* ちいかわ専用の見た目で使う色 */
+  --panel-yellow: #FFF578; --rule: #B9A6A8; --accent-text: #B0307F; --logo-text: #E054AE; --deco-flower: #FFE36E;
 
-  /* オリーブでは別々の直書き色だったが、ちいかわでは既存の色と同じ役割 */
   --text-strong: var(--text); --nav-text: var(--text-muted); --clay-text: var(--clay);
   --brand-tint-head: var(--green-light); --brand-tint-hover: var(--green-mid);
   --panel-cream: var(--wood); --deco-gold: var(--gold);
 
-  /* 半透明の影・面の元の色（rgba(var(--x), 不透明度) で使う） */
-  --press-rgb: 70,116,159; --brand-rgb: 70,116,159; --shadow-rgb: 122,78,92;
-  --muted-rgb: 122,110,116; --gold-rgb: 212,161,44; --bg-rgb: 255,250,247; --bg-glow-rgb: 255,233,239;
+  --press-rgb: 70,46,49; --brand-rgb: 70,46,49; --shadow-rgb: 70,46,49;
+  --muted-rgb: 110,90,92; --gold-rgb: 212,161,44; --bg-rgb: 211,236,191; --bg-glow-rgb: 211,236,191;
 
-  /* 紙吹雪（Claude Design の指定: 差し色・黄・水色の淡色・白） */
-  --confetti-1: var(--lime); --confetti-2: var(--gold); --confetti-3: var(--green-mid); --confetti-4: var(--surface);
-  --confetti-5: var(--lime); --confetti-6: var(--gold); --confetti-7: var(--green-mid);
+  /* 紙吹雪：ピンク・黄色・こげ茶・白 */
+  --confetti-1: var(--lime); --confetti-2: var(--panel-yellow); --confetti-3: var(--gold); --confetti-4: var(--surface);
+  --confetti-5: var(--lime); --confetti-6: var(--panel-yellow); --confetti-7: var(--green);
 }
 
 /* ポケモンテーマ。形（縁取り・影・タグ形）はちいかわと共通で、色だけを変える。
@@ -1279,6 +1280,96 @@ body.gourmet-open #gFrame {
 }
 /* ヘッダー右側のボタンも折り返さない */
 #myEventsNavBtn, #signOutBtn { white-space: nowrap; flex-shrink: 0; }
+
+/* ── ちいかわ専用「公式サイト風」──（スタンプ帳の共通指定を上書き。ポケモンには効かない）
+   アニメ公式：草原の緑の地・白い面の上下が雲の形・こげ茶のピル形ボタン・黄色のカード・見出しの下に小さな英字 */
+:root[data-theme="chiikawa"] body {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, rgba(255,255,255,0.9) 2px, transparent 2.6px), radial-gradient(circle, var(--deco-flower) 1.6px, transparent 2.2px);
+  background-size: 46px 46px, 62px 62px; background-position: 6px 10px, 30px 34px;
+}
+:root[data-theme="chiikawa"] .header { background: var(--surface); }
+:root[data-theme="chiikawa"] .header::after { display: none; }
+:root[data-theme="chiikawa"] .header-logo { color: var(--logo-text); letter-spacing: 0.08em; }
+:root[data-theme="chiikawa"] :is(#signInBtn, #myEventsNavBtn, #signOutBtn) {
+  border: none !important; background: var(--green) !important; color: #fff !important; letter-spacing: 0.1em;
+}
+/* 白い面：上下の端を雲の形に（面そのものの背景で描くので、上下 14px は透明の雲の帯） */
+:root[data-theme="chiikawa"] .card {
+  border: none; box-shadow: none; border-radius: 0; padding-top: 30px; padding-bottom: 32px;
+  background:
+    radial-gradient(circle at 12px 14px, var(--surface) 12px, transparent 12.5px) top left / 24px 14px repeat-x,
+    radial-gradient(circle at 12px 0, var(--surface) 12px, transparent 12.5px) bottom left / 24px 14px repeat-x,
+    linear-gradient(var(--surface), var(--surface)) center / 100% calc(100% - 26px) no-repeat;
+}
+/* 見出し：中央寄せ・下に小さな英字 */
+:root[data-theme="chiikawa"] .card-title { justify-content: center; flex-wrap: wrap; border-bottom: none; letter-spacing: 0.06em; text-align: center; }
+:root[data-theme="chiikawa"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .card-title::after {
+  flex-basis: 100%; font-family: var(--font-display); font-size: 8px; font-weight: 800; letter-spacing: 0.3em; color: var(--text);
+}
+:root[data-theme="chiikawa"] #viewCard .card-title::after { content: 'SCHEDULE'; }
+:root[data-theme="chiikawa"] #announceCard .card-title::after { content: 'INFORMATION'; }
+:root[data-theme="chiikawa"] #seatingCard .card-title::after { content: 'SEATS'; }
+:root[data-theme="chiikawa"] #walicaCard .card-title::after { content: 'EXPENSES'; }
+:root[data-theme="chiikawa"] #settleCard .card-title::after { content: 'PAYMENT'; }
+:root[data-theme="chiikawa"] #hostBadge { border: none !important; }
+:root[data-theme="chiikawa"] #addMemoBtn { border: 2px dashed var(--lime) !important; border-radius: 10px !important; background: var(--surface-2) !important; }
+/* 小見出し：タグ形をやめ、太字のこげ茶。割り勘・座席の見出しは中央寄せで英字を添える */
+:root[data-theme="chiikawa"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .field > label {
+  background: none; border: none; border-radius: 0; padding: 0; color: var(--text); font-size: 0.85rem;
+}
+:root[data-theme="chiikawa"] :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label {
+  width: 100%; justify-content: center; flex-wrap: wrap; font-size: 1rem; letter-spacing: 0.06em; gap: 0;
+}
+:root[data-theme="chiikawa"] :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label::after {
+  flex-basis: 100%; text-align: center; font-family: var(--font-display); font-size: 8px; font-weight: 800; letter-spacing: 0.3em; color: var(--text);
+}
+:root[data-theme="chiikawa"] #walicaSettleField > label::after { content: 'RESULT'; }
+:root[data-theme="chiikawa"] #walicaExpenseField > label::after { content: 'EXPENSES'; }
+:root[data-theme="chiikawa"] #walicaMemberField > label::after { content: 'MEMBERS'; }
+:root[data-theme="chiikawa"] #seatingResultField > label::after { content: 'SEATS'; }
+:root[data-theme="chiikawa"] #walicaCard :is(#walicaSettleField, #walicaExpenseField) > label { background: none; }
+/* お知らせ */
+:root[data-theme="chiikawa"] .ann-date-label { border: none; background: var(--lime); color: var(--text); }
+:root[data-theme="chiikawa"] #venueWrap { background: var(--green-light) !important; border: none !important; border-radius: 12px !important; }
+:root[data-theme="chiikawa"] .venue-head { background: var(--panel-yellow); border-bottom: none; }
+/* ボタン：こげ茶のピル形・字間広め（影なし） */
+:root[data-theme="chiikawa"] .btn { border: none; letter-spacing: 0.16em; font-family: var(--font-display); font-weight: 800; }
+:root[data-theme="chiikawa"] .btn-primary, :root[data-theme="chiikawa"] .btn-primary:hover { border: none; box-shadow: none; }
+:root[data-theme="chiikawa"] #publishViewBtn { box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.25) !important; }
+:root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost), :root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost):hover { border: none; background: var(--green-light); color: var(--text); box-shadow: none; }
+:root[data-theme="chiikawa"] .btn:active { transform: scale(0.97); }
+:root[data-theme="chiikawa"] .register-btn { border: none; box-shadow: none; letter-spacing: 0.16em; }
+:root[data-theme="chiikawa"] :is(#addCalendarBtn, #announceCalendarBtn) { border: none !important; background: var(--green) !important; color: #fff !important; box-shadow: none; letter-spacing: 0.1em; }
+/* 日程表：黄色の見出しの行・茶色の細い区切り線 */
+:root[data-theme="chiikawa"] .table-wrap { border: none; border-radius: 12px; background: var(--green-light); }
+:root[data-theme="chiikawa"] .table-wrap th { border-bottom: none; background: var(--table-head, #F4F2EA); }
+:root[data-theme="chiikawa"] .table-wrap td { border-bottom: 1.5px solid var(--rule); }
+:root[data-theme="chiikawa"].has-vote-art .vote-btn { border: none; background: var(--surface); }
+:root[data-theme="chiikawa"].has-vote-art .vote-btn.selected { border: none; background: var(--green); }
+:root[data-theme="chiikawa"].has-vote-art .vote-display::before { border: none; }
+:root[data-theme="chiikawa"] .legend { border-top: 1.5px solid var(--rule); }
+:root[data-theme="chiikawa"] .legend-item:not(.host-only) { border: none; background: none; padding: 0; }
+:root[data-theme="chiikawa"] .confirmed-flag { border: none; background: var(--lime); color: var(--text); }
+:root[data-theme="chiikawa"] tr.confirmed-row td.date-cell { color: var(--accent-text); }
+/* ナビ・次会のタブ */
+:root[data-theme="chiikawa"] #hostNav { border: none; box-shadow: 0 6px 18px rgba(var(--shadow-rgb), 0.18); }
+:root[data-theme="chiikawa"] #hostNav .hostnav-btn.active { border: none; }
+:root[data-theme="chiikawa"] #themeNavBtn { border: none; background: var(--green-light); }
+:root[data-theme="chiikawa"] .my-event-tabs { border: none; background: var(--green-light); }
+:root[data-theme="chiikawa"] .my-event-tab.active { border: none; }
+/* 座席 */
+:root[data-theme="chiikawa"] .seat-table-block { border: none; border-radius: 12px; background: var(--green-light); }
+:root[data-theme="chiikawa"] .seat-table-bar { border: none; background: var(--panel-yellow); }
+:root[data-theme="chiikawa"] .seat-chip:not(.locked):not(.empty):not(.selected):not(.seat-settled) { border-color: transparent; background: var(--surface); }
+/* 割り勘 */
+:root[data-theme="chiikawa"] :is(.wl-settle-line, .wl-expense, .wl-settle-done) { border: none; border-radius: 12px; background: var(--green-light); box-shadow: none; }
+:root[data-theme="chiikawa"] .wl-settle-line .wl-pay { color: var(--accent-text); }
+:root[data-theme="chiikawa"] .wl-member-summary { border: none; background: var(--surface-2); }
+/* 空の画面：枠も台紙もなし、案内文は黄色の面に */
+:root[data-theme="chiikawa"] .wl-empty { border: none; background: none; padding: 12px 0; }
+:root[data-theme="chiikawa"] img.theme-art-empty { padding: 0; background: none; border: none; border-radius: 0; }
+:root[data-theme="chiikawa"] .toast { background: var(--green); }
   </style>
 </head>
 <body>
