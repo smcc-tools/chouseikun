@@ -1373,6 +1373,8 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] .wl-empty { border: none; background: none; padding: 12px 0; }
 :root[data-theme="chiikawa"] img.theme-art-empty { padding: 0; background: none; border: none; border-radius: 0; }
 :root[data-theme="chiikawa"] .toast { background: var(--green); }
+/* 日程の「変更・削除」：副ボタンと同じ濃い黄色（編集中は今までどおり金色） */
+:root[data-theme="chiikawa"] .edit-btn:not(.editing), :root[data-theme="chiikawa"] .edit-btn:not(.editing):hover { background: var(--panel-yellow); border-color: transparent; color: var(--text); font-weight: 700; }
 /* スマホ：字間を広げた分ヘッダーの右側がはみ出す（ログイン中の320・360px幅で実測 6px・2px）ので、字間を戻す */
 @media (max-width: 520px) {
   :root[data-theme="chiikawa"] .header-logo { letter-spacing: 0.02em; }
