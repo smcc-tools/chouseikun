@@ -786,8 +786,9 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
   letter-spacing: 0; text-transform: none;
 }
 :root[data-theme="chiikawa"].has-deco-art :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label { padding-left: 3px; }
-:root[data-theme="chiikawa"] #walicaSettleField > label { background: var(--green-light); }
-:root[data-theme="chiikawa"] #walicaExpenseField > label { background: var(--gold-tint, #FBF4E2); }
+/* 小見出し全体の指定（#カード .field > label）より強くするため、カードのIDから書く */
+:root[data-theme="chiikawa"] #walicaCard #walicaSettleField > label { background: var(--green-light); }
+:root[data-theme="chiikawa"] #walicaCard #walicaExpenseField > label { background: var(--gold-tint, #FBF4E2); }
 /* お知らせ：開催日のタグと、ACCESS の帯つきの枠 */
 :root[data-theme="chiikawa"] .ann-date-label {
   display: inline-flex; align-items: center; margin-right: 8px; padding: 2px 12px 2px 3px;
@@ -806,6 +807,8 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 :root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost), :root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost):hover { border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--wood-border); }
 :root[data-theme="chiikawa"] .btn:active { transform: translateY(2px); box-shadow: none; }
 :root[data-theme="chiikawa"] #publishViewBtn { box-shadow: 0 3px 0 var(--ink) !important; }
+:root[data-theme="chiikawa"] .register-btn { border: 2px solid var(--ink); border-radius: 999px; box-shadow: 0 3px 0 var(--ink); font-weight: 800; }
+:root[data-theme="chiikawa"] :is(#addCalendarBtn, #announceCalendarBtn) { border: 2px solid var(--ink) !important; border-radius: 999px !important; box-shadow: 0 3px 0 var(--wood-border); }
 /* 日程表・凡例・確定の印 */
 :root[data-theme="chiikawa"] .table-wrap { border: 2px solid var(--ink); border-radius: 18px; }
 :root[data-theme="chiikawa"] .table-wrap th { border-bottom: 2px solid var(--ink); }
