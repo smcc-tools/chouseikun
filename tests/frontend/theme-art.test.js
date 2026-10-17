@@ -71,3 +71,15 @@ test('ロゴの3人並びはちいかわにだけある', () => {
   assert.equal(themeAssetUrl('chiikawa', 'header-wide', '/chouseikun/'), 'themes/chiikawa/header-wide.png');
   assert.equal(themeAssetUrl('olive', 'header-wide', '/chouseikun/'), '');
 });
+
+test('座席の色タグ：ちいかわでは色と名前だけが変わり、保存する key と並び順は同じ', () => {
+  const names = ['DECO_KINDS', 'TOAST_ART_KINDS', 'THEMES', 'SEAT_TAG_COLORS', 'seatTagPalette'];
+  const olive = loadFunctions(names, { currentTheme: 'olive' });
+  const chii = loadFunctions(names, { currentTheme: 'chiikawa' });
+  const o = olive.seatTagPalette(), c = chii.seatTagPalette();
+  assert.deepEqual(c.map(x => x.key), o.map(x => x.key));
+  assert.deepEqual(o, olive.SEAT_TAG_COLORS); // オリーブは元のまま
+  assert.deepEqual(c.map(x => x.name), ['みどり', 'きいろ', 'ピンク', 'みずいろ', 'むらさき']);
+  c.forEach((x, i) => assert.notEqual(x.color, o[i].color));
+  assert.equal(new Set(c.map(x => x.color)).size, 5); // 5色とも別の色
+});

@@ -1922,7 +1922,7 @@ body.gourmet-open #gFrame {
     <!-- メンバー -->
     <div class="field" style="margin-top:20px;margin-bottom:18px;">
       <label>メンバー・色タグ</label>
-      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">色でグループ分けできます（例：男=セージブルー／女=テラコッタ）。同じ色はシャッフル時に自動で散らばります。もう一度押すと色を解除。</p>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:400;text-transform:none;letter-spacing:0;">色でグループ分けできます（例：男=<span class="seat-tag-ex" data-k="c3">ブルーグレー</span>／女=<span class="seat-tag-ex" data-k="c2">テラコッタ</span>）。同じ色はシャッフル時に自動で散らばります。もう一度押すと色を解除。</p>
       <div id="seatingMemberBox"></div>
     </div>
 
@@ -3662,6 +3662,15 @@ body.gourmet-open #gFrame {
     olive: { label: 'オリーブ', metaColor: '#3D5A3A' }, // theme-literal-ok
     chiikawa: {
       label: 'ちいかわ', metaColor: '#46749F', // theme-literal-ok
+      // 座席の色タグ。保存するのは key（c0〜c4）だけなので、見せる色と名前だけをテーマで変える。
+      // 番号ごとの色の系統（緑・黄・赤・青・紫）はオリーブと揃え、テーマを変えてもグループの意味が崩れないようにする
+      seatTags: {
+        c0: { color: '#7FBF8E', name: 'みどり' }, // theme-literal-ok
+        c1: { color: '#E9C252', name: 'きいろ' }, // theme-literal-ok
+        c2: { color: '#EE8FA6', name: 'ピンク' }, // theme-literal-ok
+        c3: { color: '#6FA3D2', name: 'みずいろ' }, // theme-literal-ok
+        c4: { color: '#A68BD0', name: 'むらさき' }, // theme-literal-ok
+      },
       fontHref: 'https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap',
       images: {
         header: 'chiikawa/header.png', 'header-wide': 'chiikawa/header-wide.png', empty: 'chiikawa/empty.png', celebrate: 'chiikawa/celebrate.png',
@@ -3777,6 +3786,7 @@ body.gourmet-open #gFrame {
     currentTheme = t;
     // お店（Tabel）を開いたあとに🎨でテーマが変わったら、埋め込みの中にも伝える
     if (changed && typeof pushThemeToTabel === 'function') pushThemeToTabel();
+    if (typeof refreshSeatTagExample === 'function') refreshSeatTagExample();
     const root = document.documentElement;
     if (t === 'olive') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', t);
@@ -5783,7 +5793,20 @@ body.gourmet-open #gFrame {
     const v = (data.seatTags || {})[name];
     return (typeof v === 'string' && SEAT_TAG_COLORS.some(c => c.key === v)) ? v : null;
   };
-  const seatColorHex = key => (SEAT_TAG_COLORS.find(c => c.key === key) || {}).color || null;
+  // 色タグの見せ方（色・名前）はテーマごと。key と並び順は SEAT_TAG_COLORS のまま
+  function seatTagPalette() {
+    const over = (THEMES[currentTheme] || {}).seatTags;
+    return over ? SEAT_TAG_COLORS.map(c => ({ ...c, ...(over[c.key] || {}) })) : SEAT_TAG_COLORS;
+  }
+  const seatColorHex = key => (seatTagPalette().find(c => c.key === key) || {}).color || null;
+  // 色タグの説明文の例（「男=○○／女=○○」）を、今のテーマの色名にする
+  function refreshSeatTagExample() {
+    const pal = seatTagPalette();
+    document.querySelectorAll('.seat-tag-ex').forEach(el => {
+      const c = pal.find(x => x.key === el.dataset.k);
+      if (c) el.textContent = c.name;
+    });
+  }
 
   // 色を席順に均等分散（色ごとにグループ化しラウンドロビンで交互配置）
   function spreadByColor(people, colorFn) {
@@ -6430,7 +6453,7 @@ body.gourmet-open #gFrame {
       // 色タグはホストのグループ分け用の内部情報。参加者用画面にはドットも色名も出さない
       const colKey = (canEdit && name) ? seatColorOf(data, name) : null;
       const colHex = seatColorHex(colKey);
-      const colName = colKey ? (SEAT_TAG_COLORS.find(c => c.key === colKey) || {}).name : '';
+      const colName = colKey ? (seatTagPalette().find(c => c.key === colKey) || {}).name : '';
       // ロック（席の固定）はホストの内部設定。🔒ボタンを隠すだけでは、金色の枠と
       // title の「固定中」で参加者にも分かってしまうため、見た目と補助テキストも出さない。
       const showLock = canEdit && locked;
@@ -6690,7 +6713,7 @@ body.gourmet-open #gFrame {
     const members = viewMembers(data, 'seating');
     box.innerHTML = members.map(n => {
       const cur = seatColorOf(data, n);
-      const swatches = SEAT_TAG_COLORS.map(c =>
+      const swatches = seatTagPalette().map(c =>
         `<button type="button" class="seat-color-swatch${cur === c.key ? ' active' : ''}" data-name="${escHtml(n)}" data-color="${c.key}" title="${c.name}" style="background:${c.color};"></button>`
       ).join('');
       return `<div class="seat-member-row">
