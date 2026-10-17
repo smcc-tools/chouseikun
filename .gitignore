@@ -2,3 +2,5 @@ functions/node_modules/
 functions/.env
 .DS_Store
 firebase-debug.log
+# 作業メモ・確認用スクリプト（ローカル専用。公開リポジトリに入れない）
+.superpowers/
