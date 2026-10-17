@@ -5849,6 +5849,12 @@ body.gourmet-open #gFrame {
   const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
 
   // 卓内の席順を、隣接・対面とも「同色」「前回の隣/対面」が並びにくいよう最適化
+  // 席順を選ぶときの重み（席ガチャ 2026-09-11 の修正を移植）。色は幹事が明示的に付けた指示なので必ず勝たせ、
+  // 「前回と違う隣にする」はその中での並べ替えに使う。
+  // ⛔ 小さい差にしてはいけない。「前回も隣」は回数で積まれる（現在の配置＋履歴2件で同じ組が最大3回）ので、
+  // 色を 1〜3 程度にすると負け、何度も振り直すと同じ色が隣・向かいに来る（以前の 色1・前回2 がそれ）。
+  const W_SAME_COLOR = 1000;
+  const W_PREV_ADJACENT = 1;
   function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf, prevAdj, topCount) {
     const neighbors = seatNeighborPairs(cap, shape, topCount);
     const freeIdx = []; for (let i = 0; i < cap; i++) if (!(i in lockedSeat)) freeIdx.push(i);
@@ -5858,8 +5864,8 @@ body.gourmet-open #gFrame {
         const na = arr[a], nb = arr[b];
         if (!na || !nb) continue;
         const ca = colorOf(na), cb = colorOf(nb);
-        if (ca && cb && ca === cb) s += 1;                          // 同色の隣接/対面
-        if (prevAdj) s += 2 * (prevAdj.get(pairKey(na, nb)) || 0);  // 前回も隣/対面だった
+        if (ca && cb && ca === cb) s += W_SAME_COLOR;                          // 同色の隣接/対面
+        if (prevAdj) s += W_PREV_ADJACENT * (prevAdj.get(pairKey(na, nb)) || 0);  // 前回も隣/対面だった
       }
       return s;
     };

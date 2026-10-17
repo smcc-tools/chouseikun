@@ -9,6 +9,8 @@ const {
   normalizeAssignment,
   arrangeTableSeats,
   computeSeating,
+  buildAssignmentHistory,
+  seatColorOf,
 } = loadFunctions(
   [
     'SEAT_TAG_COLORS',
@@ -17,6 +19,8 @@ const {
     'spreadByColor',
     'tableTopCount',
     'seatNeighborPairs',
+    'W_SAME_COLOR',
+    'W_PREV_ADJACENT',
     'arrangeTableSeats',
     'getParties',
     'clampActiveIdx',
@@ -29,6 +33,7 @@ const {
     'MEMBER_VIEW_CHAIN',
     'normalizeAssignment',
     'buildAvoidance',
+    'buildAssignmentHistory',
     'computeSeating',
   ],
   { seatingActiveParty: 0 } // index.html のモジュールスコープ変数を注入
@@ -333,7 +338,7 @@ test('席替え履歴: 2次会は1次会の現在配置と履歴(前回の席)�
   };
   const { computeSeating: cs } = loadFunctions(
     ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'tableTopCount', 'seatNeighborPairs',
-     'arrangeTableSeats', 'getParties', 'clampActiveIdx', 'roundMembers', 'getSortedNames',
+     'W_SAME_COLOR', 'W_PREV_ADJACENT', 'arrangeTableSeats', 'getParties', 'clampActiveIdx', 'roundMembers', 'getSortedNames',
      'membersForView', 'viewMembers', 'normalizeName', 'MEMBER_VIEW_CHAIN',
      'normalizeAssignment', 'buildAvoidance', 'computeSeating'],
     { seatingActiveParty: 1 } // 2次会をアクティブに
@@ -346,4 +351,60 @@ test('席替え履歴: 2次会は1次会の現在配置と履歴(前回の席)�
     assert.equal(tableOf.A, tableOf.D, `2次会${i}: 残された唯一の組合せ A-D にならない`);
     assert.equal(tableOf.B, tableOf.C, `2次会${i}: 残された唯一の組合せ B-C にならない`);
   }
+});
+
+// 何度も振り直すと同じ色タグの人が隣・向かいに来ていた不具合の再発防止（席ガチャで先に直したもの）。
+// 原因は席順の重み付けで、「前回と違う隣にする」が「同じ色を離す」に勝っていた。
+// 「前回も隣」は現在の配置＋履歴2件の回数で積まれるので、初回や1回の振り直しだけを見ると素通りする。
+// 必ず履歴を積んで何度も振り直し、途中で1人ロックする（並べ替えの余地が減り、いちばん破れやすい）。
+test('色タグ: 何度振り直しても同じ色は隣・向かいにならない（席は毎回動く）', () => {
+  const NAMES = ['田中', '佐藤', '鈴木', '高橋', '伊藤', '渡辺', '山本', '中村', '小林', '加藤', '吉田', '山田'];
+  const seatTags = {};
+  ['田中', '佐藤', '鈴木', '高橋'].forEach(n => { seatTags[n] = 'c0'; });
+  ['伊藤', '渡辺', '山本', '中村'].forEach(n => { seatTags[n] = 'c1'; });
+  const tables = [0, 1, 2].map(i => ({ id: `t${i}`, name: `${'ABC'[i]}卓`, capacity: 4, shape: 'rect' }));
+  const makeData = () => ({
+    participants: Object.fromEntries(NAMES.map(n => [n, {}])), participantOrder: NAMES.slice(), seatTags,
+    seatParties: [{ id: 'p1', name: '1次会', tables, assignment: null, locks: [], absent: [] }],
+  });
+  const sameColorAdj = (data, assignment) => {
+    const seats = normalizeAssignment(tables, assignment, NAMES);
+    let hits = 0;
+    for (const t of tables) {
+      const arr = seats[t.id];
+      for (const [a, b] of seatNeighborPairs(t.capacity, t.shape, 2)) {
+        if (!arr[a] || !arr[b]) continue;
+        const ca = seatColorOf(data, arr[a]), cb = seatColorOf(data, arr[b]);
+        if (ca && cb && ca === cb) hits++;
+      }
+    }
+    return hits;
+  };
+  // アプリのシャッフルと同じく、確定前の配置を履歴に積んでから新しい配置にする
+  const shuffle = (data) => {
+    const p = data.seatParties[0];
+    const r = computeSeating(data);
+    assert.ok(!r.error, r.error);
+    p.assignmentHistory = buildAssignmentHistory(p.assignment, p.assignmentHistory);
+    p.assignment = r.assignment;
+    return r;
+  };
+  let moved = 0;
+  for (let i = 0; i < 10; i++) {
+    const data = makeData();
+    const first = shuffle(data);
+    assert.equal(sameColorAdj(data, first.assignment), 0, '初回で同じ色が隣り合った');
+    const p = data.seatParties[0];
+    for (const t of tables) {
+      const idx = (p.assignment[t.id] || []).indexOf('田中');
+      if (idx >= 0) { p.locks = [`${t.id}:${idx}`]; break; }
+    }
+    for (let k = 0; k < 5; k++) {
+      const again = shuffle(data);
+      assert.equal(sameColorAdj(data, again.assignment), 0, `${k + 2}回目のシャッフルで同じ色が隣り合った`);
+    }
+    // 色を守るために席が固まってしまうと上は通るので、ちゃんと動くことも見る
+    if (JSON.stringify(p.assignment) !== JSON.stringify(first.assignment)) moved++;
+  }
+  assert.ok(moved >= 9, `振り直しで席が変わっていない（${moved}/10回しか変わらなかった）`);
 });
