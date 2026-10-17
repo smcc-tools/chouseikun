@@ -151,6 +151,7 @@ body {
   display: flex; align-items: center; gap: 12px; height: 62px;
 }
 .header-logo {
+  white-space: nowrap; flex-shrink: 0;
   font-family: var(--font-display);
   font-size: clamp(1.15rem, 2vw, 1.32rem); font-weight: 700;
   color: var(--forest); letter-spacing: 0.02em;
@@ -1108,6 +1109,10 @@ body.gourmet-open #gFrame {
   .menu-tile .mt-desc { display: block; font-size: 0.68rem; line-height: 1.4; }
   .card-title { font-size: 1.08rem; margin-bottom: 18px; }
   h1.header-logo { font-size: 1.1rem; }
+  /* ログイン中は右側（トップに戻る・アイコン・名前・ログアウト）が広く、ロゴが2行以上に折り返していた。
+     ロゴは折り返さず縮ませず、スマホでは名前を隠してアイコンだけにする */
+  #authName { display: none; }
+  #authArea, #authUser { gap: 6px !important; min-width: 0; }
   #viewTitle { font-size: 1.18rem; }
   .settle-summary { gap: 8px; }
   .settle-summary-item .val { font-size: 1.15rem; }
@@ -1118,6 +1123,12 @@ body.gourmet-open #gFrame {
   th, td { padding: 8px 5px; }
   .vote-btn { font-size: 0.95rem; padding: 4px 6px; }
   .toast { bottom: 16px; font-size: 0.85rem; padding: 11px 16px; }
+}
+/* さらに狭いスマホ：アイコンも隠し、ボタンの余白を詰めてロゴを1行に保つ */
+@media (max-width: 380px) {
+  #authAvatar { display: none; }
+  #myEventsNavBtn { padding: 4px 8px !important; }
+  #signOutBtn { padding: 3px 7px !important; }
 }
   </style>
 </head>
