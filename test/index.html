@@ -790,8 +790,10 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 :root[data-theme="chiikawa"] #walicaCard #walicaSettleField > label { background: var(--green-light); }
 :root[data-theme="chiikawa"] #walicaCard #walicaExpenseField > label { background: var(--gold-tint, #FBF4E2); }
 /* お知らせ：開催日のタグと、ACCESS の帯つきの枠 */
+/* タグ（行の高さが大きい）と日付の文字の高さがずれないよう、行を横並びにして中央でそろえる */
+:root[data-theme="chiikawa"] #announceDateRow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 :root[data-theme="chiikawa"] .ann-date-label {
-  display: inline-flex; align-items: center; margin-right: 8px; padding: 2px 12px 2px 3px;
+  display: inline-flex; align-items: center; padding: 2px 12px 2px 3px;
   background: var(--gold-tint, #FBF4E2); border: 2px solid var(--ink); border-radius: 999px;
   color: var(--ink); font-size: 0.8rem;
 }
