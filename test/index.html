@@ -711,6 +711,8 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 :root.has-vote-art .vote-display { display: inline-block; }
 :root.has-vote-art .vote-display::before { width: 30px; height: 30px; }
 :root.has-vote-art .vmark::before { width: 22px; height: 22px; }
+/* 「全て」の文字と顔の縦の中心をそろえる（文字の行に乗せると顔が 4px 下がっていた） */
+:root.has-vote-art .bulk-vote-btn { display: inline-flex; align-items: center; justify-content: center; }
 :root.has-vote-art .bulk-vote-btn .vmark::before { width: 16px; height: 16px; margin-left: 2px; }
 :root.has-vote-art .vote-btns:has(.vote-btn.selected) .vote-btn:not(.selected)::before { opacity: 0.35; filter: grayscale(0.7); }
 /* ちいかわの飾り（has-deco-art は飾りの画像が全部読めたときだけ付く） */
@@ -739,8 +741,10 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
   background: var(--art-deco-confirm) center / contain no-repeat;
 }
 /* うまくいったときの通知に、キャラをランダムに1体（番号は showToast が付ける） */
+/* キャラと文章を横並びに。文章が2行になってもキャラの下に回り込まない */
+:root.has-toast-art .toast[data-art] { display: flex; align-items: center; gap: 8px; text-align: left; }
 :root.has-toast-art .toast[data-art]::before {
-  content: ''; display: inline-block; width: 32px; height: 32px; margin-right: 8px; vertical-align: -10px;
+  content: ''; flex-shrink: 0; width: 32px; height: 32px;
   background: center / contain no-repeat;
 }
 :root.has-toast-art .toast[data-art="0"]::before { background-image: var(--art-toast-0); }
@@ -821,6 +825,8 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 :root[data-theme="chiikawa"] .legend { gap: 6px; border-top: 2px dotted var(--border); }
 :root[data-theme="chiikawa"] .legend-item:not(.host-only) { background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px; padding: 2px 10px 2px 4px; }
 :root[data-theme="chiikawa"] .confirmed-flag { border: 1.5px solid var(--ink); box-shadow: none; }
+/* 縁取りで印が太った分、日付の文字より 2.7px 下がって見えていた（実測）。0.1em 上げると差は 0.4px */
+:root[data-theme="chiikawa"] td.date-cell .confirmed-flag { vertical-align: 0.1em; }
 /* ホストのナビ・次会のタブ */
 :root[data-theme="chiikawa"] #hostNav { background: var(--surface); border: 2px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--wood-border); }
 :root[data-theme="chiikawa"] #hostNav .hostnav-btn.active { border: 2px solid var(--ink); box-shadow: none; }
