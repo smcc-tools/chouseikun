@@ -1346,7 +1346,8 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] :is(#addCalendarBtn, #announceCalendarBtn) { border: none !important; background: var(--green) !important; color: #fff !important; box-shadow: none; letter-spacing: 0.1em; }
 /* 日程表：黄色の見出しの行・茶色の細い区切り線 */
 :root[data-theme="chiikawa"] .table-wrap { border: none; border-radius: 12px; background: var(--green-light); }
-:root[data-theme="chiikawa"] .table-wrap th { border-bottom: none; background: var(--table-head, #F4F2EA); }
+/* 見出しの行は淡い黄色（中の「変更・削除」の濃い黄色が背景に溶けないように）。行の下に区切り線 */
+:root[data-theme="chiikawa"] .table-wrap th { border-bottom: 1.5px solid var(--rule); background: var(--green-light); }
 :root[data-theme="chiikawa"] .table-wrap td { border-bottom: 1.5px solid var(--rule); }
 :root[data-theme="chiikawa"].has-vote-art .vote-btn { border: none; background: var(--surface); }
 :root[data-theme="chiikawa"].has-vote-art .vote-btn.selected { border: none; background: var(--green); }
