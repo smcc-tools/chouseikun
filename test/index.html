@@ -6,6 +6,18 @@
   <title>調整くん | Scheduling Tool</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#3D5A3A">
+  <script>
+    // テーマのちらつき対策：前回このイベントを開いたときのテーマを、描画より先に当てる。
+    // 正しいテーマはイベントのデータが届いた時点で applyTheme が当て直す。
+    (function () {
+      try {
+        var id = new URLSearchParams(location.search).get('event');
+        if (id && localStorage.getItem('chouseikun_theme_' + id) === 'chiikawa') {
+          document.documentElement.setAttribute('data-theme', 'chiikawa');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -62,6 +74,48 @@
   --shadow-press:0 8px 20px rgba(45,66,40,0.20);
   --font-ui:     'Inter', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display:'Montserrat', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', -apple-system, sans-serif;
+}
+
+/* ちいかわテーマ。<html data-theme="chiikawa"> のときだけ効く（イベントごとに選ぶ）。
+   新しいトークン（--brand-tint など）はオリーブの :root では定義しない。使う側が
+   var(--トークン, 元の色) とフォールバックに元の色を持っているので、オリーブでは
+   元の色がそのまま使われ、見た目が変わらない。 */
+:root[data-theme="chiikawa"] {
+  --green: #46749F; --green-dark: #355A7D; --green-light: #EAF2FA; --green-mid: #CFE0EF;
+  --lime: #F2A7B8; --forest: #3E5A7A;
+  --wood: #FFF1F4; --wood-border: #F6D2DB; --wood-text: #9A4D66;
+  --bg: #FFFAF7; --surface: #FFFFFF; --surface-2: #FFFCFB; --field-bg: #FFFBFA;
+  --gold: #D4A12C; --clay: #C4485F;
+  --text: #3A3438; --text-muted: #7A6E74; --border: #F1E4E7; --line-soft: #F8EEF0;
+  --shadow: 0 1px 2px rgba(122,78,92,0.05), 0 14px 34px rgba(122,78,92,0.08);
+  --shadow-press: 0 8px 20px rgba(70,116,159,0.26);
+  --radius: 28px; --radius-sm: 16px;
+  --font-ui: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
+  --font-display: 'M PLUS Rounded 1c', 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', sans-serif;
+
+  --brand-hover: #3D678F; --brand-disabled: #BFCCD8;
+  --brand-tint: #EDF4FB; --brand-tint-soft: #F6FAFD;
+  --on-dark: #FFF8FA; --deco-on-dark: #FAD3DC;
+  --gold-tint: #FFF6DD; --gold-tint-strong: #FCE7A6; --gold-text: #8A6410;
+  --clay-tint: #FDEDF0; --clay-border: #F4C3CC;
+  --table-head: #FAF3F4; --row-hover: #FFF7F8; --text-label: #6E6270; --text-faint: #C9BCC1;
+  --surface-sunken: #FCF8F8; --bg-glow: #FFE9EF; --scrollbar: #EBD9DE;
+  --vote-yes: #46749F; --vote-no: #C4485F; --host-badge: #C4485F;
+  --scrim: rgba(58,52,56,0.32);
+  --vote-radius: 999px; --nav-radius: 999px; --nav-radius-sm: 999px; --bulk-radius: 999px;
+
+  /* オリーブでは別々の直書き色だったが、ちいかわでは既存の色と同じ役割 */
+  --text-strong: var(--text); --nav-text: var(--text-muted); --clay-text: var(--clay);
+  --brand-tint-head: var(--green-light); --brand-tint-hover: var(--green-mid);
+  --panel-cream: var(--wood); --deco-gold: var(--gold);
+
+  /* 半透明の影・面の元の色（rgba(var(--x), 不透明度) で使う） */
+  --press-rgb: 70,116,159; --brand-rgb: 70,116,159; --shadow-rgb: 122,78,92;
+  --muted-rgb: 122,110,116; --gold-rgb: 212,161,44; --bg-rgb: 255,250,247; --bg-glow-rgb: 255,233,239;
+
+  /* 紙吹雪（Claude Design の指定: 差し色・黄・水色の淡色・白） */
+  --confetti-1: var(--lime); --confetti-2: var(--gold); --confetti-3: var(--green-mid); --confetti-4: var(--surface);
+  --confetti-5: var(--lime); --confetti-6: var(--gold); --confetti-7: var(--green-mid);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -3335,6 +3389,59 @@ body.gourmet-open #gFrame {
     goToMenu(); // 認証解決前でもメニューを表示
   }
 
+  // ── テーマ（イベントごと） ──
+  // 画像は themes/ の下に置く。オーナーが用意し、無ければ表示しない。
+  const THEMES = {
+    olive: { label: 'オリーブ', metaColor: '#3D5A3A' }, // theme-literal-ok
+    chiikawa: {
+      label: 'ちいかわ', metaColor: '#46749F', // theme-literal-ok
+      fontHref: 'https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap',
+      images: { header: 'chiikawa/header.png', empty: 'chiikawa/empty.png', celebrate: 'chiikawa/celebrate.png' },
+    },
+  };
+
+  // 未設定・知らない値・大文字違いはオリーブ。既存イベントの移行は要らない。
+  function normalizeTheme(value) {
+    return value === 'chiikawa' ? 'chiikawa' : 'olive';
+  }
+
+  // 画像はリポジトリ直下の themes/ にある。promote.sh は index.html と sw.js しか本番に
+  // コピーしないので test/ には置けず、test のページからは1つ上をたどる。
+  function themeAssetBase(pathname) {
+    return /\/test\//.test(pathname || '') ? '../themes/' : 'themes/';
+  }
+
+  function themeAssetUrl(theme, kind, pathname) {
+    const images = THEMES[normalizeTheme(theme)].images;
+    const rel = images && images[kind];
+    return rel ? themeAssetBase(pathname) + rel : '';
+  }
+
+  let currentTheme = 'olive';
+
+  // イベントのテーマを当てる。イベントのデータを受け取るたびに呼ばれるので、何度呼んでも同じ結果になる。
+  // イベントの外（トップ・マイイベント）は ?event= の無い別の読み込みなので、ここは呼ばれずオリーブのまま。
+  function applyTheme(theme) {
+    const t = normalizeTheme(theme);
+    currentTheme = t;
+    const root = document.documentElement;
+    if (t === 'olive') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', t);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', THEMES[t].metaColor);
+    // フォントはそのテーマのときだけ読む（オリーブの人に余計な通信をさせない）
+    const href = THEMES[t].fontHref;
+    if (href && !document.querySelector(`link[data-theme-font="${t}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.dataset.themeFont = t;
+      document.head.appendChild(link);
+    }
+    // 次に開いたとき、データを待たずに先に当てるための記録（<head> の先読みスクリプトが読む）
+    try { if (eventId) localStorage.setItem('chouseikun_theme_' + eventId, t); } catch (_) {}
+  }
+
   // ── イベント作成 ──────────────────────────────
 
   // 作成イベントのFirestoreドキュメントを組み立てる純粋関数（DOM・認証に非依存）。
@@ -3739,6 +3846,8 @@ body.gourmet-open #gFrame {
       const data = snap.data();
       latestEventData = data;
       lastServerEventData = data;
+      // 描画より先にテーマを当てる（空の画面の画像などが currentTheme を見るため）
+      applyTheme(data.theme);
       currentDates = data.dates;
       currentParticipantOrder = data.participantOrder || [];
 
