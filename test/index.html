@@ -694,6 +694,22 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
   animation: fadeUp 0.25s ease;
 }
 .theme-art-celebrate { width: min(340px, 88vw); height: auto; margin: 0; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); }
+/* ちいかわの ◯△✕：文字は残したまま（読み上げ・凡例の意味は保つ）見た目だけ顔にする。
+   選んだボタンは今の色（緑・金・赤）が顔のまわりの輪になり、同じ行の選ばなかった顔は薄くなる */
+:root.has-vote-art :is(.vote-btn, .vote-display, .vmark) { font-size: 0 !important; line-height: 0; }
+:root.has-vote-art :is(.vote-btn, .vote-display, .vmark)::before {
+  content: ''; display: inline-block; vertical-align: middle; width: 26px; height: 26px;
+  background: center / contain no-repeat;
+}
+:root.has-vote-art :is(.vote-btn.circle, .vote-display-o, .vmark-o)::before { background-image: var(--vote-art-o); }
+:root.has-vote-art :is(.vote-btn.triangle, .vote-display-t, .vmark-t)::before { background-image: var(--vote-art-t); }
+:root.has-vote-art :is(.vote-btn.cross, .vote-display-x, .vmark-x)::before { background-image: var(--vote-art-x); }
+:root.has-vote-art .vote-btn { padding: 3px; border-radius: 50%; }
+:root.has-vote-art .vote-display { display: inline-block; }
+:root.has-vote-art .vote-display::before { width: 30px; height: 30px; }
+:root.has-vote-art .vmark::before { width: 22px; height: 22px; }
+:root.has-vote-art .bulk-vote-btn .vmark::before { width: 16px; height: 16px; margin-left: 2px; }
+:root.has-vote-art .vote-btns:has(.vote-btn.selected) .vote-btn:not(.selected)::before { opacity: 0.35; filter: grayscale(0.7); }
 /* ちいかわでは空の画面の案内文を画像のすぐ下に出すので、淡すぎる色を避ける（白地 4.87:1） */
 :root[data-theme="chiikawa"] .empty-msg { color: var(--text-muted); }
 /* ヘッダーのロゴ：画像が読み込めたときだけ html に has-header-art が付く */
@@ -1459,9 +1475,9 @@ body.gourmet-open #gFrame {
   <div id="tableWrap"><p class="loading">読み込み中</p></div>
 
   <div class="legend" id="voteLegend">
-    <div class="legend-item"><span style="color:var(--vote-yes, #3D5A3A);font-size:1rem;">◯</span> 参加できる（1pt）</div>
-    <div class="legend-item"><span style="color:var(--gold);font-size:1rem;">△</span> おそらく参加可能（0.5pt）</div>
-    <div class="legend-item"><span style="color:var(--vote-no, #C0705A);font-size:1rem;">✕</span> 参加できない（0pt）</div>
+    <div class="legend-item"><span class="vmark vmark-o" style="color:var(--vote-yes, #3D5A3A);font-size:1rem;">◯</span> 参加できる（1pt）</div>
+    <div class="legend-item"><span class="vmark vmark-t" style="color:var(--gold);font-size:1rem;">△</span> おそらく参加可能（0.5pt）</div>
+    <div class="legend-item"><span class="vmark vmark-x" style="color:var(--vote-no, #C0705A);font-size:1rem;">✕</span> 参加できない（0pt）</div>
     <div class="legend-item"><span style="color:var(--gold);">★</span> 最高得点日</div>
     <div class="legend-item host-only" style="display:none;margin-top:4px;width:100%;background:var(--brand-tint, #f4f8e8);border:1px solid var(--green-mid);border-radius:6px;padding:6px 10px;font-size:0.8rem;color:var(--green);">
       日付の横の <b>確定</b> ボタンを押すと開催日を確定できます
@@ -3465,7 +3481,13 @@ body.gourmet-open #gFrame {
     chiikawa: {
       label: 'ちいかわ', metaColor: '#46749F', // theme-literal-ok
       fontHref: 'https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap',
-      images: { header: 'chiikawa/header.png', empty: 'chiikawa/empty.png', celebrate: 'chiikawa/celebrate.png' },
+      images: {
+        header: 'chiikawa/header.png', empty: 'chiikawa/empty.png', celebrate: 'chiikawa/celebrate.png',
+        // 画面ごとの空の画面（無い画面は empty を使う）
+        'empty-sleep': 'chiikawa/empty-sleep.png', 'empty-tools': 'chiikawa/empty-tools.png',
+        // ◯△✕ の代わりに出す顔（◯ちいかわ・✕ハチワレ・△うさぎ）
+        'vote-o': 'chiikawa/vote-o.png', 'vote-t': 'chiikawa/vote-t.png', 'vote-x': 'chiikawa/vote-x.png',
+      },
     },
   };
 
@@ -3493,7 +3515,8 @@ body.gourmet-open #gFrame {
   function themeArtHtml(kind) {
     const url = themeAssetUrl(currentTheme, kind, location.pathname);
     if (!url) return '';
-    return `<img class="theme-art theme-art-${kind}" src="${escHtml(url)}" alt="" onerror="this.remove()">`;
+    const cls = kind.startsWith('empty-') ? `theme-art-empty theme-art-${kind}` : `theme-art-${kind}`;
+    return `<img class="theme-art ${cls}" src="${escHtml(url)}" alt="" onerror="this.remove()">`;
   }
 
   // 座席のシャッフル完了時のお祝い（日程の確定時には出さない）。紙吹雪と同じ約2秒で消える。
@@ -3533,6 +3556,19 @@ body.gourmet-open #gFrame {
           root.classList.add('has-header-art');
         };
         probe.src = url;
+      }
+      root.classList.remove('has-vote-art');
+      const keys = ['o', 't', 'x'];
+      const voteUrls = keys.map(k => themeAssetUrl(currentTheme, 'vote-' + k, location.pathname));
+      if (voteUrls.every(Boolean)) {
+        const t = currentTheme;
+        Promise.all(voteUrls.map(u => new Promise((ok, ng) => {
+          const im = new Image(); im.onload = ok; im.onerror = ng; im.src = u;
+        }))).then(() => {
+          if (currentTheme !== t) return;
+          keys.forEach((k, i) => root.style.setProperty('--vote-art-' + k, `url("${voteUrls[i]}")`));
+          root.classList.add('has-vote-art');
+        }).catch(() => {}); // 1枚でも読めなければ記号のまま
       }
     }
     // 静的な空の画面（お知らせ）に置いた差し込み口を埋める
@@ -4268,7 +4304,7 @@ body.gourmet-open #gFrame {
       const prepMode = (view === 'scheduleCreate' && !isHost); // 参加者：準備中
       if (legendEl) legendEl.style.display = prepMode ? 'none' : '';
       if (prepMode) {
-        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty') + '日程調整の準備中です。しばらくお待ちください。</p>';
+        document.getElementById('tableWrap').innerHTML = '<p class="empty-msg">' + themeArtHtml('empty-sleep') + '日程調整の準備中です。しばらくお待ちください。</p>';
       } else {
         renderTable(data.dates, data.participants || {}, data.confirmedDate ?? null, data.participantOrder || []);
       }
@@ -4765,8 +4801,8 @@ body.gourmet-open #gFrame {
   function bulkVoteRowHtml(name) {
     const attr = name === undefined ? '' : ` data-bulk-name="${escHtml(name)}"`;
     return `<div class="bulk-vote-row">
-        <button type="button" class="bulk-vote-btn circle" data-bulk="o"${attr} aria-label="全ての候補日を参加できるにする">全て◯</button>
-        <button type="button" class="bulk-vote-btn cross" data-bulk="x"${attr} aria-label="全ての候補日を参加できないにする">全て✕</button>
+        <button type="button" class="bulk-vote-btn circle" data-bulk="o"${attr} aria-label="全ての候補日を参加できるにする">全て<span class="vmark vmark-o">◯</span></button>
+        <button type="button" class="bulk-vote-btn cross" data-bulk="x"${attr} aria-label="全ての候補日を参加できないにする">全て<span class="vmark vmark-x">✕</span></button>
       </div>`;
   }
 
@@ -5367,7 +5403,7 @@ body.gourmet-open #gFrame {
     const list = document.getElementById('walicaExpenseList');
     const expenses = (data.expenses || []).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     if (!expenses.length) {
-      list.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty') + 'まだ立替がありません。「＋ 立替を追加」から記録してください。</div>';
+      list.innerHTML = '<div class="wl-empty">' + themeArtHtml('empty-tools') + 'まだ立替がありません。「＋ 立替を追加」から記録してください。</div>';
       return;
     }
     list.innerHTML = expenses.map(e => {

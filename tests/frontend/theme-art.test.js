@@ -40,3 +40,18 @@ test('画像の無い種類は何も差し込まない', () => {
   const { themeArtHtml } = load('chiikawa', '/chouseikun/');
   assert.equal(themeArtHtml('banner'), '');
 });
+
+test('画面ごとの空の画面は empty と同じ大きさの枠で、違う絵を出す', () => {
+  const { themeArtHtml } = load('chiikawa', '/chouseikun/');
+  const html = themeArtHtml('empty-sleep');
+  assert.match(html, /src="themes\/chiikawa\/empty-sleep\.png"/);
+  assert.match(html, /class="theme-art theme-art-empty theme-art-empty-sleep"/);
+});
+
+test('◯△✕ の顔は3つそろっている（1つでも欠けると記号のままになる）', () => {
+  const { themeAssetUrl } = load('chiikawa', '/chouseikun/');
+  for (const k of ['o', 't', 'x']) {
+    assert.equal(themeAssetUrl('chiikawa', 'vote-' + k, '/chouseikun/'), `themes/chiikawa/vote-${k}.png`);
+    assert.equal(themeAssetUrl('olive', 'vote-' + k, '/chouseikun/'), '');
+  }
+});
