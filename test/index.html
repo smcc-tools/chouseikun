@@ -1339,7 +1339,8 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] .btn { border: none; letter-spacing: 0.16em; font-family: var(--font-display); font-weight: 800; }
 :root[data-theme="chiikawa"] .btn-primary, :root[data-theme="chiikawa"] .btn-primary:hover { border: none; box-shadow: none; }
 :root[data-theme="chiikawa"] #publishViewBtn { box-shadow: 0 4px 12px rgba(var(--shadow-rgb,70,46,49), 0.25) !important; }
-:root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost), :root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost):hover { border: none; background: var(--green-light); color: var(--text); box-shadow: none; }
+/* 副ボタンは濃い黄色（淡い黄色の枠の中でもボタンと分かるように） */
+:root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost), :root[data-theme="chiikawa"] :is(.btn-secondary, .btn-ghost):hover { border: none; background: var(--panel-yellow); color: var(--text); box-shadow: none; }
 :root[data-theme="chiikawa"] .btn:active { transform: scale(0.97); }
 :root[data-theme="chiikawa"] .register-btn { border: none; box-shadow: none; letter-spacing: 0.16em; }
 :root[data-theme="chiikawa"] :is(#addCalendarBtn, #announceCalendarBtn) { border: none !important; background: var(--green) !important; color: #fff !important; box-shadow: none; letter-spacing: 0.1em; }
