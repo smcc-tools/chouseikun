@@ -1379,6 +1379,8 @@ body.gourmet-open #gFrame {
 :root[data-theme="chiikawa"] img.theme-art-empty { padding: 0; background: none; border: none; border-radius: 0; }
 :root[data-theme="chiikawa"] .toast { background: var(--green); }
 :root[data-theme] .confirm-btn.confirmed { color: var(--forest); }
+/* オリーブ以外：ボタンの形をしたリンク（お知らせのルート・店舗情報）の下線を消す */
+:root[data-theme] a.btn { text-decoration: none; }
 /* オリーブ以外：金色の地の「確定」の印も濃い色の文字に。★は濃い金色（白地で 2.35 しかなかった） */
 :root[data-theme] .confirmed-flag { color: var(--forest); }
 :root[data-theme] td.date-cell.is-best::before { color: var(--gold-text, #94701C); }
@@ -1405,9 +1407,12 @@ body.gourmet-open #gFrame {
   box-shadow: 0 0 10px rgba(0,0,0,0.15);
 }
 /* カード：縁取りなし・角丸・ふんわりした影 */
-/* パステルの帯は、公式の「NEWS」の見出しのようにカードの上の部分（大きな英字の見出しの後ろ）に敷く */
+/* パステルの帯は、公式の「NEWS」の見出しのようにカードの上の部分（大きな英字の見出しの後ろ）に敷き、下の端は白へなじませる */
 :root[data-theme="pokemon"] .card { border: none; border-radius: 16px; box-shadow: 0 0 14px rgba(0,0,0,0.10);
-  background: linear-gradient(90deg, var(--band-orange), var(--band-yellow) 65%, var(--band-mint)) 0 0 / 100% 128px no-repeat, var(--surface); }
+  background:
+    linear-gradient(rgba(255,255,255,0), var(--surface)) 0 70px / 100% 90px no-repeat,
+    linear-gradient(90deg, var(--band-orange), var(--band-yellow) 65%, var(--band-mint)) 0 0 / 100% 160px no-repeat,
+    var(--surface); }
 /* 見出し：大きな英字（上）＋イベント名 */
 :root[data-theme="pokemon"] .card-title { flex-wrap: wrap; border-bottom: none; font-weight: 900; color: var(--text); }
 :root[data-theme="pokemon"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .card-title::before {
