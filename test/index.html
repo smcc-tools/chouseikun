@@ -1395,13 +1395,7 @@ body.gourmet-open #gFrame {
 
 /* ── ポケモン専用「公式サイト風」──（スタンプ帳の共通指定を上書き。ちいかわには効かない）
    pokemon.co.jp：白地にパステルの帯・大きな英字の見出し＋小さな日本語・青のグラデーションのピル形ボタン・縁取りなしの角丸カード */
-:root[data-theme="pokemon"] body {
-  background-color: var(--bg);
-  background-image:
-    linear-gradient(90deg, var(--band-orange), var(--band-yellow) 70%, var(--band-mint)),
-    linear-gradient(90deg, var(--band-yellow), var(--band-mint));
-  background-size: 82% 560px, 70% 640px; background-position: 0 150px, 100% 980px; background-repeat: no-repeat;
-}
+:root[data-theme="pokemon"] body { background: var(--bg); }
 :root[data-theme="pokemon"] .header { background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
 :root[data-theme="pokemon"] .header::after { display: none; }
 :root[data-theme="pokemon"] .header-logo { color: var(--text); font-weight: 900; }
@@ -1411,7 +1405,9 @@ body.gourmet-open #gFrame {
   box-shadow: 0 0 10px rgba(0,0,0,0.15);
 }
 /* カード：縁取りなし・角丸・ふんわりした影 */
-:root[data-theme="pokemon"] .card { border: none; border-radius: 16px; box-shadow: 0 0 14px rgba(0,0,0,0.10); }
+/* パステルの帯は、公式の「NEWS」の見出しのようにカードの上の部分（大きな英字の見出しの後ろ）に敷く */
+:root[data-theme="pokemon"] .card { border: none; border-radius: 16px; box-shadow: 0 0 14px rgba(0,0,0,0.10);
+  background: linear-gradient(90deg, var(--band-orange), var(--band-yellow) 65%, var(--band-mint)) 0 0 / 100% 128px no-repeat, var(--surface); }
 /* 見出し：大きな英字（上）＋イベント名 */
 :root[data-theme="pokemon"] .card-title { flex-wrap: wrap; border-bottom: none; font-weight: 900; color: var(--text); }
 :root[data-theme="pokemon"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .card-title::before {
