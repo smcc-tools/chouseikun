@@ -128,7 +128,7 @@
   --green: #0066C0; --green-dark: #00519A; --green-light: #E8F1FB; --green-mid: #C5DBF3;
   --lime: #F5B800; --forest: #1F3E7A;
   --wood: #FFF6CC; --wood-border: #FFE08A; --wood-text: #7A5A00;
-  --bg: #F5F7FA; --surface: #FFFFFF; --surface-2: #FAFBFD; --field-bg: #FAFBFD;
+  --bg: #FFFFFF; --surface: #FFFFFF; --surface-2: #F3F4F5; --field-bg: #FFFFFF;
   --gold: #F5B700; --clay: #D6301C;
   --text: #404248; --text-muted: #686B75; --border: #DDE1EA; --line-soft: #ECEFF4;
   --shadow: 0 1px 2px rgba(31,62,122,0.05), 0 12px 30px rgba(31,62,122,0.08);
@@ -149,6 +149,9 @@
   --vote-radius: 999px; --nav-radius: 999px; --nav-radius-sm: 999px; --bulk-radius: 999px;
   /* 縁取りの線（紺） */
   --ink: #1F3E7A;
+  /* 公式サイト風で使う色：ボタンの青のグラデーション・NEW のピンク・背景のパステルの帯 */
+  --btn-from: #0066C0; --btn-to: #1A78CC; --accent-text: #D10F67; --accent-fill: #E0106E;
+  --band-yellow: #FDF0A5; --band-orange: #FCD9A8; --band-mint: #E3F4EC; --frame-blue: #BFDDF5;
 
   --text-strong: var(--text); --nav-text: var(--text-muted); --clay-text: var(--clay);
   --brand-tint-head: var(--green-light); --brand-tint-hover: var(--green-mid);
@@ -732,7 +735,7 @@ td.input-col { background: var(--brand-tint-soft, #F6F9F0); border-left: 1px sol
 .tp-swatch { width: 18px; height: 18px; border-radius: 50%; display: inline-block; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18); }
 .tp-olive { background: conic-gradient(#F3ECDD 0 120deg, #3D5A3A 0 240deg, #B0883A 0); } /* theme-literal-ok */
 .tp-chiikawa { background: conic-gradient(#D3ECBF 0 120deg, #462E31 0 240deg, #FF96D2 0); } /* theme-literal-ok */
-.tp-pokemon { background: conic-gradient(#F5F7FA 0 120deg, #0066C0 0 240deg, #F5B700 0); } /* theme-literal-ok */
+.tp-pokemon { background: conic-gradient(#FDF0A5 0 120deg, #0066C0 0 240deg, #E0106E 0); } /* theme-literal-ok */
 /* テーマのキャラクター画像（ちいかわ）。画像はオーナーが themes/chiikawa/ に置く */
 .theme-art { display: block; margin: 0 auto 10px; object-fit: contain; }
 .theme-art-empty { width: 112px; height: 112px; }
@@ -1389,6 +1392,97 @@ body.gourmet-open #gFrame {
   :root[data-theme="chiikawa"] .header-logo { letter-spacing: 0.02em; }
   :root[data-theme="chiikawa"] :is(#signInBtn, #myEventsNavBtn, #signOutBtn) { letter-spacing: 0; }
 }
+
+/* ── ポケモン専用「公式サイト風」──（スタンプ帳の共通指定を上書き。ちいかわには効かない）
+   pokemon.co.jp：白地にパステルの帯・大きな英字の見出し＋小さな日本語・青のグラデーションのピル形ボタン・縁取りなしの角丸カード */
+:root[data-theme="pokemon"] body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(90deg, var(--band-orange), var(--band-yellow) 70%, var(--band-mint)),
+    linear-gradient(90deg, var(--band-yellow), var(--band-mint));
+  background-size: 82% 560px, 70% 640px; background-position: 0 150px, 100% 980px; background-repeat: no-repeat;
+}
+:root[data-theme="pokemon"] .header { background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+:root[data-theme="pokemon"] .header::after { display: none; }
+:root[data-theme="pokemon"] .header-logo { color: var(--text); font-weight: 900; }
+:root[data-theme="pokemon"] :is(#signInBtn, #myEventsNavBtn, #signOutBtn) {
+  border: none !important; color: #fff !important;
+  background: linear-gradient(90deg, var(--btn-from), var(--btn-to)) var(--btn-from) !important;
+  box-shadow: 0 0 10px rgba(0,0,0,0.15);
+}
+/* カード：縁取りなし・角丸・ふんわりした影 */
+:root[data-theme="pokemon"] .card { border: none; border-radius: 16px; box-shadow: 0 0 14px rgba(0,0,0,0.10); }
+/* 見出し：大きな英字（上）＋イベント名 */
+:root[data-theme="pokemon"] .card-title { flex-wrap: wrap; border-bottom: none; font-weight: 900; color: var(--text); }
+:root[data-theme="pokemon"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .card-title::before {
+  flex-basis: 100%; font-family: var(--font-display); font-size: 1.9rem; font-weight: 900; line-height: 1.1; letter-spacing: 0; color: var(--text);
+}
+:root[data-theme="pokemon"] #viewCard .card-title::before { content: 'SCHEDULE'; }
+:root[data-theme="pokemon"] #announceCard .card-title::before { content: 'INFORMATION'; }
+:root[data-theme="pokemon"] #seatingCard .card-title::before { content: 'SEATS'; }
+:root[data-theme="pokemon"] #walicaCard .card-title::before { content: 'EXPENSES'; }
+:root[data-theme="pokemon"] #settleCard .card-title::before { content: 'PAYMENT'; }
+:root[data-theme="pokemon"] #hostBadge { border: none !important; }
+:root[data-theme="pokemon"] #addMemoBtn { border: 1.5px dashed var(--frame-blue) !important; border-radius: 12px !important; background: var(--surface) !important; }
+/* 小見出し：大きな英字＋字間を広げた小さな日本語（タグ形をやめる） */
+:root[data-theme="pokemon"] :is(#viewCard, #announceCard, #seatingCard, #walicaCard, #settleCard) .field > label {
+  background: none; border: none; border-radius: 0; padding: 0; color: var(--text-muted);
+  letter-spacing: 0.18em; font-size: 0.8rem; font-weight: 700;
+}
+:root[data-theme="pokemon"] :is(#walicaCard, #seatingCard) :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+:root[data-theme="pokemon"] :is(#walicaCard, #seatingCard) :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label::after {
+  order: -1; font-family: var(--font-display); font-size: 1.45rem; font-weight: 900; letter-spacing: 0; color: var(--text);
+}
+:root[data-theme="pokemon"] #walicaSettleField > label::after { content: 'RESULT'; }
+:root[data-theme="pokemon"] #walicaExpenseField > label::after { content: 'EXPENSES'; }
+:root[data-theme="pokemon"] #walicaMemberField > label::after { content: 'MEMBERS'; }
+:root[data-theme="pokemon"] #seatingResultField > label::after { content: 'SEATS'; }
+:root[data-theme="pokemon"] #walicaCard :is(#walicaSettleField, #walicaExpenseField) > label { background: none; }
+:root[data-theme="pokemon"].has-deco-art :is(#walicaMemberField, #walicaExpenseField, #walicaSettleField, #seatingResultField) > label { padding-left: 0; }
+/* お知らせ：グレーの面（公式の「重要なお知らせ」）、開催日は NEW のピンク */
+:root[data-theme="pokemon"] .ann-date-label { border: none; background: var(--accent-fill); color: #fff; }
+:root[data-theme="pokemon"] #venueWrap { background: var(--surface-2) !important; border: none !important; border-radius: 12px !important; }
+:root[data-theme="pokemon"] .venue-head { background: none; border-bottom: none; color: var(--accent-text) !important; }
+/* ボタン：青のグラデーションのピル形・ふんわりした影 */
+:root[data-theme="pokemon"] .btn { border: none; font-weight: 700; }
+:root[data-theme="pokemon"] .btn-primary, :root[data-theme="pokemon"] .btn-primary:hover { border: none; background: linear-gradient(90deg, var(--btn-from), var(--btn-to)) var(--btn-from); box-shadow: 0 0 10px rgba(0,0,0,0.15); }
+:root[data-theme="pokemon"] .btn-primary:disabled { background: var(--brand-disabled, #B7BCAC); }
+:root[data-theme="pokemon"] :is(.btn-secondary, .btn-ghost), :root[data-theme="pokemon"] :is(.btn-secondary, .btn-ghost):hover { border: 1.5px solid var(--frame-blue); background: var(--surface); color: var(--green); box-shadow: 0 0 10px rgba(0,0,0,0.08); }
+:root[data-theme="pokemon"] .btn:active { transform: scale(0.97); }
+:root[data-theme="pokemon"] #publishViewBtn { box-shadow: 0 4px 14px rgba(0,0,0,0.2) !important; }
+:root[data-theme="pokemon"] .register-btn { border: none; background: linear-gradient(90deg, var(--btn-from), var(--btn-to)) var(--btn-from); box-shadow: 0 0 10px rgba(0,0,0,0.15); }
+:root[data-theme="pokemon"] :is(#addCalendarBtn, #announceCalendarBtn) { border: none !important; color: #fff !important; background: linear-gradient(90deg, var(--btn-from), var(--btn-to)) var(--btn-from) !important; box-shadow: 0 0 10px rgba(0,0,0,0.15); }
+:root[data-theme="pokemon"] .edit-btn:not(.editing) { background: var(--surface); border-color: var(--frame-blue); color: var(--green); font-weight: 700; }
+/* 日程表：縁取りなし・グレーの見出しの行・細い区切り線 */
+:root[data-theme="pokemon"] .table-wrap { border: none; border-radius: 12px; box-shadow: 0 0 12px rgba(0,0,0,0.08); }
+:root[data-theme="pokemon"] .table-wrap th { border-bottom: 1px solid var(--border); background: var(--table-head, #F4F2EA); }
+:root[data-theme="pokemon"].has-vote-art .vote-btn { border: 1px solid var(--border); }
+:root[data-theme="pokemon"].has-vote-art .vote-btn.selected { border: 2px solid var(--green); }
+:root[data-theme="pokemon"].has-vote-art .vote-display::before { border: none; }
+:root[data-theme="pokemon"] .legend { border-top: 1px solid var(--border); }
+:root[data-theme="pokemon"] .legend-item:not(.host-only) { border: none; background: none; padding: 0; }
+:root[data-theme="pokemon"] .confirmed-flag { border: none; background: var(--accent-fill); color: #fff; }
+:root[data-theme="pokemon"] tr.confirmed-row td.date-cell { color: var(--accent-text); }
+/* ナビ・次会のタブ */
+:root[data-theme="pokemon"] #hostNav { border: none; box-shadow: 0 0 14px rgba(0,0,0,0.15); }
+:root[data-theme="pokemon"] #hostNav .hostnav-btn.active { border: none; background: linear-gradient(90deg, var(--btn-from), var(--btn-to)) var(--btn-from); }
+:root[data-theme="pokemon"] #themeNavBtn { border: none; background: var(--surface-2); }
+:root[data-theme="pokemon"] .my-event-tabs { border: none; background: var(--surface-2); }
+:root[data-theme="pokemon"] .my-event-tab.active { border: none; background: linear-gradient(90deg, var(--btn-from), var(--btn-to)) var(--btn-from); }
+/* 座席 */
+:root[data-theme="pokemon"] .seat-table-block { border: none; border-radius: 12px; background: var(--surface-2); }
+:root[data-theme="pokemon"] .seat-table-bar { border: none; background: var(--green-light); }
+:root[data-theme="pokemon"] .seat-chip:not(.locked):not(.empty):not(.selected):not(.seat-settled) { border-color: var(--border); background: var(--surface); }
+/* 割り勘：白いカード＋ふんわりした影（公式のニュースの並び） */
+:root[data-theme="pokemon"] :is(.wl-settle-line, .wl-expense, .wl-settle-done) { border: none; border-radius: 12px; background: var(--surface); box-shadow: 0 0 10px rgba(0,0,0,0.10); }
+:root[data-theme="pokemon"] .wl-settle-line .wl-pay { color: var(--accent-text); }
+:root[data-theme="pokemon"] .wl-member-summary { border: none; background: var(--surface-2); }
+/* 空の画面：枠も台紙もなし */
+:root[data-theme="pokemon"] .wl-empty { border: 1.5px solid var(--frame-blue); background: var(--surface); }
+:root[data-theme="pokemon"] img.theme-art-empty { padding: 0; background: none; border: none; border-radius: 0; }
+:root[data-theme="pokemon"] .toast { background: var(--text); }
   </style>
 </head>
 <body>
