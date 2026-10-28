@@ -608,6 +608,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-fit-wrap.fit { overflow: hidden; }
 .seat-fit-wrap.fit .seat-fit-board { width: max-content; margin: 0 auto; }
 .seat-fit-wrap.fit .seat-longtable { overflow: visible; }
+/* 全体表示では卓の枠を全部同じ高さにそろえず（行ごとの高さにする）、縦の余白を詰めて大きく見せる */
+.seat-fit-wrap.fit .seat-tables-grid.uniform { grid-auto-rows: auto; }
 /* 長机の互い違い：多い側の席数×2 の等しい細い列に、席札を2列ずつ置く（少ない側は1列ずらす） */
 .seat-longtable-inner.seat-stagger { display: grid; width: fit-content; margin: 0 auto; gap: 6px 0; align-items: center;
   grid-template-columns: repeat(var(--tracks), minmax(0, 1fr)); grid-template-rows: auto auto auto; }
@@ -6557,13 +6559,17 @@ body.gourmet-open #gFrame {
     if (!wrap.classList.contains('fit') || !board.offsetParent) return;
     const natW = board.scrollWidth, natH = board.scrollHeight;
     if (!natW || !natH) return;
-    const headerH = document.querySelector('.header')?.offsetHeight || 62;
+    let topH = document.querySelector('.header')?.offsetHeight || 62;
     let bottomH = 0;
+    // ホストのナビはスマホでは画面の下、PCではヘッダーの下に固定されている。どちらにあっても高さを引く
     const nav = document.getElementById('hostNav');
-    if (nav && nav.offsetParent) { const r = nav.getBoundingClientRect(); if (r.top > innerHeight / 2) bottomH += innerHeight - r.top; }
+    if (nav && nav.offsetParent) {
+      const r = nav.getBoundingClientRect();
+      if (r.top > innerHeight / 2) bottomH += innerHeight - r.top; else topH = Math.max(topH, r.bottom);
+    }
     const pub = document.getElementById('publishBar');
     if (pub && pub.offsetParent && getComputedStyle(pub).display !== 'none') bottomH += 56;
-    const availH = Math.max(160, innerHeight - headerH - bottomH - 24);
+    const availH = Math.max(160, innerHeight - topH - bottomH - 24);
     const scale = Math.max(0.3, Math.min(1, wrap.clientWidth / natW, availH / natH));
     board.style.zoom = String(Math.floor(scale * 1000) / 1000);
   }
