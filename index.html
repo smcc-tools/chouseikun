@@ -601,6 +601,38 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-entrance-label.vert { writing-mode: vertical-rl; padding: 10px 3px; }
 /* 卓の位置関係：列数指定のグリッド＋「⇄ 移動」で卓を入れ替え（参加者にも同じ配置で表示） */
 .seat-tables-grid { display: grid; gap: 0 10px; align-items: start; }
+/* 座席表の「全体を表示」：盤面を中身の幅で測り、JS が zoom で画面に収める（長机の横スクロールも外す） */
+.seat-fit-bar { display: flex; justify-content: flex-end; margin: 0 0 6px; }
+.seat-fit-btn { border: 1px solid var(--green-mid); background: var(--surface); color: var(--green); border-radius: 999px;
+  font-size: 0.74rem; font-weight: 700; padding: 5px 12px; cursor: pointer; font-family: inherit; }
+.seat-fit-wrap.fit { overflow: hidden; }
+.seat-fit-wrap.fit .seat-fit-board { width: max-content; margin: 0 auto; }
+.seat-fit-wrap.fit .seat-longtable { overflow: visible; }
+/* 全体表示では卓の枠を全部同じ高さにそろえず（行ごとの高さにする）、縦の余白を詰めて大きく見せる */
+.seat-fit-wrap.fit .seat-tables-grid.uniform { grid-auto-rows: auto; }
+/* 全体表示：卓と卓の間・卓の中・席札の余白を詰め、編集用の小ボタン（縦にする・移動・🔓）を隠して、
+   できるだけ大きな倍率で全席を収める（どのテーマの指定よりも強くするため #seatingResult から書く） */
+#seatingResult .seat-fit-wrap.fit .seat-tables-grid { gap: 4px; }
+#seatingResult .seat-fit-wrap.fit .seat-entrance-grid { gap: 3px; }
+#seatingResult .seat-fit-wrap.fit .seat-table-block { padding: 5px 6px; margin: 0; border-radius: 8px; }
+#seatingResult .seat-fit-wrap.fit .stb-name { margin-bottom: 3px; padding-bottom: 2px; }
+#seatingResult .seat-fit-wrap.fit :is(.seat-move-btn, .seat-ori-btn, .seat-lock-btn) { display: none; }
+#seatingResult .seat-fit-wrap.fit .seat-row { gap: 3px; margin: 3px 0; min-height: 0; }
+#seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert, #seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert .seat-col { gap: 3px; }
+#seatingResult .seat-fit-wrap.fit .seat-chip { min-width: 0; padding: 3px 7px; }
+#seatingResult .seat-fit-wrap.fit .seat-table-bar { height: 22px; line-height: 22px; }
+#seatingResult .seat-fit-wrap.fit .seat-longtable-inner .seat-table-bar { line-height: 22px; }
+#seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert .seat-table-bar { width: 22px; height: auto; min-height: 22px; }
+#seatingResult .seat-fit-wrap.fit .seat-round { width: 200px; margin: 0 auto; }
+#seatingResult .seat-fit-wrap.fit .seat-empty-slot, #seatingResult .seat-fit-wrap.fit .seat-tables-grid.free .seat-empty-slot.ghost { min-height: 40px; margin: 0; }
+/* 長机の互い違い：多い側の席数×2 の等しい細い列に、席札を2列ずつ置く（少ない側は1列ずらす） */
+.seat-longtable-inner.seat-stagger { display: grid; width: fit-content; margin: 0 auto; gap: 6px 0; align-items: center;
+  grid-template-columns: repeat(var(--tracks), minmax(0, 1fr)); grid-template-rows: auto auto auto; }
+.seat-longtable-inner.seat-stagger.vert { grid-template-columns: auto auto auto; grid-template-rows: repeat(var(--tracks), minmax(0, 1fr)); gap: 0 6px; align-items: stretch; }
+.seat-stagger .seat-stg-cell { display: flex; justify-content: center; align-items: center; padding: 0 3px; min-width: 0; }
+.seat-stagger.vert .seat-stg-cell { padding: 3px 0; }
+.seat-stagger .seat-stg-cell .seat-chip { margin: 0; width: 100%; }
+.seat-stagger:not(.vert) .seat-table-bar { line-height: 35px; text-align: center; }
 .seat-tables-grid .seat-table-block { min-width: 0; }
 /* 卓が複数あるときは、人数に関わらず卓のボックスを同じ大きさに揃える。
    幅は grid の 1fr で既に均等なので、高さを行いっぱいに伸ばして中身を上下中央に置く。
@@ -6086,6 +6118,13 @@ body.gourmet-open #gFrame {
 
   // 卓レイアウトに応じた「隣り合う席」ペア（長机=左右＋対面／円卓=円周）
   // 長机の上段人数。奇数定員はホストがどちら側を多くするか選べる（t.split: 'top'=上が多い(既定)/'bottom'=下が多い）
+  // 奇数定員の長机で「互い違い」にしているか（少ない側の席を、向かい側の席と席の間に置く）。
+  // 偶数・円卓・1席では意味がないので、t.stagger が残っていても互い違いにしない
+  function isStaggered(t) {
+    const cap = parseInt(t && t.capacity) || 0;
+    return !!(t && t.stagger) && ((t.shape || 'rect') !== 'round') && cap > 1 && cap % 2 === 1;
+  }
+
   function tableTopCount(t) {
     const cap = parseInt(t && t.capacity) || 0;
     return (t && t.split === 'bottom') ? Math.floor(cap / 2) : Math.ceil(cap / 2);
@@ -6100,6 +6139,31 @@ body.gourmet-open #gFrame {
     if (((t && t.shape) || 'rect') === 'round') return { first: cap, second: 0 };
     const first = (t && t.split === 'bottom') ? Math.floor(cap / 2) : Math.ceil(cap / 2);
     return { first, second: cap - first };
+  }
+
+  // 長机の席の並び（座席表・シャッフル演出で共通）。chipAt(名前, 席番号) が席札の HTML を返す。
+  // 互い違いは、多い側の席数×2 の細い列（縦向きなら行）に並べ、多い側は奇数番目から・少ない側は
+  // 偶数番目から2本ずつ使うことで、少ない側の席を向かい側の席と席の間に置く
+  function longTableHtml(t, arr, chipAt) {
+    const { first, second } = tableRowCounts(t);
+    const vert = t.orient === 'v';
+    const firstArr = arr.slice(0, first), secondArr = arr.slice(first, first + second);
+    if (!isStaggered(t)) {
+      const a = firstArr.map((n, i) => chipAt(n, i)).join('');
+      const b = secondArr.map((n, i) => chipAt(n, first + i)).join('');
+      return vert
+        ? `<div class="seat-longtable"><div class="seat-longtable-inner vert"><div class="seat-col">${a}</div><div class="seat-table-bar">TABLE</div><div class="seat-col">${b}</div></div></div>`
+        : `<div class="seat-longtable"><div class="seat-longtable-inner"><div class="seat-row">${a}</div><div class="seat-table-bar">TABLE</div><div class="seat-row">${b}</div></div></div>`;
+    }
+    const more = Math.max(first, second);
+    const along = vert ? 'grid-row' : 'grid-column';
+    const across = vert ? 'grid-column' : 'grid-row';
+    const cell = (n, idx, k, isMore, line) =>
+      `<div class="seat-stg-cell" style="${along}:${2 * k + (isMore ? 1 : 2)} / span 2;${across}:${line};">${chipAt(n, idx)}</div>`;
+    const cells = firstArr.map((n, k) => cell(n, k, k, first >= second, 1)).join('')
+      + secondArr.map((n, k) => cell(n, first + k, k, second >= first, 3)).join('');
+    const bar = `<div class="seat-table-bar" style="${along}:1 / -1;${across}:2;">TABLE</div>`;
+    return `<div class="seat-longtable"><div class="seat-longtable-inner seat-stagger${vert ? ' vert' : ''}" style="--tracks:${2 * more};">${bar}${cells}</div></div>`;
   }
 
   // 上下の振り分け(split)変更時：配置済みの参加者を「行ごと・並びそのまま」入れ替えるパッチを作る。
@@ -6120,7 +6184,8 @@ body.gourmet-open #gFrame {
     return { assignment, locks };
   }
 
-  function seatNeighborPairs(cap, shape, topCount) {
+  // stagger（互い違い）のとき、少ない側の席 k は向かい側の席 k と k+1 の間に座るので、その2人と向かい合う
+  function seatNeighborPairs(cap, shape, topCount, stagger) {
     const pairs = [];
     if (cap <= 1) return pairs;
     if ((shape || 'rect') === 'round') {
@@ -6129,7 +6194,13 @@ body.gourmet-open #gFrame {
       const half = Number.isInteger(topCount) ? Math.max(0, Math.min(topCount, cap)) : Math.ceil(cap / 2);
       for (let i = 0; i < half - 1; i++) pairs.push([i, i + 1]);
       for (let i = half; i < cap - 1; i++) pairs.push([i, i + 1]);
-      for (let i = 0; i < cap - half && i < half; i++) pairs.push([i, half + i]);
+      const bottom = cap - half;
+      if (stagger && Math.abs(half - bottom) === 1) {
+        if (half > bottom) { for (let k = 0; k < bottom; k++) pairs.push([k, half + k], [k + 1, half + k]); }
+        else { for (let k = 0; k < half; k++) pairs.push([k, half + k], [k, half + k + 1]); }
+      } else {
+        for (let i = 0; i < cap - half && i < half; i++) pairs.push([i, half + i]);
+      }
     }
     return pairs;
   }
@@ -6143,8 +6214,8 @@ body.gourmet-open #gFrame {
   // 色を 1〜3 程度にすると負け、何度も振り直すと同じ色が隣・向かいに来る（以前の 色1・前回2 がそれ）。
   const W_SAME_COLOR = 1000;
   const W_PREV_ADJACENT = 1;
-  function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf, prevAdj, topCount) {
-    const neighbors = seatNeighborPairs(cap, shape, topCount);
+  function arrangeTableSeats(cap, shape, lockedSeat, people, colorOf, prevAdj, topCount, stagger) {
+    const neighbors = seatNeighborPairs(cap, shape, topCount, stagger);
     const freeIdx = []; for (let i = 0; i < cap; i++) if (!(i in lockedSeat)) freeIdx.push(i);
     const conflicts = arr => {
       let s = 0;
@@ -6299,7 +6370,7 @@ body.gourmet-open #gFrame {
           const arr = norm[t.id] || [];
           const present = arr.filter(Boolean);
           for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) bump(coTable, present[i], present[j]);
-          for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape, tableTopCount(t))) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
+          for (const [a, b] of seatNeighborPairs(parseInt(t.capacity) || 0, t.shape, tableTopCount(t), isStaggered(t))) if (arr[a] && arr[b]) bump(adj, arr[a], arr[b]);
         });
       });
     });
@@ -6394,7 +6465,7 @@ body.gourmet-open #gFrame {
         if (nm != null && idx >= 0 && idx < cap) lockedSeat[idx] = nm;
       });
       const people = best[i].filter(n => !lockedNames.has(n));
-      assignment[t.id] = arrangeTableSeats(cap, t.shape, lockedSeat, people, n => seatColorOf(data, n), avoid.adj, tableTopCount(t));
+      assignment[t.id] = arrangeTableSeats(cap, t.shape, lockedSeat, people, n => seatColorOf(data, n), avoid.adj, tableTopCount(t), isStaggered(t));
     });
     return { assignment };
   }
@@ -6489,6 +6560,49 @@ body.gourmet-open #gFrame {
     if (!valid.length) return false;
     return valid.every(n => !HONORIFICS.some(h => n.endsWith(h)));
   }
+
+  // 座席表の「全体を表示」。未選択(null)なら、参加者は最初から全体表示・ホストは元の大きさ
+  let seatFitPref = null;
+  function seatFitOn() { return seatFitPref === null ? !isHost : seatFitPref; }
+  // 全体表示のとき、座席表を「スクロールせずに収まる」倍率に縮める（拡大はしない）。
+  // 横は画面の幅、縦はヘッダー・下のナビ・「参加者に表示」を除いた高さに合わせる
+  function applySeatFit() {
+    const wrap = document.querySelector('#seatingResult .seat-fit-wrap');
+    if (!wrap) return;
+    const board = wrap.querySelector('.seat-fit-board');
+    board.style.zoom = '';
+    if (!wrap.classList.contains('fit') || !board.offsetParent) return;
+    const natW = board.scrollWidth, natH = board.scrollHeight;
+    if (!natW || !natH) return;
+    let topH = document.querySelector('.header')?.offsetHeight || 62;
+    let bottomH = 0;
+    // ホストのナビはスマホでは画面の下、PCではヘッダーの下に固定されている。どちらにあっても高さを引く
+    const nav = document.getElementById('hostNav');
+    // 固定配置（position:fixed）の要素は offsetParent が null になるので、表示中かは display で見る
+    if (nav && getComputedStyle(nav).display !== 'none') {
+      const r = nav.getBoundingClientRect();
+      if (r.top > innerHeight / 2) bottomH += innerHeight - r.top; else topH = Math.max(topH, r.bottom);
+    }
+    const pub = document.getElementById('publishBar');
+    if (pub && getComputedStyle(pub).display !== 'none') bottomH += 56;
+    const availH = Math.max(160, innerHeight - topH - bottomH - 24);
+    // 卓の枠線や丸め誤差で端が欠けないよう、幅は少しだけ余裕を残す
+    // 下限は設けない（卓が多くても全席を必ず1画面に収める。読みにくければ元の大きさに戻せる）
+    const scale = Math.min(1, (wrap.clientWidth - 6) / natW, availH / natH);
+    let z = Math.floor(scale * 1000) / 1000;
+    board.style.zoom = String(z);
+    // とても小さい倍率では文字の幅が計算どおりに縮まず、端がはみ出すことがある。
+    // 縮めた後の実際の大きさを測り、はみ出していれば少しずつ縮め直す
+    const limitW = wrap.clientWidth - 2;
+    for (let i = 0; i < 6; i++) {
+      const r = board.getBoundingClientRect();
+      const over = Math.max(r.width / limitW, r.height / availH);
+      if (over <= 1) break;
+      z = Math.floor(z / over * 0.98 * 1000) / 1000;
+      board.style.zoom = String(z);
+    }
+  }
+  window.addEventListener('resize', () => applySeatFit());
 
   function renderSeatingBoard(data) {
     document.getElementById('seatingTitle').textContent = data.name || '座席決め';
@@ -6795,21 +6909,8 @@ body.gourmet-open #gFrame {
         });
         tablesHtml += `</div>`;
       } else {
-        // 奇数定員はホスト設定(split)で多い側が決まる。first=先に描く側（横向き＝上段／縦向き＝左列）
-        const { first } = tableRowCounts(t);
-        if (t.orient === 'v') {
-          tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner vert">
-            <div class="seat-col">${arr.slice(0, first).map((n, i) => chip(n, t.id, i)).join('')}</div>
-            <div class="seat-table-bar">TABLE</div>
-            <div class="seat-col">${arr.slice(first).map((n, i) => chip(n, t.id, first + i)).join('')}</div>
-          </div></div>`;
-        } else {
-          tablesHtml += `<div class="seat-longtable"><div class="seat-longtable-inner">
-            <div class="seat-row">${arr.slice(0, first).map((n, i) => chip(n, t.id, i)).join('')}</div>
-            <div class="seat-table-bar">TABLE</div>
-            <div class="seat-row">${arr.slice(first).map((n, i) => chip(n, t.id, first + i)).join('')}</div>
-          </div></div>`;
-        }
+        // 奇数定員はホスト設定(split)で多い側が決まる。互い違い(stagger)なら少ない側を間に置く
+        tablesHtml += longTableHtml(t, arr, (n, i) => chip(n, t.id, i));
       }
       tablesHtml += `</div>`;
     });
@@ -6818,13 +6919,14 @@ body.gourmet-open #gFrame {
     tablesHtml = `<div class="seat-tables-grid${(party.freeLayout || explicitRows) ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
     // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
     const entrance = party.entrance || null;
+    let boardHtml = '';
     if (canEdit || entrance) {
       const entCell = (side, vert) => {
         const sel = entrance === side;
         if (canEdit) return `<button type="button" class="seat-entrance-btn${vert ? ' vert' : ''}${sel ? ' selected' : ''}" data-ent="${side}" title="${sel ? '入り口の選択を解除' : 'この側を店の入り口にする'}">${sel ? '🚪 店の入り口' : '入り口'}</button>`;
         return sel ? `<div class="seat-entrance-label${vert ? ' vert' : ''}">🚪 店の入り口</div>` : '';
       };
-      html += `<div class="seat-entrance-grid">
+      boardHtml = `<div class="seat-entrance-grid">
         <div class="se-top">${entCell('top', false)}</div>
         <div class="se-left">${entCell('left', true)}</div>
         <div class="se-main">${tablesHtml}</div>
@@ -6832,8 +6934,12 @@ body.gourmet-open #gFrame {
         <div class="se-bottom">${entCell('bottom', false)}</div>
       </div>`;
     } else {
-      html += tablesHtml;
+      boardHtml = tablesHtml;
     }
+    // 「全体を表示」：座席表（入り口を含む）だけを、画面の幅と高さに収まる倍率に縮める
+    const fitOn = seatFitOn();
+    html += `<div class="seat-fit-bar"><button type="button" class="seat-fit-btn" id="seatFitBtn" aria-pressed="${fitOn}">${fitOn ? '元の大きさで表示' : '全体を表示'}</button></div>
+      <div class="seat-fit-wrap${fitOn ? ' fit' : ''}"><div class="seat-fit-board">${boardHtml}</div></div>`;
     // プレビュー時は未割当ゾーン・クリックハンドラ不要（配置ロジック未確定のため）
     if (!isPreview && (unassigned.length || (canEdit && seatSel && seatSel.t))) {
       html += `<div class="seat-unassigned seat-unassigned-zone"><b>未割当：</b><div class="seat-row" style="justify-content:flex-start;">${
@@ -6844,6 +6950,17 @@ body.gourmet-open #gFrame {
       }${canEdit && seatSel && seatSel.t ? `<div class="seat-chip empty clickable" data-uzone="1">ここへ外す</div>` : ''}</div></div>`;
     }
     el.innerHTML = html;
+    el.querySelector('#seatFitBtn')?.addEventListener('click', () => {
+      seatFitPref = !seatFitOn();
+      const b = el.querySelector('#seatFitBtn');
+      b.textContent = seatFitPref ? '元の大きさで表示' : '全体を表示';
+      b.setAttribute('aria-pressed', String(seatFitPref));
+      el.querySelector('.seat-fit-wrap')?.classList.toggle('fit', seatFitPref);
+      applySeatFit();
+    });
+    applySeatFit();
+    // 文字（フォント）や画像の読み込みで席札の幅が変わるので、少し後にもう一度合わせる
+    setTimeout(applySeatFit, 400);
 
     // 入り口の選択はプレビュー中（席決め前）でも可能。同じ辺をもう一度押すと解除
     el.querySelectorAll('.seat-entrance-btn').forEach(btn => btn.addEventListener('click', () => {
@@ -7098,8 +7215,10 @@ body.gourmet-open #gFrame {
       const [a, b] = vert ? ['左', '右'] : ['上', '下'];
       const oddSplit = (isRect && cap % 2 === 1 && cap > 1)
         ? `<select class="stsplit" style="width:auto;margin-bottom:0;padding:8px 8px;" title="奇数定員の振り分け">
-            <option value="top" ${t.split !== 'bottom' ? 'selected' : ''}>${a}${rc.first} ${b}${rc.second}</option>
-            <option value="bottom" ${t.split === 'bottom' ? 'selected' : ''}>${a}${rc.second} ${b}${rc.first}</option>
+            <option value="top" ${t.split !== 'bottom' && !t.stagger ? 'selected' : ''}>${a}${rc.first} ${b}${rc.second}</option>
+            <option value="bottom" ${t.split === 'bottom' && !t.stagger ? 'selected' : ''}>${a}${rc.second} ${b}${rc.first}</option>
+            <option value="top-s" ${t.split !== 'bottom' && t.stagger ? 'selected' : ''}>${a}${rc.first} ${b}${rc.second}（互い違い）</option>
+            <option value="bottom-s" ${t.split === 'bottom' && t.stagger ? 'selected' : ''}>${a}${rc.second} ${b}${rc.first}（互い違い）</option>
           </select>`
         : `<span class="stsplit-blank"></span>`;
       return `<div class="seat-table-row" data-id="${escHtml(t.id)}">
@@ -7140,13 +7259,16 @@ body.gourmet-open #gFrame {
         const prevCapacity = parseInt(prevT.capacity) || 0;
         const prevShape = (prevT.shape || 'rect') === 'round' ? 'round' : 'rect';
         const prevSplit = prevT.split === 'bottom' ? 'bottom' : 'top';
-        const newSplit = splitEl ? (splitEl.value === 'bottom' ? 'bottom' : 'top') : prevSplit;
+        const prevStagger = !!prevT.stagger;
+        // 選択欄の値は top / bottom / top-s / bottom-s（-s が互い違い）
+        const newSplit = splitEl ? (splitEl.value.startsWith('bottom') ? 'bottom' : 'top') : prevSplit;
+        const newStagger = splitEl ? splitEl.value.endsWith('-s') : prevStagger;
         const changed = name !== prevName || capacity !== prevCapacity || shape !== prevShape
-          || (!!splitEl && newSplit !== prevSplit);
+          || (!!splitEl && (newSplit !== prevSplit || newStagger !== prevStagger));
         if (!changed) return;
         const next = (party.tables || []).map(t => t.id === id
           // orient は含めない：卓の図で切り替えた向きを、ここでの編集で上書きしないため
-          ? { ...t, name, capacity, shape, ...(splitEl ? { split: newSplit } : {}) }
+          ? { ...t, name, capacity, shape, ...(splitEl ? { split: newSplit, stagger: newStagger } : {}) }
           : t);
         const patch = { tables: next };
         // 上下の振り分けを変えた場合：配置済みの参加者を行ごと（並びそのまま）入れ替える
@@ -7211,12 +7333,7 @@ body.gourmet-open #gFrame {
         });
         html += `</div>`;
       } else {
-        const half = Math.ceil(cap / 2);
-        html += `<div class="seat-longtable"><div class="seat-longtable-inner">
-          <div class="seat-row">${arr.slice(0, half).map((n, i) => chip(n, i)).join('')}</div>
-          <div class="seat-table-bar">TABLE</div>
-          <div class="seat-row">${arr.slice(half).map((n, i) => chip(n, half + i)).join('')}</div>
-        </div></div>`;
+        html += longTableHtml(t, arr, chip);
       }
       html += `</div>`;
     });
