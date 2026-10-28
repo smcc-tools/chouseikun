@@ -6589,7 +6589,18 @@ body.gourmet-open #gFrame {
     // 卓の枠線や丸め誤差で端が欠けないよう、幅は少しだけ余裕を残す
     // 下限は設けない（卓が多くても全席を必ず1画面に収める。読みにくければ元の大きさに戻せる）
     const scale = Math.min(1, (wrap.clientWidth - 6) / natW, availH / natH);
-    board.style.zoom = String(Math.floor(scale * 1000) / 1000);
+    let z = Math.floor(scale * 1000) / 1000;
+    board.style.zoom = String(z);
+    // とても小さい倍率では文字の幅が計算どおりに縮まず、端がはみ出すことがある。
+    // 縮めた後の実際の大きさを測り、はみ出していれば少しずつ縮め直す
+    const limitW = wrap.clientWidth - 2;
+    for (let i = 0; i < 6; i++) {
+      const r = board.getBoundingClientRect();
+      const over = Math.max(r.width / limitW, r.height / availH);
+      if (over <= 1) break;
+      z = Math.floor(z / over * 0.98 * 1000) / 1000;
+      board.style.zoom = String(z);
+    }
   }
   window.addEventListener('resize', () => applySeatFit());
 
