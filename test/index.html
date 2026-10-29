@@ -6727,6 +6727,13 @@ body.gourmet-open #gFrame {
     holder.appendChild(built.card);
     try {
       sizeSeatChips(built.board, false);
+      // 円卓の席は translate(-50%,-50%) で中央合わせしているが、html2canvas は変形した箱の中の文字を描き落とす。
+      // 画像では実寸を測って負の余白で同じ位置に置き直す
+      built.board.querySelectorAll('.seat-round > div[style*="translate"]').forEach(d => {
+        const w = d.offsetWidth, h = d.offsetHeight;
+        d.style.transform = 'none';
+        d.style.marginLeft = `${-w / 2}px`; d.style.marginTop = `${-h / 2}px`;
+      });
       const h2c = await loadHtml2canvas();
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
       const canvas = await h2c(built.card, { scale: 2, backgroundColor: null, useCORS: true, logging: false });
