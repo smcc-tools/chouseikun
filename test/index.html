@@ -557,17 +557,20 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 .seat-lock-btn:active { transform: scale(0.9); }
 .seat-chip.locked .seat-lock-btn { background: var(--gold); border-color: var(--gold); }
 /* 座席表の席チップは幅を揃える（下限）が、長い名前は「…」で切れず伸びるようにする */
-#seatingResult .seat-chip { min-width: 106px; width: auto; max-width: 220px; }
+#seatingResult .seat-chip { min-width: 106px; width: auto; max-width: none; }
 /* 円卓は席を円周上に絶対配置するため、固定幅だと上下頂点付近でチップ同士が重なる。
    円卓のチップは内容に合わせた幅（小さめ・下限解除）にして重なりを防ぐ（長机の統一下限は維持） */
-#seatingResult .seat-round .seat-chip { min-width: 0; width: auto; max-width: 90px; padding: 5px 8px; font-size: 0.78rem; }
+#seatingResult .seat-round .seat-chip { min-width: 0; width: auto; max-width: none; padding: 5px 8px; font-size: 0.78rem; }
 /* 名前側を伸縮領域にしてロックボタンを常に右端へ固定（タップ判定拡大が右端まで確実に届くように）。
    ロックボタンの無い参加者用チップでも名前は中央寄せのまま */
-#seatingResult .seat-chip .sc-name { flex: 1 1 auto; min-width: 0; text-align: center; }
+#seatingResult .seat-chip .sc-name { flex: 1 0 auto; min-width: 0; text-align: center; }
+/* 座席表は参加者にそのまま見せるので、名前を「…」で省略しない（席札の幅は applySeatFit が名前に合わせる） */
+#seatingResult .seat-chip, #seatingResult .seat-chip .sc-name { overflow: visible; text-overflow: clip; }
+#seatingResult .seat-chip, #seatingResult .seat-round .seat-chip { max-width: none; }
 @media (max-width: 480px) {
   .seat-chip { padding: 6px 9px; font-size: 0.8rem; max-width: 122px; }
-  #seatingResult .seat-chip { min-width: 92px; width: auto; max-width: 180px; }
-  #seatingResult .seat-round .seat-chip { min-width: 0; width: auto; max-width: 78px; padding: 4px 7px; font-size: 0.72rem; }
+  #seatingResult .seat-chip { min-width: 92px; width: auto; max-width: none; }
+  #seatingResult .seat-round .seat-chip { min-width: 0; width: auto; max-width: none; padding: 4px 7px; font-size: 0.72rem; }
   .seat-lock-btn { width: 24px; height: 24px; }
   .seat-lock-btn::after { left: -6px; right: -11px; top: -8px; bottom: -8px; }
 }
@@ -6583,13 +6586,14 @@ body.gourmet-open #gFrame {
     board.style.removeProperty('--fit-chip-w');
     if (!board.offsetParent) return;
     const fitMode = wrap.classList.contains('fit');
-    // 席札の幅をそろえる：いちばん長い名前の幅を当てる（超える分は「…」）。
-    // 全体表示は全席（上限140px）、元の大きさは長机の席（上限180px）。円卓は円周に並べるので元の大きさでは除く
+    // 席札の幅をそろえる：いちばん長い名前がそのまま入る幅を当てる（座席表は参加者にそのまま見せるので「…」で省略しない）。
+    // 全体表示は全席、元の大きさは長机の席（円卓は円周に並べるので元の大きさでは除く）。
+    // 縮小すると文字の幅が計算どおりに縮まず少しはみ出すので、全体表示では1割の余裕を足す
     board.classList.add('measure-chip');
     let chipW = 0;
     board.querySelectorAll(fitMode ? '.seat-chip' : '.seat-longtable .seat-chip').forEach(c => { chipW = Math.max(chipW, c.getBoundingClientRect().width); });
     board.classList.remove('measure-chip');
-    if (chipW) board.style.setProperty('--fit-chip-w', `${Math.min(fitMode ? 140 : 180, Math.ceil(chipW))}px`);
+    if (chipW) board.style.setProperty('--fit-chip-w', `${Math.ceil(fitMode ? chipW * 1.1 + 2 : chipW + 1)}px`);
     if (!fitMode) return;
     const natW = board.scrollWidth, natH = board.scrollHeight;
     if (!natW || !natH) return;
