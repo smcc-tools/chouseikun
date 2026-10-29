@@ -622,7 +622,9 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatingResult .seat-fit-wrap.fit .seat-chip { min-width: 0; max-width: none; padding: 3px 7px; width: var(--fit-chip-w, auto); box-sizing: border-box; }
 /* 円卓・互い違いの席札も、文字の大きさと余白を他の卓とそろえる */
 #seatingResult .seat-fit-wrap.fit .seat-round .seat-chip, #seatingResult .seat-fit-wrap.fit .seat-stagger .seat-stg-cell .seat-chip { width: var(--fit-chip-w, auto); max-width: none; font-size: 0.82rem; padding: 3px 7px; }
-#seatingResult .seat-fit-wrap.fit .seat-fit-board.measure-chip .seat-chip { width: auto !important; }
+#seatingResult .seat-fit-board.measure-chip .seat-chip { width: auto !important; }
+/* 元の大きさでも、長机の席札は全席同じ幅（applySeatFit が --fit-chip-w を決める） */
+#seatingResult .seat-fit-wrap:not(.fit) .seat-longtable .seat-chip { width: var(--fit-chip-w, auto); max-width: none; box-sizing: border-box; }
 #seatingResult .seat-fit-wrap.fit .seat-table-bar { height: 22px; line-height: 22px; }
 #seatingResult .seat-fit-wrap.fit .seat-longtable-inner .seat-table-bar { line-height: 22px; }
 #seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert .seat-table-bar { width: 22px; height: auto; min-height: 22px; }
@@ -6579,13 +6581,16 @@ body.gourmet-open #gFrame {
     const board = wrap.querySelector('.seat-fit-board');
     board.style.zoom = '';
     board.style.removeProperty('--fit-chip-w');
-    if (!wrap.classList.contains('fit') || !board.offsetParent) return;
-    // 席札の幅を全席そろえる：いちばん長い名前の幅（上限140px、超える分は「…」）を全席に当てる
+    if (!board.offsetParent) return;
+    const fitMode = wrap.classList.contains('fit');
+    // 席札の幅をそろえる：いちばん長い名前の幅を当てる（超える分は「…」）。
+    // 全体表示は全席（上限140px）、元の大きさは長机の席（上限180px）。円卓は円周に並べるので元の大きさでは除く
     board.classList.add('measure-chip');
     let chipW = 0;
-    board.querySelectorAll('.seat-chip').forEach(c => { chipW = Math.max(chipW, c.getBoundingClientRect().width); });
+    board.querySelectorAll(fitMode ? '.seat-chip' : '.seat-longtable .seat-chip').forEach(c => { chipW = Math.max(chipW, c.getBoundingClientRect().width); });
     board.classList.remove('measure-chip');
-    if (chipW) board.style.setProperty('--fit-chip-w', `${Math.min(140, Math.ceil(chipW))}px`);
+    if (chipW) board.style.setProperty('--fit-chip-w', `${Math.min(fitMode ? 140 : 180, Math.ceil(chipW))}px`);
+    if (!fitMode) return;
     const natW = board.scrollWidth, natH = board.scrollHeight;
     if (!natW || !natH) return;
     let topH = document.querySelector('.header')?.offsetHeight || 62;
