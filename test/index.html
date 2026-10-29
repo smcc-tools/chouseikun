@@ -622,6 +622,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 /* 全体表示：卓と卓の間・卓の中・席札の余白を詰め、編集用の小ボタン（縦にする・移動・🔓）を隠して、
    できるだけ大きな倍率で全席を収める（どのテーマの指定よりも強くするため #seatingResult から書く） */
 #seatingResult .seat-fit-wrap.fit .seat-tables-grid { gap: 4px; }
+/* 全体表示では列の幅を「その列でいちばん広い卓」に合わせる（全列を最も広い卓にそろえると横幅を取り、縮み方が大きくなる）。卓の並びは変えない */
+#seatingResult .seat-fit-wrap.fit .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; justify-content: center; }
 #seatingResult .seat-fit-wrap.fit .seat-entrance-grid { gap: 3px; }
 #seatingResult .seat-fit-wrap.fit .seat-table-block { padding: 5px 6px; margin: 0; border-radius: 8px; }
 #seatingResult .seat-fit-wrap.fit .stb-name { margin-bottom: 3px; padding-bottom: 2px; }
@@ -6956,7 +6958,7 @@ body.gourmet-open #gFrame {
     });
     // uniform：卓が複数あるときだけ、人数に関わらず卓のボックスを同じ大きさに揃える
     // free：空けたマスが通常表示でも高さを保つ。縦×横を明示した次会でも空行が潰れないよう含める
-    tablesHtml = `<div class="seat-tables-grid${(party.freeLayout || explicitRows) ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);">${tablesHtml}</div>`;
+    tablesHtml = `<div class="seat-tables-grid${(party.freeLayout || explicitRows) ? ' free' : ''}${tables.length > 1 ? ' uniform' : ''}" style="grid-template-columns:repeat(${cols},1fr);--cols:${cols};">${tablesHtml}</div>`;
     // 店の入り口：座席表の四方（上下左右）。ホストは選択ボタン、参加者は選択された辺の表示のみ
     const entrance = party.entrance || null;
     let boardHtml = '';
