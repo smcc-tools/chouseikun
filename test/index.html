@@ -619,6 +619,9 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatingResult .seat-export .sx-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--forest); }
 #seatingResult .seat-export .sx-sub { font-size: 15px; color: var(--text-muted); margin: 4px 0 18px; }
 #seatingResult .seat-export .seat-fit-board { width: max-content; }
+/* 写し取った瞬間に出現アニメ（半透明から始まる）が再生されて薄く写るので、画像では動きを止める */
+#seatingResult .seat-export, #seatingResult .seat-export * { animation: none !important; transition: none !important; }
+#seatingResult .seat-export .sx-vtext { writing-mode: horizontal-tb; text-align: center; line-height: 1.15; flex-direction: column; }
 #seatingResult .seat-export .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; gap: 10px; }
 #seatingResult .seat-export .seat-tables-grid.uniform { grid-auto-rows: auto; }
 #seatingResult .seat-export :is(.seat-longtable, .seat-round-scroll) { overflow: visible; }
@@ -6698,6 +6701,11 @@ body.gourmet-open #gFrame {
     board.querySelectorAll('.seat-chip').forEach(c => { c.classList.remove('selected', 'locked', 'clickable'); c.removeAttribute('title'); });
     board.querySelectorAll('.seat-empty-slot').forEach(e => { e.classList.remove('active'); e.textContent = ''; });
     board.querySelectorAll('.seat-table-block').forEach(b => b.classList.remove('move-sel'));
+    // html2canvas は縦書き（writing-mode）を描けず文字が重なるので、1文字ずつ改行した横書きに置き換える
+    board.querySelectorAll('.seat-longtable-inner.vert .seat-table-bar, .seat-entrance-label.vert').forEach(e => {
+      e.innerHTML = [...e.textContent.trim()].filter(ch => ch.trim()).map(escHtml).join('<br>');
+      e.classList.add('sx-vtext');
+    });
     const party = activeParty(data) || {};
     const kn = document.getElementById('seatingKeishoNote');
     const keisho = !!kn && kn.style.display !== 'none';
