@@ -6697,7 +6697,7 @@ body.gourmet-open #gFrame {
       if (!b.classList.contains('selected')) { b.remove(); return; }
       const d = document.createElement('div');
       d.className = 'seat-entrance-label' + (b.classList.contains('vert') ? ' vert' : '');
-      d.textContent = '🚪 店の入り口';
+      d.textContent = '入り口';
       b.replaceWith(d);
     });
     board.querySelectorAll('.seat-chip').forEach(c => { c.classList.remove('selected', 'locked', 'clickable'); c.removeAttribute('title'); });
@@ -7105,8 +7105,8 @@ body.gourmet-open #gFrame {
     if (canEdit || entrance) {
       const entCell = (side, vert) => {
         const sel = entrance === side;
-        if (canEdit) return `<button type="button" class="seat-entrance-btn${vert ? ' vert' : ''}${sel ? ' selected' : ''}" data-ent="${side}" title="${sel ? '入り口の選択を解除' : 'この側を店の入り口にする'}">${sel ? '🚪 店の入り口' : '入り口'}</button>`;
-        return sel ? `<div class="seat-entrance-label${vert ? ' vert' : ''}">🚪 店の入り口</div>` : '';
+        if (canEdit) return `<button type="button" class="seat-entrance-btn${vert ? ' vert' : ''}${sel ? ' selected' : ''}" data-ent="${side}" title="${sel ? '入り口の選択を解除' : 'この側を店の入り口にする'}">入り口</button>`;
+        return sel ? `<div class="seat-entrance-label${vert ? ' vert' : ''}">入り口</div>` : '';
       };
       boardHtml = `<div class="seat-entrance-grid">
         <div class="se-top">${entCell('top', false)}</div>
