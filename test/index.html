@@ -611,7 +611,27 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatingResult .seat-round-scroll .seat-round { flex: 0 0 auto; margin: 0; max-width: none;
   width: max(min(100%, 300px), calc(var(--round-chip-w, 40px) * var(--rf, 3.2))); }
 /* 座席表の「全体を表示」：盤面を中身の幅で測り、JS が zoom で画面に収める（長机の横スクロールも外す） */
-.seat-fit-bar { display: flex; justify-content: flex-end; margin: 0 0 6px; }
+.seat-fit-bar { display: flex; justify-content: flex-end; gap: 6px; margin: 0 0 6px; }
+/* 画像用の座席表（画面の外で描いて html2canvas で写す）。縮めず、列は列ごとの卓の幅、行は行ごとの高さ。
+   letter-spacing を 0 以外にすると html2canvas が日本語を1文字ずつ正しい位置に置く（席ガチャで実証済み） */
+#seatingResult .seat-export { position: fixed; left: -100000px; top: 0; width: max-content; padding: 32px 36px;
+  background: var(--surface); color: var(--text); font-family: var(--font-ui); letter-spacing: 0.01px; }
+#seatingResult .seat-export .sx-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; color: var(--forest); }
+#seatingResult .seat-export .sx-sub { font-size: 15px; color: var(--text-muted); margin: 4px 0 18px; }
+#seatingResult .seat-export .seat-fit-board { width: max-content; }
+#seatingResult .seat-export .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; gap: 10px; }
+#seatingResult .seat-export .seat-tables-grid.uniform { grid-auto-rows: auto; }
+#seatingResult .seat-export :is(.seat-longtable, .seat-round-scroll) { overflow: visible; }
+/* 「画像にする」のプレビュー */
+.seat-img-overlay { position: fixed; inset: 0; z-index: 9998; background: var(--scrim, rgba(0,0,0,0.4)); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.seat-img-box { background: var(--surface); border-radius: var(--radius-sm, 12px); max-width: min(960px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow); }
+.seat-img-box .sib-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+.seat-img-box .sib-close { background: none; border: none; font-size: 1.1rem; color: var(--text-muted); cursor: pointer; padding: 4px 8px; }
+.seat-img-box .sib-body { overflow: auto; padding: 12px; background: var(--surface-2, #fafafa); min-height: 120px; display: flex; align-items: center; justify-content: center; }
+.seat-img-box .sib-img { display: block; max-width: 100%; height: auto; }
+.seat-img-box .sib-msg { color: var(--text-muted); font-size: 0.9rem; }
+.seat-img-box .sib-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 12px 16px; }
+.seat-img-box .sib-actions:empty { display: none; }
 .seat-fit-btn { border: 1px solid var(--green-mid); background: var(--surface); color: var(--green); border-radius: 999px;
   font-size: 0.74rem; font-weight: 700; padding: 5px 12px; cursor: pointer; font-family: inherit; }
 .seat-fit-wrap.fit { overflow: hidden; }
@@ -6594,22 +6614,7 @@ body.gourmet-open #gFrame {
     board.style.removeProperty('--round-chip-w');
     if (!board.offsetParent) return;
     const fitMode = wrap.classList.contains('fit');
-    // 席札の幅をそろえる：いちばん長い名前がそのまま入る幅を当てる（座席表は参加者にそのまま見せるので「…」で省略しない）。
-    // 全体表示は全席、元の大きさは長机の席（円卓は円周に並べるので元の大きさでは除く）。
-    // 縮小すると文字の幅が計算どおりに縮まず少しはみ出すので、全体表示では1割の余裕を足す
-    board.classList.add('measure-chip');
-    let chipW = 0;
-    board.querySelectorAll(fitMode ? '.seat-chip' : '.seat-longtable .seat-chip').forEach(c => { chipW = Math.max(chipW, c.getBoundingClientRect().width); });
-    board.classList.remove('measure-chip');
-    if (chipW) board.style.setProperty('--fit-chip-w', `${Math.ceil(fitMode ? chipW * 1.1 + 2 : chipW + 1)}px`);
-    // 円卓は席札の幅に合わせて円の大きさと周りの余白を決める（全体表示はそろえた幅、元の大きさは円卓の席札の最大幅）
-    let roundW = fitMode ? Math.ceil(chipW * 1.1 + 2) : 0;
-    if (!fitMode) {
-      board.classList.add('measure-chip');
-      board.querySelectorAll('.seat-round .seat-chip').forEach(c => { roundW = Math.max(roundW, c.getBoundingClientRect().width); });
-      board.classList.remove('measure-chip');
-    }
-    if (roundW) board.style.setProperty('--round-chip-w', `${Math.ceil(roundW) + 1}px`);
+    sizeSeatChips(board, fitMode);
     if (!fitMode) return;
     const natW = board.scrollWidth, natH = board.scrollHeight;
     if (!natW || !natH) return;
@@ -6642,6 +6647,132 @@ body.gourmet-open #gFrame {
     }
   }
   window.addEventListener('resize', () => applySeatFit());
+
+  // 席札の幅をそろえる：いちばん長い名前がそのまま入る幅を当てる（座席表は参加者にそのまま見せるので「…」で省略しない）。
+  // 全体表示は全席、元の大きさ・画像は長机の席（円卓は円周に並べるので除き、円の大きさで受ける）。
+  // 縮小すると文字の幅が計算どおりに縮まず少しはみ出すので、全体表示では1割の余裕を足す
+  function sizeSeatChips(board, fitMode) {
+    board.style.removeProperty('--fit-chip-w');
+    board.style.removeProperty('--round-chip-w');
+    board.classList.add('measure-chip');
+    let chipW = 0, roundW = 0;
+    board.querySelectorAll(fitMode ? '.seat-chip' : '.seat-longtable .seat-chip').forEach(c => { chipW = Math.max(chipW, c.getBoundingClientRect().width); });
+    if (!fitMode) board.querySelectorAll('.seat-round .seat-chip').forEach(c => { roundW = Math.max(roundW, c.getBoundingClientRect().width); });
+    board.classList.remove('measure-chip');
+    if (chipW) board.style.setProperty('--fit-chip-w', `${Math.ceil(fitMode ? chipW * 1.1 + 2 : chipW + 1)}px`);
+    if (fitMode) roundW = Math.ceil(chipW * 1.1 + 2);
+    if (roundW) board.style.setProperty('--round-chip-w', `${Math.ceil(roundW) + 1}px`);
+  }
+
+  // ── 座席表の画像（参加者にそのまま配れるよう、縮めずにきれいな配置で描いて PNG にする）──
+  // 画像化は html2canvas（席ガチャと同じ）。押したときだけ読み込む
+  let html2canvasLoading = null;
+  function loadHtml2canvas() {
+    if (window.html2canvas) return Promise.resolve(window.html2canvas);
+    if (!html2canvasLoading) {
+      html2canvasLoading = new Promise((ok, ng) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        sc.onload = () => (window.html2canvas ? ok(window.html2canvas) : ng(new Error('html2canvas が見つからない')));
+        sc.onerror = () => { html2canvasLoading = null; ng(new Error('画像化の部品を読み込めませんでした')); };
+        document.head.appendChild(sc);
+      });
+    }
+    return html2canvasLoading;
+  }
+
+  // 画面の座席表を写し取り、参加者に見せない部分（色タグ・🔓・移動ボタン・選ばれていない入り口・選択中の枠）を外す
+  function buildSeatExport(data) {
+    const src = document.querySelector('#seatingResult .seat-fit-board');
+    if (!src) return null;
+    const board = src.cloneNode(true);
+    board.removeAttribute('style');
+    board.querySelectorAll('.seat-move-btn, .seat-ori-btn, .seat-lock-btn, .seat-color-dot').forEach(e => e.remove());
+    board.querySelectorAll('.seat-entrance-btn').forEach(b => {
+      if (!b.classList.contains('selected')) { b.remove(); return; }
+      const d = document.createElement('div');
+      d.className = 'seat-entrance-label' + (b.classList.contains('vert') ? ' vert' : '');
+      d.textContent = '🚪 店の入り口';
+      b.replaceWith(d);
+    });
+    board.querySelectorAll('.seat-chip').forEach(c => { c.classList.remove('selected', 'locked', 'clickable'); c.removeAttribute('title'); });
+    board.querySelectorAll('.seat-empty-slot').forEach(e => { e.classList.remove('active'); e.textContent = ''; });
+    board.querySelectorAll('.seat-table-block').forEach(b => b.classList.remove('move-sel'));
+    const party = activeParty(data) || {};
+    const kn = document.getElementById('seatingKeishoNote');
+    const keisho = !!kn && kn.style.display !== 'none';
+    const card = document.createElement('div');
+    card.className = 'seat-export';
+    card.innerHTML = `<div class="sx-title">${escHtml(data.name || '')}</div>`
+      + `<div class="sx-sub">${escHtml(party.name || '')}　座席表${keisho ? '（敬称略）' : ''}</div>`;
+    const wrap = document.createElement('div');
+    wrap.className = 'seat-fit-wrap sx-board';
+    wrap.appendChild(board);
+    card.appendChild(wrap);
+    return { card, board };
+  }
+
+  async function seatBoardToBlob(data) {
+    const built = buildSeatExport(data);
+    if (!built) throw new Error('座席表がありません');
+    const holder = document.getElementById('seatingResult');
+    holder.appendChild(built.card);
+    try {
+      sizeSeatChips(built.board, false);
+      const h2c = await loadHtml2canvas();
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      const canvas = await h2c(built.card, { scale: 2, backgroundColor: null, useCORS: true, logging: false });
+      return await new Promise((ok, ng) => canvas.toBlob(b => (b ? ok(b) : ng(new Error('画像にできませんでした'))), 'image/png'));
+    } finally {
+      built.card.remove();
+    }
+  }
+
+  // 「画像にする」：作った画像を見せて、コピー・保存・（スマホは）共有を選べるようにする。
+  // コピーはボタンを押した瞬間に行う（iPhone は作るのに時間がかかるとコピーを拒むため、先に作っておく）
+  async function openSeatImage() {
+    const data = latestEventData;
+    if (!data) return;
+    document.querySelector('.seat-img-overlay')?.remove();
+    const ov = document.createElement('div');
+    ov.className = 'seat-img-overlay';
+    ov.innerHTML = `<div class="seat-img-box" role="dialog" aria-label="座席表の画像">
+      <div class="sib-head"><b>座席表の画像</b><button type="button" class="sib-close" aria-label="閉じる">✕</button></div>
+      <div class="sib-body"><p class="sib-msg">画像を作っています…</p></div>
+      <div class="sib-actions"></div></div>`;
+    document.body.appendChild(ov);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    ov.querySelector('.sib-close').addEventListener('click', close);
+    let blob;
+    try { blob = await seatBoardToBlob(data); }
+    catch (e) { ov.querySelector('.sib-msg').textContent = '画像を作れませんでした。通信状況を確認して、もう一度お試しください。'; console.error(e); return; }
+    if (!ov.isConnected) return;
+    const url = URL.createObjectURL(blob);
+    const party = activeParty(data) || {};
+    const fname = `座席表_${(data.name || 'イベント').replace(/[\\/:*?"<>|]/g, '')}_${(party.name || '').replace(/[\\/:*?"<>|]/g, '')}.png`;
+    const file = new File([blob], fname, { type: 'image/png' });
+    ov.querySelector('.sib-body').innerHTML = `<img class="sib-img" alt="座席表の画像" src="${url}">`;
+    const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    const canCopy = !!(navigator.clipboard && window.ClipboardItem);
+    ov.querySelector('.sib-actions').innerHTML =
+      (canCopy ? '<button type="button" class="btn btn-primary" data-act="copy">画像をコピー</button>' : '')
+      + '<button type="button" class="btn btn-secondary" data-act="save">保存</button>'
+      + (canShare ? '<button type="button" class="btn btn-secondary" data-act="share">共有</button>' : '');
+    ov.querySelector('[data-act="copy"]')?.addEventListener('click', async () => {
+      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); showToast('画像をコピーしました。LINEなどに貼り付けて送れます', { art: true }); }
+      catch (e) { showToast('この端末ではコピーできませんでした。「保存」してから送ってください'); console.error(e); }
+    });
+    ov.querySelector('[data-act="save"]').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    });
+    ov.querySelector('[data-act="share"]')?.addEventListener('click', async () => {
+      try { await navigator.share({ files: [file], title: fname }); } catch (_) { /* 共有を閉じただけ */ }
+    });
+  }
 
   function renderSeatingBoard(data) {
     document.getElementById('seatingTitle').textContent = data.name || '座席決め';
@@ -6980,7 +7111,7 @@ body.gourmet-open #gFrame {
     }
     // 「全体を表示」：座席表（入り口を含む）だけを、画面の幅と高さに収まる倍率に縮める
     const fitOn = seatFitOn();
-    html += `<div class="seat-fit-bar"><button type="button" class="seat-fit-btn" id="seatFitBtn" aria-pressed="${fitOn}">${fitOn ? '元の大きさで表示' : '全体を表示'}</button></div>
+    html += `<div class="seat-fit-bar">${isPreview ? '' : '<button type="button" class="seat-fit-btn" id="seatImgBtn">画像にする</button>'}<button type="button" class="seat-fit-btn" id="seatFitBtn" aria-pressed="${fitOn}">${fitOn ? '元の大きさで表示' : '全体を表示'}</button></div>
       <div class="seat-fit-wrap${fitOn ? ' fit' : ''}"><div class="seat-fit-board">${boardHtml}</div></div>`;
     // プレビュー時は未割当ゾーン・クリックハンドラ不要（配置ロジック未確定のため）
     if (!isPreview && (unassigned.length || (canEdit && seatSel && seatSel.t))) {
@@ -6992,6 +7123,7 @@ body.gourmet-open #gFrame {
       }${canEdit && seatSel && seatSel.t ? `<div class="seat-chip empty clickable" data-uzone="1">ここへ外す</div>` : ''}</div></div>`;
     }
     el.innerHTML = html;
+    el.querySelector('#seatImgBtn')?.addEventListener('click', () => openSeatImage());
     el.querySelector('#seatFitBtn')?.addEventListener('click', () => {
       seatFitPref = !seatFitOn();
       const b = el.querySelector('#seatFitBtn');
