@@ -632,7 +632,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatingResult .seat-fit-wrap.fit .seat-table-block:has(.seat-round) { padding: 5px calc(var(--fit-chip-w, 60px) * 0.36) 14px; }
 #seatingResult .seat-fit-wrap.fit .seat-empty-slot, #seatingResult .seat-fit-wrap.fit .seat-tables-grid.free .seat-empty-slot.ghost { min-height: 40px; margin: 0; }
 /* 長机の互い違い：多い側の席数×2 の等しい細い列に、席札を2列ずつ置く（少ない側は1列ずらす） */
-.seat-longtable-inner.seat-stagger { display: grid; width: fit-content; margin: 0 auto; gap: 6px 0; align-items: center;
+/* 幅は max-content（席札の幅を保つ）。fit-content だと卓が狭いとき列が縮んで席札が重なる。足りなければ .seat-longtable が横スクロール */
+.seat-longtable-inner.seat-stagger { display: grid; width: max-content; margin: 0 auto; gap: 6px 0; align-items: center;
   grid-template-columns: repeat(var(--tracks), minmax(0, 1fr)); grid-template-rows: auto auto auto; }
 .seat-longtable-inner.seat-stagger.vert { grid-template-columns: auto auto auto; grid-template-rows: repeat(var(--tracks), minmax(0, 1fr)); gap: 0 6px; align-items: stretch; }
 .seat-stagger .seat-stg-cell { display: flex; justify-content: center; align-items: center; padding: 0 3px; min-width: 0; }
