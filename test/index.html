@@ -6708,13 +6708,12 @@ body.gourmet-open #gFrame {
       e.innerHTML = [...e.textContent.trim()].filter(ch => ch.trim()).map(escHtml).join('<br>');
       e.classList.add('sx-vtext');
     });
-    const party = activeParty(data) || {};
     const kn = document.getElementById('seatingKeishoNote');
     const keisho = !!kn && kn.style.display !== 'none';
     const card = document.createElement('div');
     card.className = 'seat-export';
     card.innerHTML = `<div class="sx-title">${escHtml(data.name || '')}</div>`
-      + `<div class="sx-sub">${escHtml(party.name || '')}　座席表${keisho ? '（敬称略）' : ''}</div>`;
+      + `<div class="sx-sub">座席表${keisho ? '（敬称略）' : ''}</div>`;
     const wrap = document.createElement('div');
     wrap.className = 'seat-fit-wrap sx-board';
     wrap.appendChild(board);
