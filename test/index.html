@@ -628,6 +628,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert .seat-table-bar { width: 22px; height: auto; min-height: 22px; }
 /* 円卓は、そろえた席札の幅に合わせて大きくする（席札が重ならないように） */
 #seatingResult .seat-fit-wrap.fit .seat-round { width: max(200px, calc(var(--fit-chip-w, 60px) * 3.2)); max-width: none; margin: 0 auto; }
+/* 円卓の席札は円周の上に中心があるので、半分が円の外に出る。その分を卓の枠の余白で受け、となりの卓に重ならないようにする */
+#seatingResult .seat-fit-wrap.fit .seat-table-block:has(.seat-round) { padding: 5px calc(var(--fit-chip-w, 60px) * 0.36) 14px; }
 #seatingResult .seat-fit-wrap.fit .seat-empty-slot, #seatingResult .seat-fit-wrap.fit .seat-tables-grid.free .seat-empty-slot.ghost { min-height: 40px; margin: 0; }
 /* 長机の互い違い：多い側の席数×2 の等しい細い列に、席札を2列ずつ置く（少ない側は1列ずらす） */
 .seat-longtable-inner.seat-stagger { display: grid; width: fit-content; margin: 0 auto; gap: 6px 0; align-items: center;
