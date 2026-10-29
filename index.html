@@ -619,11 +619,17 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatingResult .seat-fit-wrap.fit :is(.seat-move-btn, .seat-ori-btn, .seat-lock-btn) { display: none; }
 #seatingResult .seat-fit-wrap.fit .seat-row { gap: 3px; margin: 3px 0; min-height: 0; }
 #seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert, #seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert .seat-col { gap: 3px; }
-#seatingResult .seat-fit-wrap.fit .seat-chip { min-width: 0; padding: 3px 7px; }
+#seatingResult .seat-fit-wrap.fit .seat-chip { min-width: 0; max-width: none; padding: 3px 7px; width: var(--fit-chip-w, auto); box-sizing: border-box; }
+/* 円卓・互い違いの席札も、文字の大きさと余白を他の卓とそろえる */
+#seatingResult .seat-fit-wrap.fit .seat-round .seat-chip, #seatingResult .seat-fit-wrap.fit .seat-stagger .seat-stg-cell .seat-chip { width: var(--fit-chip-w, auto); max-width: none; font-size: 0.82rem; padding: 3px 7px; }
+#seatingResult .seat-fit-wrap.fit .seat-fit-board.measure-chip .seat-chip { width: auto !important; }
 #seatingResult .seat-fit-wrap.fit .seat-table-bar { height: 22px; line-height: 22px; }
 #seatingResult .seat-fit-wrap.fit .seat-longtable-inner .seat-table-bar { line-height: 22px; }
 #seatingResult .seat-fit-wrap.fit .seat-longtable-inner.vert .seat-table-bar { width: 22px; height: auto; min-height: 22px; }
-#seatingResult .seat-fit-wrap.fit .seat-round { width: 200px; margin: 0 auto; }
+/* 円卓は、そろえた席札の幅に合わせて大きくする（席札が重ならないように） */
+#seatingResult .seat-fit-wrap.fit .seat-round { width: max(200px, calc(var(--fit-chip-w, 60px) * 3.2)); max-width: none; margin: 0 auto; }
+/* 円卓の席札は円周の上に中心があるので、半分が円の外に出る。その分を卓の枠の余白で受け、となりの卓に重ならないようにする */
+#seatingResult .seat-fit-wrap.fit .seat-table-block:has(.seat-round) { padding: 5px calc(var(--fit-chip-w, 60px) * 0.36) 14px; }
 #seatingResult .seat-fit-wrap.fit .seat-empty-slot, #seatingResult .seat-fit-wrap.fit .seat-tables-grid.free .seat-empty-slot.ghost { min-height: 40px; margin: 0; }
 /* 長机の互い違い：多い側の席数×2 の等しい細い列に、席札を2列ずつ置く（少ない側は1列ずらす） */
 .seat-longtable-inner.seat-stagger { display: grid; width: fit-content; margin: 0 auto; gap: 6px 0; align-items: center;
@@ -6571,7 +6577,14 @@ body.gourmet-open #gFrame {
     if (!wrap) return;
     const board = wrap.querySelector('.seat-fit-board');
     board.style.zoom = '';
+    board.style.removeProperty('--fit-chip-w');
     if (!wrap.classList.contains('fit') || !board.offsetParent) return;
+    // 席札の幅を全席そろえる：いちばん長い名前の幅（上限140px、超える分は「…」）を全席に当てる
+    board.classList.add('measure-chip');
+    let chipW = 0;
+    board.querySelectorAll('.seat-chip').forEach(c => { chipW = Math.max(chipW, c.getBoundingClientRect().width); });
+    board.classList.remove('measure-chip');
+    if (chipW) board.style.setProperty('--fit-chip-w', `${Math.min(140, Math.ceil(chipW))}px`);
     const natW = board.scrollWidth, natH = board.scrollHeight;
     if (!natW || !natH) return;
     let topH = document.querySelector('.header')?.offsetHeight || 62;
