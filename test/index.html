@@ -642,7 +642,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .sp-right { width: 330px; flex: 0 0 330px; border-left: 2px dotted var(--border); padding-left: 20px; display: flex; flex-direction: column; justify-content: center; }
 #seatPrint .sp-map-label { font-size: 15px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
 #seatPrint .sp-area { display: flex; justify-content: center; align-items: flex-start; flex: 1; min-height: 0; }
-#seatPrint .seat-fit-board { width: max-content; }
+/* 枠の中で縮められると本来の幅が測れず、紙からはみ出す倍率になるので、縮めさせない */
+#seatPrint .seat-fit-board { width: max-content; flex: none; }
 #seatPrint .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; gap: 10px; }
 #seatPrint .seat-tables-grid.uniform { grid-auto-rows: auto; }
 #seatPrint :is(.seat-longtable, .seat-round-scroll) { overflow: visible; }
@@ -656,6 +657,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   body:has(#seatPrint) :has(> #seatPrint), body:has(#seatPrint) :has(#seatPrint) {
     margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: none !important;
     max-width: none !important; width: auto !important; min-height: 0 !important; position: static !important; transform: none !important; }
+  /* 祖先の飾り（カード下のキャラ並びなど）は印刷しない。残すと紙に載り、白紙のページも増える */
+  body:has(#seatPrint) :has(#seatPrint)::before, body:has(#seatPrint) :has(#seatPrint)::after { display: none !important; }
   #seatPrint { position: static; left: auto; }
   #seatPrint .sp-page { break-after: page; }
   #seatPrint .sp-page:last-child { break-after: auto; }
