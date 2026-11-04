@@ -6251,6 +6251,35 @@ body.gourmet-open #gFrame {
 
   const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
 
+  // 1つの卓に「誰とも隣・向かいにならずに」座れる最大人数（同じ色を何人まで同卓にできるか）。
+  // 4人の長机は隣・向かいが輪になっていて対角の2人まで。3人入ると席順をどう並べても同じ色が隣り合う。
+  // 席順(arrangeTableSeats)は卓に入った人しか並べ替えられないので、卓の振り分けの時点でこれを超えないようにする。
+  // 卓の形ごとに1回だけ数える。大きい卓は数え上げが重いので、必ず達成できる cap/2（1席おき）で見積もる
+  const apartMaxCache = new Map();
+  function maxApartSeats(cap, shape, topCount, stagger) {
+    const key = [cap, shape || 'rect', topCount, !!stagger].join('|');
+    if (apartMaxCache.has(key)) return apartMaxCache.get(key);
+    let best = Math.floor(cap / 2);
+    if (cap <= 1) best = Math.max(0, cap);
+    else if (cap <= 20) {
+      const adj = Array.from({ length: cap }, () => []);
+      for (const [a, b] of seatNeighborPairs(cap, shape, topCount, stagger)) { adj[a].push(b); adj[b].push(a); }
+      const blocked = new Array(cap).fill(0);
+      const go = i => {
+        while (i < cap && blocked[i]) i++;
+        if (i >= cap) return 0;
+        let r = go(i + 1);                       // i に座らせない
+        blocked[i]++; adj[i].forEach(j => blocked[j]++);
+        r = Math.max(r, 1 + go(i + 1));          // i に座らせ、その隣・向かいを空ける
+        blocked[i]--; adj[i].forEach(j => blocked[j]--);
+        return r;
+      };
+      best = go(0);
+    }
+    apartMaxCache.set(key, best);
+    return best;
+  }
+
   // 卓内の席順を、隣接・対面とも「同色」「前回の隣/対面」が並びにくいよう最適化
   // 席順を選ぶときの重み（席ガチャ 2026-09-11 の修正を移植）。色は幹事が明示的に付けた指示なので必ず勝たせ、
   // 「前回と違う隣にする」はその中での並べ替えに使う。
@@ -6456,6 +6485,7 @@ body.gourmet-open #gFrame {
     if (party.assignment || (party.assignmentHistory || []).length) avoidParties.push(party);
     const avoid = buildAvoidance(data, avoidParties);
 
+    const apartMax = tables.map(t => maxApartSeats(t.capacity, t.shape, tableTopCount(t), isStaggered(t)));
     let clusters = members.map(m => [m]);
     function attempt() {
       const order = clusters.slice().sort(() => Math.random() - 0.5);
@@ -6484,6 +6514,9 @@ body.gourmet-open #gFrame {
         const total = counts.reduce((a, v) => a + v, 0);
         const ideal = total / tables.length;
         s += 6 * counts.reduce((a, v) => a + Math.abs(v - ideal), 0);
+        // 卓に入れすぎると席順では離せない（4人卓に同じ色3人など）。席順と同じ重みで、ほかのどの理由よりも避ける。
+        // これが無いと、振り直しで「前回と同卓」の減点が積もったとき、色の偏った卓分けが勝つことがあった
+        counts.forEach((v, i) => { s += W_SAME_COLOR * Math.max(0, v - apartMax[i]); });
       });
       // 前回と同卓の重複を強めに回避
       if (avoid.coTable.size) {
