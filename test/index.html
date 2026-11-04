@@ -664,8 +664,14 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   /* 祖先の飾り（カード下のキャラ並びなど）は印刷しない。残すと紙に載り、白紙のページも増える */
   body:has(#seatPrint) :has(#seatPrint)::before, body:has(#seatPrint) :has(#seatPrint)::after { display: none !important; }
   #seatPrint { position: static; left: auto; }
-  #seatPrint .sp-page { break-after: page; }
-  #seatPrint .sp-page:last-child { break-after: auto; }
+  #seatPrint .sp-sheet { break-after: page; overflow: hidden; }
+  #seatPrint .sp-sheet:last-child { break-after: auto; }
+}
+/* 紙が縦向き（Android の印刷画面は横の指定を無視して縦で組む）なら、横向きのページを90°回して縦の紙に収める。
+   紙を横に持てば横向きの座席表として読める。高さは端末ごとの余白の差で白紙が挟まらないよう1mm控える */
+@media print and (orientation: portrait) {
+  #seatPrint .sp-sheet { width: 190mm; height: 276mm; }
+  #seatPrint .sp-page { transform-origin: top left; transform: translateX(190mm) rotate(90deg); }
 }
 /* 「画像にする」のプレビュー */
 .seat-img-overlay { position: fixed; inset: 0; z-index: 9998; background: var(--scrim, rgba(0,0,0,0.4)); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -6823,16 +6829,24 @@ body.gourmet-open #gFrame {
   function spFit(area, maxW, maxH, maxZoom) {
     const board = area.querySelector('.seat-fit-board');
     board.style.zoom = '';
-    sizeSeatChips(board, false);
+    sizeSeatChips(board, area.classList.contains('fit'));
     const r = board.getBoundingClientRect();
     const z = Math.min(maxZoom, maxW / Math.max(1, r.width), maxH / Math.max(1, r.height));
     board.style.zoom = String(Math.floor(z * 1000) / 1000);
   }
-  function spArea(board) {
+  // compact：全体図は「全体を表示」と同じく卓の間の余白を詰めて、そのぶん大きく載せる
+  function spArea(board, compact) {
     const wrap = document.createElement('div');
-    wrap.className = 'seat-fit-wrap sp-area';
+    wrap.className = `seat-fit-wrap sp-area${compact ? ' fit' : ''}`;
     wrap.appendChild(board);
     return wrap;
+  }
+  // 1枚ずつ紙（sp-sheet）に包む。紙が縦向きで印刷されるときは、紙の中でページを90°回して横向きに載せる
+  function spAddPage(root, page) {
+    const sheet = document.createElement('div');
+    sheet.className = 'sp-sheet';
+    sheet.appendChild(page);
+    root.appendChild(sheet);
   }
   function printSeating() {
     const data = latestEventData;
@@ -6849,9 +6863,9 @@ body.gourmet-open #gFrame {
     const p1 = document.createElement('section');
     p1.className = 'sp-page sp-overview';
     p1.innerHTML = `<div class="sp-head"><div class="sp-event">${title}</div><div class="sp-sub">座席表${keisho ? '（敬称略）' : ''}</div></div>`;
-    const a1 = spArea(base.cloneNode(true));
+    const a1 = spArea(base.cloneNode(true), true);
     p1.appendChild(a1);
-    root.appendChild(p1);
+    spAddPage(root, p1);
     spFit(a1, SP_PAGE_W, SP_PAGE_H - p1.querySelector('.sp-head').offsetHeight - 16, 1.6);
     // 2枚目から：卓ごと（誰も座っていない卓は札を作らない）
     base.querySelectorAll('.seat-table-block[data-tblwrap]').forEach(blk => {
@@ -6874,9 +6888,9 @@ body.gourmet-open #gFrame {
       const map = base.cloneNode(true);
       map.querySelectorAll('.seat-table-block[data-tblwrap]').forEach(b => b.classList.add(b.dataset.tblwrap === id ? 'sp-here' : 'sp-other'));
       const right = pg.querySelector('.sp-right');
-      const aM = spArea(map);
+      const aM = spArea(map, true);
       right.appendChild(aM);
-      root.appendChild(pg);
+      spAddPage(root, pg);
       // 卓の名前は1行に収まる大きさまで縮める（長い名前でも折り返さない）
       const nm = left.querySelector('.sp-name');
       for (let fs = 120; fs > 40 && nm.scrollWidth > nm.clientWidth; fs -= 8) nm.style.fontSize = `${fs - 8}px`;
