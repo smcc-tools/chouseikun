@@ -8,6 +8,7 @@ const {
   seatNeighborPairs,
   normalizeAssignment,
   arrangeTableSeats,
+  maxApartSeats,
   computeSeating,
   buildAssignmentHistory,
   seatColorOf,
@@ -19,6 +20,7 @@ const {
     'spreadByColor',
     'isStaggered', 'tableTopCount',
     'seatNeighborPairs',
+    'apartMaxCache', 'maxApartSeats',
     'W_SAME_COLOR',
     'W_PREV_ADJACENT',
     'arrangeTableSeats',
@@ -337,7 +339,7 @@ test('席替え履歴: 2次会は1次会の現在配置と履歴(前回の席)�
     ],
   };
   const { computeSeating: cs } = loadFunctions(
-    ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'isStaggered', 'tableTopCount', 'seatNeighborPairs',
+    ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'isStaggered', 'tableTopCount', 'seatNeighborPairs', 'apartMaxCache', 'maxApartSeats',
      'W_SAME_COLOR', 'W_PREV_ADJACENT', 'arrangeTableSeats', 'getParties', 'clampActiveIdx', 'roundMembers', 'getSortedNames',
      'membersForView', 'viewMembers', 'normalizeName', 'MEMBER_VIEW_CHAIN',
      'normalizeAssignment', 'buildAvoidance', 'computeSeating'],
@@ -351,6 +353,19 @@ test('席替え履歴: 2次会は1次会の現在配置と履歴(前回の席)�
     assert.equal(tableOf.A, tableOf.D, `2次会${i}: 残された唯一の組合せ A-D にならない`);
     assert.equal(tableOf.B, tableOf.C, `2次会${i}: 残された唯一の組合せ B-C にならない`);
   }
+});
+
+// 卓の振り分けで使う「同じ色を何人まで同卓にできるか」。これを超えると席順ではもう離せない
+test('色タグ: 卓の形ごとに、隣・向かいにならずに座れる最大人数', () => {
+  assert.equal(maxApartSeats(4, 'rect', 2, false), 2);  // 4人の長机は対角の2人まで（3人だと必ず隣り合う）
+  assert.equal(maxApartSeats(6, 'rect', 3, false), 3);
+  assert.equal(maxApartSeats(5, 'rect', 3, false), 3);  // 上3・下2: 上の両端と下の右
+  assert.equal(maxApartSeats(5, 'rect', 3, true), 2);   // 互い違いは斜め向かいも隣り合うので減る
+  assert.equal(maxApartSeats(6, 'round', 3, false), 3);
+  assert.equal(maxApartSeats(5, 'round', 3, false), 2);
+  assert.equal(maxApartSeats(1, 'rect', 1, false), 1);
+  assert.equal(maxApartSeats(0, 'rect', 0, false), 0);
+  assert.equal(maxApartSeats(30, 'rect', 15, false), 15); // 大きい卓は1席おきで見積もる
 });
 
 // 何度も振り直すと同じ色タグの人が隣・向かいに来ていた不具合の再発防止（席ガチャで先に直したもの）。

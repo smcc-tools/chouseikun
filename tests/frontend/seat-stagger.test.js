@@ -42,7 +42,7 @@ test('互い違いにできるのは奇数定員の長机だけ（偶数・円�
 
 test('席替え：互い違いの卓では、斜め向かいにも同じ色の人を座らせない', () => {
   const { computeSeating } = loadFunctions(
-    ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'isStaggered', 'tableTopCount', 'seatNeighborPairs',
+    ['SEAT_TAG_COLORS', 'seatColorOf', 'pairKey', 'spreadByColor', 'isStaggered', 'tableTopCount', 'seatNeighborPairs', 'apartMaxCache', 'maxApartSeats',
      'W_SAME_COLOR', 'W_PREV_ADJACENT', 'arrangeTableSeats', 'getParties', 'clampActiveIdx', 'roundMembers', 'getSortedNames',
      'membersForView', 'viewMembers', 'normalizeName', 'MEMBER_VIEW_CHAIN', 'normalizeAssignment', 'buildAvoidance', 'computeSeating'],
     { seatingActiveParty: 0 });
