@@ -636,12 +636,14 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .sp-event { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--forest); }
 #seatPrint .sp-table .sp-event { font-size: 16px; color: var(--text-muted); }
 #seatPrint .sp-sub { font-size: 15px; color: var(--text-muted); margin-top: 2px; }
-#seatPrint .sp-table { display: flex; gap: 24px; }
-#seatPrint .sp-left { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-#seatPrint .sp-name { font-family: var(--font-display); font-size: 120px; font-weight: 800; line-height: 1.15; color: var(--forest); white-space: nowrap; overflow: hidden; margin: 4px 0 20px; }
-#seatPrint .sp-right { width: 330px; flex: 0 0 330px; border-left: 2px dotted var(--border); padding-left: 20px; display: flex; flex-direction: column; justify-content: center; }
-#seatPrint .sp-map-label { font-size: 15px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
+#seatPrint .sp-table { display: flex; flex-direction: column; }
+#seatPrint .sp-top { display: flex; gap: 24px; height: 230px; flex: none; margin-bottom: 16px; border-bottom: 2px dotted var(--border); padding-bottom: 12px; box-sizing: border-box; }
+#seatPrint .sp-left { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+#seatPrint .sp-name { font-family: var(--font-display); font-size: 120px; font-weight: 800; line-height: 1.15; color: var(--forest); white-space: nowrap; overflow: hidden; margin-top: 4px; }
+#seatPrint .sp-right { width: 420px; flex: 0 0 420px; border-left: 2px dotted var(--border); padding-left: 16px; display: flex; flex-direction: column; min-height: 0; }
+#seatPrint .sp-map-label { font-size: 14px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
 #seatPrint .sp-area { display: flex; justify-content: center; align-items: flex-start; flex: 1; min-height: 0; }
+#seatPrint .sp-right .sp-area { align-items: center; padding: 9px; box-sizing: border-box; overflow: hidden; }
 /* 枠の中で縮められると本来の幅が測れず、紙からはみ出す倍率になるので、縮めさせない */
 #seatPrint .seat-fit-board { width: max-content; flex: none; }
 #seatPrint .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; gap: 10px; }
@@ -6858,8 +6860,9 @@ body.gourmet-open #gFrame {
       const name = blk.querySelector('.stb-name')?.textContent.trim() || '卓';
       const pg = document.createElement('section');
       pg.className = 'sp-page sp-table';
-      pg.innerHTML = `<div class="sp-left"><div class="sp-event">${title}　座席表${keisho ? '（敬称略）' : ''}</div><div class="sp-name">${escHtml(name)}</div></div>`
-        + `<div class="sp-right"><div class="sp-map-label">この卓の位置</div></div>`;
+      // 上段：左に卓の名前（大きく）、右に全体図の中の位置。下段：その卓の席を紙の幅いっぱいに
+      pg.innerHTML = `<div class="sp-top"><div class="sp-left"><div class="sp-event">${title}　座席表${keisho ? '（敬称略）' : ''}</div><div class="sp-name">${escHtml(name)}</div></div>`
+        + `<div class="sp-right"><div class="sp-map-label">この卓の位置</div></div></div>`;
       const one = document.createElement('div');
       one.className = 'seat-fit-board';
       const tb = blk.cloneNode(true);
@@ -6867,7 +6870,7 @@ body.gourmet-open #gFrame {
       one.appendChild(tb);
       const left = pg.querySelector('.sp-left');
       const aT = spArea(one);
-      left.appendChild(aT);
+      pg.appendChild(aT);
       const map = base.cloneNode(true);
       map.querySelectorAll('.seat-table-block[data-tblwrap]').forEach(b => b.classList.add(b.dataset.tblwrap === id ? 'sp-here' : 'sp-other'));
       const right = pg.querySelector('.sp-right');
@@ -6877,9 +6880,10 @@ body.gourmet-open #gFrame {
       // 卓の名前は1行に収まる大きさまで縮める（長い名前でも折り返さない）
       const nm = left.querySelector('.sp-name');
       for (let fs = 120; fs > 40 && nm.scrollWidth > nm.clientWidth; fs -= 8) nm.style.fontSize = `${fs - 8}px`;
-      const usedH = left.querySelector('.sp-event').offsetHeight + nm.offsetHeight + 24;
-      spFit(aT, left.clientWidth, SP_PAGE_H - usedH, 2.4);
-      spFit(aM, right.clientWidth, SP_PAGE_H - right.querySelector('.sp-map-label').offsetHeight - 12, 0.9);
+      const top = pg.querySelector('.sp-top');
+      spFit(aT, SP_PAGE_W - 8, SP_PAGE_H - top.offsetHeight - 24, 2.4);
+      // 位置の図は強調の枠（外側に8px）が切れないよう、そのぶん内側で測る
+      spFit(aM, aM.clientWidth - 18, aM.clientHeight - 18, 0.9);
     });
     // 印刷画面を閉じたら片付ける（iPhone は print() がすぐ戻るので、少し待ってから消す）
     const done = () => { window.removeEventListener('afterprint', done); setTimeout(() => root.remove(), 1500); };
