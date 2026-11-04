@@ -647,12 +647,14 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; gap: 10px; }
 #seatPrint .seat-tables-grid.uniform { grid-auto-rows: auto; }
 #seatPrint :is(.seat-longtable, .seat-round-scroll) { overflow: visible; }
+/* 円卓の幅は画面では「親の幅の100%」が基準だが、卓1つだけのページでは親の幅が決まらず潰れるので、席札の幅から決める */
+#seatPrint .seat-round { width: max(220px, calc(var(--round-chip-w, 60px) * var(--rf, 3.2))) !important; max-width: none; }
 #seatPrint .seat-table-block.sp-other { opacity: 0.3; }
 #seatPrint .seat-table-block.sp-here { outline: 5px solid var(--forest); outline-offset: 3px; }
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
   /* 印刷用の座席表があるときは、それ以外を出さない（祖先は余白や枠を消して素通しにする） */
-  body:has(#seatPrint) { background: #fff !important; }
+  html:has(#seatPrint), body:has(#seatPrint) { background: #fff !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; height: auto !important; }
   body:has(#seatPrint) *:not(:has(#seatPrint)):not(#seatPrint):not(#seatPrint *) { display: none !important; }
   body:has(#seatPrint) :has(> #seatPrint), body:has(#seatPrint) :has(#seatPrint) {
     margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: none !important;
