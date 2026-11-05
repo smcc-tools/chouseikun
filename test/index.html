@@ -651,6 +651,10 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint :is(.seat-longtable, .seat-round-scroll) { overflow: visible; }
 /* 円卓の幅は画面では「親の幅の100%」が基準だが、卓1つだけのページでは親の幅が決まらず潰れるので、席札の幅から決める */
 #seatPrint .seat-round { width: max(220px, calc(var(--round-chip-w, 60px) * var(--rf, 3.2))) !important; max-width: none; }
+/* 全体図は紙の幅で倍率が決まるので、横方向の余白を詰めてそのぶん大きく載せる */
+#seatPrint .sp-overview .seat-tables-grid { gap: 8px !important; }
+#seatPrint .sp-overview .seat-table-block { padding: 8px 10px; margin-bottom: 0; }
+#seatPrint .sp-overview .seat-chip { padding-left: 8px; padding-right: 8px; }
 #seatPrint .seat-table-block.sp-other { opacity: 0.3; }
 #seatPrint .seat-table-block.sp-here { outline: 5px solid var(--forest); outline-offset: 3px; }
 /* 用紙の向きは指定しない。指定しても Android は無視し、PC は向きを変えても「縦か横か」の判定が指定前の向きのままになり、
