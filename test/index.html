@@ -652,7 +652,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .sp-sign-in { position: relative; height: 100%; box-sizing: border-box; border: 1px dashed var(--wood-border); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px; overflow: hidden; }
 #seatPrint .sp-sign-label { font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: 0.42em; padding-left: 0.42em; color: var(--wood-text); }
 #seatPrint .sp-name { font-family: var(--font-display); font-size: 168px; font-weight: 800; line-height: 1.05; color: var(--forest); text-align: center; word-break: break-all; max-width: 100%; }
-#seatPrint .sp-seats { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+#seatPrint .sp-seats { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; box-sizing: border-box; align-self: flex-start; }
+#seatPrint .sp-seats .sp-keisho { position: absolute; right: 0; bottom: 0; }
 #seatPrint .sp-seats .sp-area { align-items: center; }
 /* 会場の配置（白いカード） */
 #seatPrint .sp-map { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--green-mid); border-radius: 20px; box-shadow: 0 8px 22px rgba(var(--press-rgb,45,66,40),0.08); padding: 10px 14px 4px; box-sizing: border-box; }
@@ -682,7 +683,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint :is(.seat-table-bar, .seat-round .srt-table) { letter-spacing: 0 !important; text-indent: 0; }
 #seatPrint .sp-seats .seat-table-block { background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
 #seatPrint :is(.sp-overview, .sp-map) .seat-table-block { background: var(--surface-2, #FCFBF6) !important; border: 1px solid var(--border) !important; border-radius: 14px !important; box-shadow: none !important; }
-#seatPrint .seat-table-block.sp-here { background: var(--green-light) !important; border: 2px solid var(--green) !important; opacity: 1; }
+/* この卓は塗らずに太枠で示す（塗ると卓の帯と同じ色になって帯が見えなくなる） */
+#seatPrint .seat-table-block.sp-here { background: #fff !important; border: 3px solid var(--green) !important; opacity: 1; }
 /* 全体図では卓どうし・入り口との間を広めに空ける（この卓の枠とピンが詰まって見えないように） */
 #seatPrint .sp-map .seat-tables-grid { gap: 18px !important; }
 #seatPrint .sp-map .seat-entrance-grid { gap: 18px; }
@@ -6955,7 +6957,7 @@ body.gourmet-open #gFrame {
       const noteH = keisho ? 24 : 0;
       const tN = spNatural(aT), mN = spNatural(aM);
       const seatsW = SP_PAGE_W - 12 - 260 - 36;
-      const mainNeed = Math.max(300, tN.h * Math.min(1.25, seatsW / tN.w) + noteH + 4);
+      const mainNeed = Math.max(300, tN.h * Math.min(1.25, seatsW / tN.w) + 2 * noteH + 46);
       const mapZW = (SP_PAGE_W - 12 - 28 - 24) / mN.w;
       const mapZ = Math.max(Math.min(0.9, mapZW, (SP_PAGE_H - headH - 28 - mainNeed - mapChrome) / mN.h), Math.min(0.5, mapZW));
       aM.querySelector('.seat-fit-board').style.zoom = String(Math.floor(mapZ * 1000) / 1000);
@@ -6964,11 +6966,15 @@ body.gourmet-open #gFrame {
       main.style.height = `${SP_PAGE_H - headH - 28 - mapH}px`;
       // 看板は残りの高さいっぱい（上限300px）。卓の名前は看板に収まる大きさまで縮める（長い名前は折り返す）
       const sign = pg.querySelector('.sp-sign');
-      sign.style.height = `${Math.min(300, main.clientHeight - 40)}px`;
+      const signH = Math.min(300, main.clientHeight - 40);
+      sign.style.height = `${signH}px`;
       const inner = sign.querySelector('.sp-sign-in');
       const nm = inner.querySelector('.sp-name');
       for (let fs = 168; fs > 22 && (inner.scrollHeight > inner.clientHeight || nm.scrollWidth > nm.clientWidth); fs -= 6) nm.style.fontSize = `${fs - 6}px`;
-      spFit(aT, seats.clientWidth - 4, main.clientHeight - noteH - 10, 2.4);
+      // 席の図は看板と上下の中心をそろえる（看板の上には棒と紐の40pxがある）。敬称略は右下に重ねるので、上下に同じだけ空ける
+      seats.style.paddingTop = '40px';
+      seats.style.height = `${40 + signH}px`;
+      spFit(aT, seats.clientWidth - 4, signH - 2 * noteH - 6, 2.4);
       // 仕上げに実寸で確かめる：この卓が全体図の枠や紙の端に3px以内まで迫っていたら、全体図を少しずつ縮める
       const mb = aM.querySelector('.seat-fit-board'), here = aM.querySelector('.sp-here');
       for (let i = 0; here && i < 12; i++) {
