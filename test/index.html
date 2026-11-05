@@ -662,6 +662,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .seat-round .seat-chip { font-size: 12px !important; padding: 5px 8px !important; }
 #seatPrint :is(.sp-overview, .sp-map) .seat-chip { padding: 4px 8px !important; }
 #seatPrint .seat-table-block.sp-here { outline: 6px solid var(--forest); outline-offset: 3px; }
+/* ほかの卓は少しだけ薄く（名前は読める濃さ）して、太枠の卓を目立たせる */
+#seatPrint .seat-table-block.sp-other { opacity: 0.55; }
 /* 用紙の向きは指定しない。指定しても Android は無視し、PC は向きを変えても「縦か横か」の判定が指定前の向きのままになり、
    回転の要否を取り違える。実際の紙の向きで判定し、縦なら回して載せる（下の orientation: portrait）。
    余白8mm：印刷範囲（A4で194×281mm）にページ（190×277mm）が余裕をもって収まる */
@@ -6903,7 +6905,7 @@ body.gourmet-open #gFrame {
       const aT = spArea(one);
       pg.querySelector('.sp-seats').appendChild(aT);
       const map = base.cloneNode(true);
-      map.querySelector(`.seat-table-block[data-tblwrap="${CSS.escape(id)}"]`)?.classList.add('sp-here');
+      map.querySelectorAll('.seat-table-block[data-tblwrap]').forEach(b => b.classList.add(b.dataset.tblwrap === id ? 'sp-here' : 'sp-other'));
       const mapBox = pg.querySelector('.sp-map');
       const aM = spArea(map);
       mapBox.appendChild(aM);
