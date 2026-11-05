@@ -678,8 +678,8 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .seat-round .seat-chip { font-size: 12px !important; padding: 5px 8px !important; }
 #seatPrint :is(.sp-overview, .sp-map) .seat-chip { padding: 4px 8px !important; }
 #seatPrint .seat-chip:not(.empty) { border: 1.5px solid var(--green) !important; border-radius: 999px !important; background: #fff !important; color: var(--forest) !important; font-weight: 700 !important; }
-#seatPrint .seat-table-bar { background: var(--green) !important; border: none !important; border-radius: 999px !important; color: var(--green-mid) !important; font-family: var(--font-display); letter-spacing: 0.4em; }
-#seatPrint .seat-round .srt-table { background: var(--green) !important; border: none !important; color: var(--green-mid) !important; letter-spacing: 0.3em; }
+/* 卓の色は画面と同じ（テーマの色のまま）。「TABLE」は字間を付けると右に余白ができて中央からずれるので、字間なしで中央に置く */
+#seatPrint :is(.seat-table-bar, .seat-round .srt-table) { letter-spacing: 0 !important; text-indent: 0; }
 #seatPrint .sp-seats .seat-table-block { background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
 #seatPrint :is(.sp-overview, .sp-map) .seat-table-block { background: var(--surface-2, #FCFBF6) !important; border: 1px solid var(--border) !important; border-radius: 14px !important; box-shadow: none !important; }
 #seatPrint .seat-table-block.sp-here { background: var(--green-light) !important; border: 2px solid var(--green) !important; opacity: 1; }
