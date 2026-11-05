@@ -6845,6 +6845,14 @@ body.gourmet-open #gFrame {
     const z = Math.min(maxZoom, maxW / Math.max(1, r.width), maxH / Math.max(1, r.height));
     board.style.zoom = String(Math.floor(z * 1000) / 1000);
   }
+  // 倍率1での大きさ（席札の幅をそろえてから測る）
+  function spNatural(area) {
+    const board = area.querySelector('.seat-fit-board');
+    board.style.zoom = '';
+    sizeSeatChips(board, false);
+    const r = board.getBoundingClientRect();
+    return { w: Math.max(1, r.width), h: Math.max(1, r.height) };
+  }
   function spArea(board) {
     const wrap = document.createElement('div');
     wrap.className = 'seat-fit-wrap sp-area';
@@ -6900,9 +6908,15 @@ body.gourmet-open #gFrame {
       const aM = spArea(map);
       mapBox.appendChild(aM);
       spAddPage(root, pg);
-      // 全体図：幅いっぱいまで（高さは紙の半分強まで）。太枠（外側に8px）が切れないよう内側で測る
+      // 高さの配分：まずその卓の席を大きく（1.25倍まで）取り、残りで全体図を幅いっぱいまで大きくする。
+      // ただし全体図も名前が読める大きさ（0.5倍）は守る。太枠（外側に8px）が切れないよう内側で測る
       const labelH = mapBox.querySelector('.sp-map-label').offsetHeight;
-      spFit(aM, SP_PAGE_W - 18, Math.round(SP_PAGE_H * 0.56) - labelH - 18, 0.9);
+      const tN = spNatural(aT), mN = spNatural(aM);
+      const seatsW = SP_PAGE_W - 320 - 4;
+      const mainNeed = Math.max(220, tN.h * Math.min(1.25, seatsW / tN.w) + 4);
+      const mapZW = (SP_PAGE_W - 18) / mN.w;
+      const mapZ = Math.max(Math.min(0.9, mapZW, (SP_PAGE_H - 14 - mainNeed - labelH - 18) / mN.h), Math.min(0.5, mapZW));
+      aM.querySelector('.seat-fit-board').style.zoom = String(Math.floor(mapZ * 1000) / 1000);
       const mapH = labelH + Math.ceil(aM.querySelector('.seat-fit-board').getBoundingClientRect().height) + 18;
       const main = pg.querySelector('.sp-main');
       main.style.height = `${SP_PAGE_H - mapH - 14}px`;
