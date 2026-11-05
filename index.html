@@ -627,6 +627,58 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatingResult .seat-export .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; gap: 10px; }
 #seatingResult .seat-export .seat-tables-grid.uniform { grid-auto-rows: auto; }
 #seatingResult .seat-export :is(.seat-longtable, .seat-round-scroll) { overflow: visible; }
+/* 印刷用の座席表（画面では外に置いて寸法だけ測る。印刷時はこれだけを出す） */
+#seatPrint { position: fixed; left: -100000px; top: 0; color: var(--text); font-family: var(--font-ui); background: #fff; }
+#seatPrint, #seatPrint * { animation: none !important; transition: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+#seatPrint .sp-page { width: 1047px; height: 718px; overflow: hidden; box-sizing: border-box; background: #fff; }
+#seatPrint .sp-overview { display: flex; flex-direction: column; }
+#seatPrint .sp-head { margin-bottom: 16px; }
+#seatPrint .sp-event { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--forest); }
+#seatPrint .sp-table .sp-event { font-size: 16px; color: var(--text-muted); }
+#seatPrint .sp-sub { font-size: 15px; color: var(--text-muted); margin-top: 2px; }
+#seatPrint .sp-table { display: flex; flex-direction: column; }
+#seatPrint .sp-top { display: flex; gap: 24px; height: 230px; flex: none; margin-bottom: 16px; border-bottom: 2px dotted var(--border); padding-bottom: 12px; box-sizing: border-box; }
+#seatPrint .sp-left { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+#seatPrint .sp-name { font-family: var(--font-display); font-size: 120px; font-weight: 800; line-height: 1.15; color: var(--forest); white-space: nowrap; overflow: hidden; margin-top: 4px; }
+#seatPrint .sp-right { width: 420px; flex: 0 0 420px; border-left: 2px dotted var(--border); padding-left: 16px; display: flex; flex-direction: column; min-height: 0; }
+#seatPrint .sp-map-label { font-size: 14px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+#seatPrint .sp-area { display: flex; justify-content: center; align-items: flex-start; flex: 1; min-height: 0; }
+#seatPrint .sp-right .sp-area { align-items: center; padding: 9px; box-sizing: border-box; overflow: hidden; }
+/* 枠の中で縮められると本来の幅が測れず、紙からはみ出す倍率になるので、縮めさせない */
+#seatPrint .seat-fit-board { width: max-content; flex: none; }
+#seatPrint .seat-tables-grid { grid-template-columns: repeat(var(--cols, 1), max-content) !important; gap: 10px; }
+#seatPrint .seat-tables-grid.uniform { grid-auto-rows: auto; }
+#seatPrint :is(.seat-longtable, .seat-round-scroll) { overflow: visible; }
+/* 円卓の幅は画面では「親の幅の100%」が基準だが、卓1つだけのページでは親の幅が決まらず潰れるので、席札の幅から決める */
+#seatPrint .seat-round { width: max(220px, calc(var(--round-chip-w, 60px) * var(--rf, 3.2))) !important; max-width: none; }
+/* 全体図は紙の幅で倍率が決まるので、横方向の余白を詰めてそのぶん大きく載せる */
+#seatPrint .sp-overview .seat-tables-grid { gap: 8px !important; }
+#seatPrint .sp-overview .seat-table-block { padding: 8px 10px; margin-bottom: 0; }
+#seatPrint .sp-overview .seat-chip { padding-left: 8px; padding-right: 8px; }
+#seatPrint .seat-table-block.sp-other { opacity: 0.3; }
+#seatPrint .seat-table-block.sp-here { outline: 5px solid var(--forest); outline-offset: 3px; }
+/* 用紙の向きは指定しない。指定しても Android は無視し、PC は向きを変えても「縦か横か」の判定が指定前の向きのままになり、
+   回転の要否を取り違える。実際の紙の向きで判定し、縦なら回して載せる（下の orientation: portrait）。
+   余白8mm：印刷範囲（A4で194×281mm）にページ（190×277mm）が余裕をもって収まる */
+@page { margin: 8mm; }
+@media print {
+  /* 印刷用の座席表があるときは、それ以外を出さない（祖先は余白や枠を消して素通しにする） */
+  html:has(#seatPrint), body:has(#seatPrint) { background: #fff !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; height: auto !important; }
+  body:has(#seatPrint) *:not(:has(#seatPrint)):not(#seatPrint):not(#seatPrint *) { display: none !important; }
+  body:has(#seatPrint) :has(> #seatPrint), body:has(#seatPrint) :has(#seatPrint) {
+    margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: none !important;
+    max-width: none !important; width: auto !important; min-height: 0 !important; position: static !important; transform: none !important; }
+  /* 祖先の飾り（カード下のキャラ並びなど）は印刷しない。残すと紙に載り、白紙のページも増える */
+  body:has(#seatPrint) :has(#seatPrint)::before, body:has(#seatPrint) :has(#seatPrint)::after { display: none !important; }
+  #seatPrint { position: static; left: auto; }
+  #seatPrint .sp-sheet { break-after: page; overflow: hidden; }
+  #seatPrint .sp-sheet:last-child { break-after: auto; }
+}
+/* 紙が縦向き（Android や PC の既定）なら、横向きのページ（277×190mm）を90°回して縦の紙に載せる。紙を横に持てば横向きの座席表として読める */
+@media print and (orientation: portrait) {
+  #seatPrint .sp-sheet { width: 190mm; height: 277mm; }
+  #seatPrint .sp-page { transform-origin: top left; transform: translateX(190mm) rotate(90deg); }
+}
 /* 「画像にする」のプレビュー */
 .seat-img-overlay { position: fixed; inset: 0; z-index: 9998; background: var(--scrim, rgba(0,0,0,0.4)); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .seat-img-box { background: var(--surface); border-radius: var(--radius-sm, 12px); max-width: min(960px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow); }
@@ -6720,7 +6772,7 @@ body.gourmet-open #gFrame {
   }
 
   // 画面の座席表を写し取り、参加者に見せない部分（色タグ・🔓・移動ボタン・選ばれていない入り口・選択中の枠）を外す
-  function buildSeatExport(data) {
+  function cleanSeatBoardClone() {
     const src = document.querySelector('#seatingResult .seat-fit-board');
     if (!src) return null;
     const board = src.cloneNode(true);
@@ -6736,6 +6788,12 @@ body.gourmet-open #gFrame {
     board.querySelectorAll('.seat-chip').forEach(c => { c.classList.remove('selected', 'locked', 'clickable'); c.removeAttribute('title'); });
     board.querySelectorAll('.seat-empty-slot').forEach(e => { e.classList.remove('active'); e.textContent = ''; });
     board.querySelectorAll('.seat-table-block').forEach(b => b.classList.remove('move-sel'));
+    return board;
+  }
+
+  function buildSeatExport(data) {
+    const board = cleanSeatBoardClone();
+    if (!board) return null;
     // html2canvas は縦書き（writing-mode）を描けず文字が重なるので、1文字ずつ改行した横書きに置き換える
     board.querySelectorAll('.seat-longtable-inner.vert .seat-table-bar, .seat-entrance-label.vert').forEach(e => {
       e.innerHTML = [...e.textContent.trim()].filter(ch => ch.trim()).map(escHtml).join('<br>');
@@ -6768,6 +6826,88 @@ body.gourmet-open #gFrame {
     } finally {
       built.card.remove();
     }
+  }
+
+  // ── 座席表の印刷（A4横）。1枚目に全体、2枚目から卓ごとに1枚：卓の名前を大きく出し、その卓に置く札にする ──
+  // 印刷範囲は A4横（297×210mm）から余白10mmずつを引いた 277×190mm（96dpi で 1047×718px）
+  const SP_PAGE_W = 1047, SP_PAGE_H = 718;
+  // 座席表を枠に収まる倍率にする（拡大は maxZoom まで）
+  function spFit(area, maxW, maxH, maxZoom) {
+    const board = area.querySelector('.seat-fit-board');
+    board.style.zoom = '';
+    sizeSeatChips(board, false);
+    const r = board.getBoundingClientRect();
+    const z = Math.min(maxZoom, maxW / Math.max(1, r.width), maxH / Math.max(1, r.height));
+    board.style.zoom = String(Math.floor(z * 1000) / 1000);
+  }
+  function spArea(board) {
+    const wrap = document.createElement('div');
+    wrap.className = 'seat-fit-wrap sp-area';
+    wrap.appendChild(board);
+    return wrap;
+  }
+  // 1枚ずつ紙（sp-sheet）に包む。紙が縦向きで印刷されるときは、紙の中でページを90°回して横向きに載せる
+  function spAddPage(root, page) {
+    const sheet = document.createElement('div');
+    sheet.className = 'sp-sheet';
+    sheet.appendChild(page);
+    root.appendChild(sheet);
+  }
+  function printSeating() {
+    const data = latestEventData;
+    const base = data && cleanSeatBoardClone();
+    if (!base) return;
+    document.getElementById('seatPrint')?.remove();
+    const root = document.createElement('div');
+    root.id = 'seatPrint';
+    document.getElementById('seatingResult').appendChild(root);
+    const kn = document.getElementById('seatingKeishoNote');
+    const keisho = !!kn && kn.style.display !== 'none';
+    const title = escHtml(data.name || '');
+    // 1枚目：全体の座席表
+    const p1 = document.createElement('section');
+    p1.className = 'sp-page sp-overview';
+    p1.innerHTML = `<div class="sp-head"><div class="sp-event">${title}</div><div class="sp-sub">座席表${keisho ? '（敬称略）' : ''}</div></div>`;
+    const a1 = spArea(base.cloneNode(true));
+    p1.appendChild(a1);
+    spAddPage(root, p1);
+    spFit(a1, SP_PAGE_W, SP_PAGE_H - p1.querySelector('.sp-head').offsetHeight - 16, 1.6);
+    // 2枚目から：卓ごと（誰も座っていない卓は札を作らない）
+    base.querySelectorAll('.seat-table-block[data-tblwrap]').forEach(blk => {
+      if (!blk.querySelector('.seat-chip:not(.empty)')) return;
+      const id = blk.dataset.tblwrap;
+      const name = blk.querySelector('.stb-name')?.textContent.trim() || '卓';
+      const pg = document.createElement('section');
+      pg.className = 'sp-page sp-table';
+      // 上段：左に卓の名前（大きく）、右に全体図の中の位置。下段：その卓の席を紙の幅いっぱいに
+      pg.innerHTML = `<div class="sp-top"><div class="sp-left"><div class="sp-event">${title}　座席表${keisho ? '（敬称略）' : ''}</div><div class="sp-name">${escHtml(name)}</div></div>`
+        + `<div class="sp-right"><div class="sp-map-label">この卓の位置</div></div></div>`;
+      const one = document.createElement('div');
+      one.className = 'seat-fit-board';
+      const tb = blk.cloneNode(true);
+      tb.querySelector('.stb-name')?.remove();
+      one.appendChild(tb);
+      const left = pg.querySelector('.sp-left');
+      const aT = spArea(one);
+      pg.appendChild(aT);
+      const map = base.cloneNode(true);
+      map.querySelectorAll('.seat-table-block[data-tblwrap]').forEach(b => b.classList.add(b.dataset.tblwrap === id ? 'sp-here' : 'sp-other'));
+      const right = pg.querySelector('.sp-right');
+      const aM = spArea(map);
+      right.appendChild(aM);
+      spAddPage(root, pg);
+      // 卓の名前は1行に収まる大きさまで縮める（長い名前でも折り返さない）
+      const nm = left.querySelector('.sp-name');
+      for (let fs = 120; fs > 40 && nm.scrollWidth > nm.clientWidth; fs -= 8) nm.style.fontSize = `${fs - 8}px`;
+      const top = pg.querySelector('.sp-top');
+      spFit(aT, SP_PAGE_W - 8, SP_PAGE_H - top.offsetHeight - 24, 2.4);
+      // 位置の図は強調の枠（外側に8px）が切れないよう、そのぶん内側で測る
+      spFit(aM, aM.clientWidth - 18, aM.clientHeight - 18, 0.9);
+    });
+    // 印刷画面を閉じたら片付ける（iPhone は print() がすぐ戻るので、少し待ってから消す）
+    const done = () => { window.removeEventListener('afterprint', done); setTimeout(() => root.remove(), 1500); };
+    window.addEventListener('afterprint', done);
+    requestAnimationFrame(() => setTimeout(() => window.print(), 50));
   }
 
   // 「画像にする」：作った画像を見せて、コピー・保存・（スマホは）共有を選べるようにする。
@@ -7153,7 +7293,7 @@ body.gourmet-open #gFrame {
     }
     // 「全体を表示」：座席表（入り口を含む）だけを、画面の幅と高さに収まる倍率に縮める
     const fitOn = seatFitOn();
-    html += `<div class="seat-fit-bar">${isPreview ? '' : '<button type="button" class="seat-fit-btn" id="seatImgBtn">画像にする</button>'}<button type="button" class="seat-fit-btn" id="seatFitBtn" aria-pressed="${fitOn}">${fitOn ? '元の大きさで表示' : '全体を表示'}</button></div>
+    html += `<div class="seat-fit-bar">${isPreview ? '' : `${isHost ? '<button type="button" class="seat-fit-btn" id="seatPrintBtn">印刷</button>' : ''}<button type="button" class="seat-fit-btn" id="seatImgBtn">画像にする</button>`}<button type="button" class="seat-fit-btn" id="seatFitBtn" aria-pressed="${fitOn}">${fitOn ? '元の大きさで表示' : '全体を表示'}</button></div>
       <div class="seat-fit-wrap${fitOn ? ' fit' : ''}"><div class="seat-fit-board">${boardHtml}</div></div>`;
     // プレビュー時は未割当ゾーン・クリックハンドラ不要（配置ロジック未確定のため）
     if (!isPreview && (unassigned.length || (canEdit && seatSel && seatSel.t))) {
@@ -7166,6 +7306,7 @@ body.gourmet-open #gFrame {
     }
     el.innerHTML = html;
     el.querySelector('#seatImgBtn')?.addEventListener('click', () => openSeatImage());
+    el.querySelector('#seatPrintBtn')?.addEventListener('click', () => printSeating());
     el.querySelector('#seatFitBtn')?.addEventListener('click', () => {
       seatFitPref = !seatFitOn();
       const b = el.querySelector('#seatFitBtn');
