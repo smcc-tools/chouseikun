@@ -661,7 +661,10 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .seat-chip { font-size: 13px !important; padding: 4px 10px !important; min-width: 0 !important; max-width: none !important; }
 #seatPrint .seat-round .seat-chip { font-size: 12px !important; padding: 5px 8px !important; }
 #seatPrint :is(.sp-overview, .sp-map) .seat-chip { padding: 4px 8px !important; }
-#seatPrint .seat-table-block.sp-here { outline: 6px solid var(--forest); outline-offset: 3px; }
+#seatPrint .seat-table-block.sp-here { outline: 5px solid var(--forest); outline-offset: 2px; }
+/* 太枠は卓の外側に7pxはみ出すので、全体図では卓どうし・入り口との間をそれより広く空けて重ならないようにする */
+#seatPrint .sp-map .seat-tables-grid { gap: 18px !important; }
+#seatPrint .sp-map .seat-entrance-grid { gap: 18px; }
 /* ほかの卓は少しだけ薄く（名前は読める濃さ）して、太枠の卓を目立たせる */
 #seatPrint .seat-table-block.sp-other { opacity: 0.55; }
 /* 用紙の向きは指定しない。指定しても Android は無視し、PC は向きを変えても「縦か横か」の判定が指定前の向きのままになり、
@@ -6911,7 +6914,7 @@ body.gourmet-open #gFrame {
       mapBox.appendChild(aM);
       spAddPage(root, pg);
       // 高さの配分：まずその卓の席を大きく（1.25倍まで）取り、残りで全体図を幅いっぱいまで大きくする。
-      // ただし全体図も名前が読める大きさ（0.5倍）は守る。太枠（卓の外側に最大9px）が切れないよう、
+      // ただし全体図も名前が読める大きさ（0.5倍）は守る。太枠（卓の外側に7px）が切れないよう、
       // 全体図の枠の内側の余白（上下左右12px）と、上の点線・すき間（8px）も差し引いて測る
       const labelH = mapBox.querySelector('.sp-map-label').offsetHeight + 8 + 24;
       const tN = spNatural(aT), mN = spNatural(aM);
@@ -6933,7 +6936,7 @@ body.gourmet-open #gFrame {
       // 仕上げに実寸で確かめる：太枠が全体図の枠や紙の端に3px以内まで迫っていたら、全体図を少しずつ縮める
       const mb = aM.querySelector('.seat-fit-board'), here = aM.querySelector('.sp-here');
       for (let i = 0; here && i < 12; i++) {
-        const z = parseFloat(mb.style.zoom || 1), o = 9 * z + 3;
+        const z = parseFloat(mb.style.zoom || 1), o = 7 * z + 3;
         const r = here.getBoundingClientRect(), a = aM.getBoundingClientRect(), pr = pg.getBoundingClientRect();
         const over = Math.max(Math.max(a.left, pr.left) - (r.left - o), Math.max(a.top, pr.top) - (r.top - o),
           (r.right + o) - Math.min(a.right, pr.right), (r.bottom + o) - Math.min(a.bottom, pr.bottom));
