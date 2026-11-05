@@ -653,7 +653,10 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
 #seatPrint .seat-round { width: max(220px, calc(var(--round-chip-w, 60px) * var(--rf, 3.2))) !important; max-width: none; }
 #seatPrint .seat-table-block.sp-other { opacity: 0.3; }
 #seatPrint .seat-table-block.sp-here { outline: 5px solid var(--forest); outline-offset: 3px; }
-@page { size: A4 landscape; margin: 10mm; }
+/* 用紙の向きは指定しない。指定しても Android は無視し、PC は向きを変えても「縦か横か」の判定が指定前の向きのままになり、
+   回転の要否を取り違える。実際の紙の向きで判定し、縦なら回して載せる（下の orientation: portrait）。
+   余白8mm：印刷範囲（A4で194×281mm）にページ（190×277mm）が余裕をもって収まる */
+@page { margin: 8mm; }
 @media print {
   /* 印刷用の座席表があるときは、それ以外を出さない（祖先は余白や枠を消して素通しにする） */
   html:has(#seatPrint), body:has(#seatPrint) { background: #fff !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; height: auto !important; }
@@ -667,10 +670,9 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, in
   #seatPrint .sp-sheet { break-after: page; overflow: hidden; }
   #seatPrint .sp-sheet:last-child { break-after: auto; }
 }
-/* 紙が縦向き（Android の印刷画面は横の指定を無視して縦で組む）なら、横向きのページを90°回して縦の紙に収める。
-   紙を横に持てば横向きの座席表として読める。高さは端末ごとの余白の差で白紙が挟まらないよう1mm控える */
+/* 紙が縦向き（Android や PC の既定）なら、横向きのページ（277×190mm）を90°回して縦の紙に載せる。紙を横に持てば横向きの座席表として読める */
 @media print and (orientation: portrait) {
-  #seatPrint .sp-sheet { width: 190mm; height: 276mm; }
+  #seatPrint .sp-sheet { width: 190mm; height: 277mm; }
   #seatPrint .sp-page { transform-origin: top left; transform: translateX(190mm) rotate(90deg); }
 }
 /* 「画像にする」のプレビュー */
@@ -6829,15 +6831,14 @@ body.gourmet-open #gFrame {
   function spFit(area, maxW, maxH, maxZoom) {
     const board = area.querySelector('.seat-fit-board');
     board.style.zoom = '';
-    sizeSeatChips(board, area.classList.contains('fit'));
+    sizeSeatChips(board, false);
     const r = board.getBoundingClientRect();
     const z = Math.min(maxZoom, maxW / Math.max(1, r.width), maxH / Math.max(1, r.height));
     board.style.zoom = String(Math.floor(z * 1000) / 1000);
   }
-  // compact：全体図は「全体を表示」と同じく卓の間の余白を詰めて、そのぶん大きく載せる
-  function spArea(board, compact) {
+  function spArea(board) {
     const wrap = document.createElement('div');
-    wrap.className = `seat-fit-wrap sp-area${compact ? ' fit' : ''}`;
+    wrap.className = 'seat-fit-wrap sp-area';
     wrap.appendChild(board);
     return wrap;
   }
@@ -6863,7 +6864,7 @@ body.gourmet-open #gFrame {
     const p1 = document.createElement('section');
     p1.className = 'sp-page sp-overview';
     p1.innerHTML = `<div class="sp-head"><div class="sp-event">${title}</div><div class="sp-sub">座席表${keisho ? '（敬称略）' : ''}</div></div>`;
-    const a1 = spArea(base.cloneNode(true), true);
+    const a1 = spArea(base.cloneNode(true));
     p1.appendChild(a1);
     spAddPage(root, p1);
     spFit(a1, SP_PAGE_W, SP_PAGE_H - p1.querySelector('.sp-head').offsetHeight - 16, 1.6);
@@ -6888,7 +6889,7 @@ body.gourmet-open #gFrame {
       const map = base.cloneNode(true);
       map.querySelectorAll('.seat-table-block[data-tblwrap]').forEach(b => b.classList.add(b.dataset.tblwrap === id ? 'sp-here' : 'sp-other'));
       const right = pg.querySelector('.sp-right');
-      const aM = spArea(map, true);
+      const aM = spArea(map);
       right.appendChild(aM);
       spAddPage(root, pg);
       // 卓の名前は1行に収まる大きさまで縮める（長い名前でも折り返さない）
