@@ -6903,9 +6903,9 @@ body.gourmet-open #gFrame {
     const kn = document.getElementById('seatingKeishoNote');
     const keisho = !!kn && kn.style.display !== 'none';
     const title = escHtml(data.name || '');
-    // 見出し（どのページも共通）：左にイベント名、右に「SEATING CHART 座席表」。敬称略は名前の近く（席の下）に置く
+    // 見出し（どのページも共通）：左にイベント名、右に「SEATING CHART」（日本語訳は添えない）。敬称略は名前の近く（席の下）に置く
     const leaf = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><g transform="translate(4 18) rotate(-50)"><ellipse cx="8" cy="0" rx="8" ry="3.4" fill="var(--green)"></ellipse></g><g transform="translate(9 13) rotate(-10)"><ellipse cx="7" cy="0" rx="7" ry="3" fill="var(--lime, #8BA888)"></ellipse></g></svg>';
-    const head = `<div class="sp-head"><div class="sp-event">${leaf}${title}</div><div class="sp-kind"><span class="sp-en">SEATING CHART</span><span>座席表</span></div></div>`;
+    const head = `<div class="sp-head"><div class="sp-event">${leaf}${title}</div><div class="sp-kind"><span class="sp-en">SEATING CHART</span></div></div>`;
     const keishoNote = keisho ? '<div class="sp-keisho">敬称略</div>' : '';
     // 1枚目：全体の座席表
     const p1 = document.createElement('section');
@@ -6930,7 +6930,7 @@ body.gourmet-open #gFrame {
         + `<div class="sp-sign"><svg width="230" height="400" viewBox="0 0 230 400" aria-hidden="true"><path d="M14 70 C70 60 120 78 216 64"></path><path d="M14 210 C80 198 140 220 216 204"></path><path d="M14 250 C76 258 150 242 216 254"></path></svg>`
         + `<div class="sp-sign-in"><div class="sp-sign-label">TABLE</div><div class="sp-name">${escHtml(name)}</div></div></div></div>`
         + `<div class="sp-seats"></div></div>`
-        + `<div class="sp-map"><div class="sp-map-label"><span class="sp-en">FLOOR MAP</span><span>会場の配置</span></div></div>`;
+        + `<div class="sp-map"><div class="sp-map-label"><span class="sp-en">FLOOR MAP</span></div></div>`;
       const one = document.createElement('div');
       one.className = 'seat-fit-board';
       const tb = blk.cloneNode(true);
